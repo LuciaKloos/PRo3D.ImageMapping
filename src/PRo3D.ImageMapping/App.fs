@@ -25,10 +25,13 @@ module Shaders =
                 addressV WrapMode.Wrap
             }
 
+    type UniformScope with
+        member x.MinValue : float = uniform?MinValue
+
     let hshColors (v : Vertex) = 
         fragment {
-            let hshValue = instrumentSampler.Sample(v.tc).X
-            let minRange = 0.0
+            let hshValue = instrumentSampler.Sample(v.tc).X // 0-1 range
+            let minRange = uniform.MinValue
             let maxRange = 0.8
             let mapped = (hshValue - minRange) / (maxRange - minRange)
             return V4d(mapped, mapped, mapped, 1.0)
@@ -37,7 +40,7 @@ module Shaders =
 
 module App =
     
-    let initial = { currentModel = Box; cameraState = FreeFlyController.initial }
+    let initial = { currentModel = Box; cameraState = FreeFlyController.initial; minValue = 0 }
 
     let update (m : Model) (msg : Message) =
         match msg with
@@ -70,7 +73,8 @@ module App =
         let instrumentVisualization = 
             Sg.fullScreenQuad
             |> Sg.noEvents
-            |> Sg.fileTexture "InstrumentImage" @"C:\Users\haral\Desktop\pro3d\template\data\HSH_0CRS63_250312T121545_1A.tif" true
+            |> Sg.fileTexture "InstrumentImage" @"C:\pro3ddata\HERA\20250428_HSH_layers\1_Fits2Mbi\HSH_0CRS63_250312T121545_1A_782.tif" true
+            |> Sg.uniform "MinValue" (m.minValue |> AVal.map (fun v -> float v / 65535.0))
             |> Sg.shader {
                 do! Shaders.hshColors
             }
@@ -81,14 +85,15 @@ module App =
             ]
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
-        let frustum = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
+        let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
 
         body [] [
-            renderControl (AVal.constant (Camera.create cameraView frustum)) att instrumentVisualization
+            renderControl (AVal.constant (Camera.create cameraView frustum')) att instrumentVisualization
             //FreeFlyController.controlledControl m.cameraState CameraMessage frustum (AttributeMap.ofList att) sg
 
             div [style "position: fixed; left: 20px; top: 20px"] [
                 button [onClick (fun _ -> ToggleModel)] [text "Toggle Model"]
+                SimplePrimitives.
             ]
 
         ]

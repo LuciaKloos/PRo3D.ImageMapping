@@ -16,4 +16,6 @@ type Model =
     {
         currentModel    : Primitive
         cameraState     : CameraControllerState
+
+        minValue : int
     }
