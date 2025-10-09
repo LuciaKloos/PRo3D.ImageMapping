@@ -11,6 +11,7 @@ open PRo3D.ImageMapping.Model
 type Message =
     | ToggleModel
     | CameraMessage of FreeFlyController.Message
+    | SetMin of float
 
 
 module Shaders = 
@@ -52,6 +53,8 @@ module App =
             | CameraMessage msg ->
                 { m with cameraState = FreeFlyController.update m.cameraState msg }
 
+            | SetMin v -> 
+                { m with minValue = int v }
     let view (m : AdaptiveModel) =
 
         let frustum = 
@@ -93,7 +96,8 @@ module App =
 
             div [style "position: fixed; left: 20px; top: 20px"] [
                 button [onClick (fun _ -> ToggleModel)] [text "Toggle Model"]
-                SimplePrimitives.
+                br []
+                SimplePrimitives.numeric { min = 0.0; max = 65535; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.minValue |> AVal.map float) SetMin
             ]
 
         ]
