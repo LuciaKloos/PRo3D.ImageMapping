@@ -16,6 +16,9 @@ type Model =
     {
         currentModel    : Primitive
         cameraState     : CameraControllerState
-        minValue : NumericInput
-        maxValue : NumericInput
+        defaultMinValue : float
+        defaultMaxValue : float
+        setMinValue : NumericInput
+        setMaxValue : NumericInput
+        texture : string
     }

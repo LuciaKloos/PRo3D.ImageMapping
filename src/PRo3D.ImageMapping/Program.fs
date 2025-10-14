@@ -31,6 +31,7 @@ let main args =
         title "Aardvark rocks \\o/"
         width 1024
         height 768
+        debug true
         url "http://localhost:4321/"
     }
 
