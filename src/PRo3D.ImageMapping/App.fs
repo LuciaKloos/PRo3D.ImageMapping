@@ -19,7 +19,6 @@ type Message =
     | SetMin of float
     | SetMax of float
     | ResetMinMax
-    | SetDefaultMinMax of float * float
     | SetTexturePath of string list
     | Empty
 
@@ -63,7 +62,7 @@ module Shaders =
 
 module App =
 
-    let initialPath = "pfad.tif"
+    let initialPath = @"C:\Users\pichler\Documents\Code\PRo3D\ImageMapping.Data\AF1_converted\1A\AF1_0CRQMP_250312T115031_1A.tif"
 
     let getMinMaxFromStatistics (filePath: string) =
         let j = JObject.Parse(File.ReadAllText(filePath))
@@ -130,11 +129,9 @@ module App =
                 { m with setMaxValue = {maxValue with value = v} }
             | ResetMinMax ->
                 { m with setMinValue = {minValue with value = m.defaultMinValue}; setMaxValue = {maxValue with value = m.defaultMaxValue} }
-            | SetDefaultMinMax (min, max) ->
-                { m with defaultMinValue = min; defaultMaxValue = max }
             | SetTexturePath texture ->
                 let (min, max) = getMinMaxFromStatistics(texture[0] + ".json")
-                { m with texture = texture[0]; defaultMinValue = min; defaultMaxValue = max; setMinValue = {minValue with value = m.defaultMinValue}; setMaxValue = {maxValue with value = m.defaultMaxValue} }
+                { m with texture = texture[0]; defaultMinValue = min; defaultMaxValue = max; setMinValue = {minValue with value = min}; setMaxValue = {maxValue with value = max} }
             | Empty ->
                 m
     let view (m : AdaptiveModel) =
@@ -155,11 +152,11 @@ module App =
                 do! DefaultSurfaces.simpleLighting
             }
 
-        let transferFunctionName : aval<string> = AVal.constant "magma"
+        let transferFunctionName : aval<string> = AVal.constant "magma.png"
         let colormapTexture : aval<ITexture> =
             transferFunctionName
-            |> AVal.map (fun path ->
-                FileTexture(@"..\ressources\magma.png", TextureParams.empty)
+            |> AVal.map (fun fileName ->
+                FileTexture(Path.Combine(Path.Combine(Directory.GetCurrentDirectory(), "resources"), fileName), TextureParams.empty)
             )
 
         let imageTexture : aval<ITexture> =
