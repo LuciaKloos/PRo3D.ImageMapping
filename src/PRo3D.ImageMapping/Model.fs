@@ -1,24 +1,42 @@
 namespace PRo3D.ImageMapping.Model
 
-open System
-open Aardvark.Base
 open Aardvark.UI.Primitives
-open FSharp.Data.Adaptive
 open Adaptify
 
-type Primitive =
-    | Box
-    | Sphere
+type ColorMap =
+    | Magma = 0
+    | Plasma = 1
+    | TwilightShifted = 2
+    | Viridis = 3
+    | PiYG = 4
+    | Vanimo = 5 
 
+module ColorMap =
+    let getColorMapFileName (map: ColorMap) =
+        match map with
+        | ColorMap.Magma -> "magma.png"
+        | ColorMap.Plasma -> "plasma.png"
+        | ColorMap.TwilightShifted -> "twilight_shifted.png"
+        | ColorMap.Viridis -> "viridis.png"
+        | ColorMap.PiYG -> "PiYG.png"
+        | ColorMap.Vanimo -> "vanimo.png"
+        | _ -> "magma.png"
+
+type ImageType =
+    | AFC = 0
+    | TIRI = 1
+    | HSH = 2
+    | Aspect = 3
 
 [<ModelType>]
 type Model =
     {
-        currentModel    : Primitive
         cameraState     : CameraControllerState
+        colorMap        : ColorMap
+        imageType       : ImageType
         defaultMinValue : float
         defaultMaxValue : float
-        setMinValue : NumericInput
-        setMaxValue : NumericInput
+        customMinValue : NumericInput
+        customMaxValue : NumericInput
         texture : string
     }

@@ -20,6 +20,8 @@ type Message =
     | SetMax of float
     | ResetMinMax
     | SetTexturePath of string list
+    | SetColorMap of ColorMap
+    | SetImageType of ImageType
     | Empty
 
 
@@ -47,11 +49,9 @@ module Shaders =
         member x.MinValue : float = uniform?MinValue
         member x.MaxValue : float = uniform?MaxValue
 
-    let hshColors ((imageMin : int, imageMax : int)) (v : Vertex)  = 
+    let hshColors (v : Vertex)  = 
         fragment {
             let hshValueX = instrumentSampler.Sample(v.tc).X * 65000.0 // 0-1 range
-            let hshValueY = instrumentSampler.Sample(v.tc).Y * 65000.0 // 0-1 range
-            let hshValueZ = instrumentSampler.Sample(v.tc).Z * 65000.0 // 0-1 range
 
             let remapClampNormalize =
                 colormapTextureSampler.Sample(V2d (((min uniform.MaxValue (max uniform.MinValue hshValueX)) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue), 0.0))
@@ -104,59 +104,42 @@ module App =
     }
     
     let initial = { 
-        currentModel = Box;
         cameraState = FreeFlyController.initial;
+        colorMap = ColorMap.Magma;
+        imageType = ImageType.AFC;
         defaultMinValue = minValue.value;
         defaultMaxValue = maxValue.value;
-        setMinValue = minValue;
-        setMaxValue = maxValue;
+        customMinValue = minValue;
+        customMaxValue = maxValue;
         texture = initialPath;
     }
 
     let update (m : Model) (msg : Message) =
         match msg with
-            | ToggleModel -> 
-                match m.currentModel with
-                    | Box -> { m with currentModel = Sphere }
-                    | Sphere -> { m with currentModel = Box }
-
             | CameraMessage msg ->
                 { m with cameraState = FreeFlyController.update m.cameraState msg }
 
             | SetMin v -> 
-                { m with setMinValue = {minValue with value = v} }
+                { m with customMinValue = {minValue with value = v} }
             | SetMax v -> 
-                { m with setMaxValue = {maxValue with value = v} }
+                { m with customMaxValue = {maxValue with value = v} }
             | ResetMinMax ->
-                { m with setMinValue = {minValue with value = m.defaultMinValue}; setMaxValue = {maxValue with value = m.defaultMaxValue} }
+                { m with customMinValue = {minValue with value = m.defaultMinValue}; customMaxValue = {maxValue with value = m.defaultMaxValue} }
             | SetTexturePath texture ->
                 let (min, max) = getMinMaxFromStatistics(texture[0] + ".json")
-                { m with texture = texture[0]; defaultMinValue = min; defaultMaxValue = max; setMinValue = {minValue with value = min}; setMaxValue = {maxValue with value = max} }
+                { m with texture = texture[0]; defaultMinValue = min; defaultMaxValue = max; customMinValue = {minValue with value = min}; customMaxValue = {maxValue with value = max} }
+            | SetColorMap (map : ColorMap) ->
+                { m with colorMap = map }
+            | SetImageType (t : ImageType) ->
+                { m with imageType = t }
             | Empty ->
                 m
     let view (m : AdaptiveModel) =
 
-        let frustum = 
-            Frustum.perspective 60.0 0.1 100.0 1.0 
-                |> AVal.constant
-
-        let sg =
-            m.currentModel |> AVal.map (fun v ->
-                match v with
-                    | Box -> Sg.box (AVal.constant C4b.Red) (AVal.constant (Box3d(-V3d.III, V3d.III)))
-                    | Sphere -> Sg.sphere 5 (AVal.constant C4b.Green) (AVal.constant 1.0)
-            )
-            |> Sg.dynamic
-            |> Sg.shader {
-                do! DefaultSurfaces.trafo
-                do! DefaultSurfaces.simpleLighting
-            }
-
-        let transferFunctionName : aval<string> = AVal.constant "magma.png"
         let colormapTexture : aval<ITexture> =
-            transferFunctionName
-            |> AVal.map (fun fileName ->
-                FileTexture(Path.Combine(Path.Combine(Directory.GetCurrentDirectory(), "resources"), fileName), TextureParams.empty)
+            m.colorMap
+            |> AVal.map (fun map ->
+                FileTexture(Path.Combine(Path.Combine(Directory.GetCurrentDirectory(), "resources"), ColorMap.getColorMapFileName(map)), TextureParams.empty)
             )
 
         let imageTexture : aval<ITexture> =
@@ -171,11 +154,11 @@ module App =
             |> Sg.noEvents
             //|> Sg.fileTexture "InstrumentImage" @"C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\ImageMapping.Data\AF1_converted\1A\AF1_0CRQMP_250312T115031_1A.tif" true
             |> Sg.texture "InstrumentImage" imageTexture
-            |> Sg.uniform "MinValue" (m.setMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
-            |> Sg.uniform "MaxValue" (m.setMaxValue.value |> AVal.map (fun v -> float v))
+            |> Sg.uniform "MinValue" (m.customMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
+            |> Sg.uniform "MaxValue" (m.customMaxValue.value |> AVal.map (fun v -> float v))
             |> Sg.texture "ColormapTexture" colormapTexture
             |> Sg.shader {
-                do! (Shaders.hshColors (min, max))
+                do! (Shaders.hshColors)
             }
 
 
@@ -188,57 +171,90 @@ module App =
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
 
         let jsImportDialog = "top.aardvark.dialog.showOpenDialog({tile: 'Select AFC / TIRI image', filters: [{ name: 'Images (*.tif)', extensions: ['tif']},], properties: ['openFile']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"        
+        
+        let imageTypeContent = 
+            div [style "color: white;"] [
+                text "Image Type: "
+                Html.SemUi.dropDown m.imageType SetImageType
+            ]
 
-
-        require Html.semui (
-            body [] [
-                renderControl (AVal.constant (Camera.create cameraView frustum')) att instrumentVisualization
-                //FreeFlyController.controlledControl m.cameraState CameraMessage frustum (AttributeMap.ofList att) sg
-
-                div [style "position: fixed; left: 20px; top: 20px"] [
-                    button [
-                        clazz "ui button tiny";
-                        style "margin-left: 10px";
-                        Dialogs.onChooseFiles (fun chosen -> SetTexturePath chosen );
-                        clientEvent "onclick" (jsImportDialog)
-                    ] [
-                        text "Import Texture"
-                    ]
-                    Html.table [ 
-                        Html.row "Minimum:" [
-                            SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.setMinValue.value) SetMin
-                            br []
-                            Numeric.view' [Slider] m.setMinValue
-                            |> UI.map (fun action -> 
-                                match action with
-                                | Numeric.Action.SetValue v ->
-                                    SetMin v
-                                | _ ->
-                                    Empty
-                                )
-                            ]
-                        
-                        Html.row "Maximum:"  [
-                            SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.setMaxValue.value) SetMax
-                            br []
-                            div [style "width: 100%"] [
-                                Numeric.numericField' m.setMaxValue Slider
+        let afcTiriContent = Html.table [ 
+                            Html.row "Texture:" 
+                                [
+                                    button [
+                                        clazz "ui button tiny";
+                                        style "margin-left: 10px";
+                                        Dialogs.onChooseFiles (fun chosen -> SetTexturePath chosen );
+                                        clientEvent "onclick" (jsImportDialog)
+                                    ] [
+                                        text "Import"
+                                    ]
+                                ]
+                            Html.row "False Color:" [Html.SemUi.dropDown m.colorMap SetColorMap]
+                            Html.row "Minimum:" [
+                                SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMinValue.value) SetMin
+                                br []
+                                Numeric.view' [Slider] m.customMinValue
                                 |> UI.map (fun action -> 
                                     match action with
                                     | Numeric.Action.SetValue v ->
-                                        SetMax v
+                                        SetMin v
                                     | _ ->
                                         Empty
                                     )
                                 ]
-                            ] 
-                        Html.row "" [button [clazz "ui inverted button"; onClick (fun _ -> ResetMinMax)] [
-                                text "Reset"
+                            Html.row "Maximum:"  [
+                                SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMaxValue.value) SetMax
+                                br []
+                                div [style "width: 100%"] [
+                                    Numeric.numericField' m.customMaxValue Slider
+                                    |> UI.map (fun action -> 
+                                        match action with
+                                        | Numeric.Action.SetValue v ->
+                                            SetMax v
+                                        | _ ->
+                                            Empty
+                                        )
+                                    ]
+                                ] 
+                            Html.row "" [button [clazz "ui inverted button"; onClick (fun _ -> ResetMinMax)] [
+                                    text "Reset"
+                                ]
                             ]
+                    ]
+
+        (*
+        let content = 
+            match m.imageType with
+            | ImageType.AFC -> afcTiriContent
+            | _ -> afcTiriContent*)
+
+        let accordion text' icon active content' =
+                let title = if active then "title active inverted" else "title inverted"
+                let content = if active then "content active" else "content"
+               // let arrow = if active then 
+                                    
+                onBoot "$('#__ID__').accordion();" (
+                    div [clazz "ui inverted segment"] [
+                        div [clazz "ui inverted accordion fluid"] [
+                            div [clazz title; style "background-color: #282828"] [
+                                    i [clazz ("dropdown icon")] []
+                                    text text'                                
+                                    div [style "float:right"] [i [clazz (icon + " icon")] []]
+                                
+                            ]
+                            div [clazz content;  style "overflow-y : auto; "] content' //max-height: 35%
                         ]
-                    ]]
+                    ]
+                )
+
+        require Html.semui (
+            body [] [
+                renderControl (AVal.constant (Camera.create cameraView frustum')) att instrumentVisualization
+                div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
+                    accordion "Texture Mapping" "file image outline" false [ imageTypeContent; afcTiriContent ]
                 ]
-            )
+            ])
 
     let app () =
         {
