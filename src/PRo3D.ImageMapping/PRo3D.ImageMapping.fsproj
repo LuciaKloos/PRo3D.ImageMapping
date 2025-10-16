@@ -12,30 +12,32 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-	<Content Include="resources\plasma.png">
-	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	</Content>
-	<Content Include="resources\piyg.png">
-	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	</Content>
-	<Content Include="resources\twilight_shifted.png">
-	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	</Content>
-	<Content Include="resources\vanimo.png">
-	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	</Content>
-	<Content Include="resources\viridis.png">
-	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	</Content>
-	<Content Include="resources\magma.png">
-	  <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	</Content>
-	<None Include="paket.references" />
-	<Compile Include="Dialogs.fs" />
-	<Compile Include="Model.fs" />
-	<Compile Include="App.fs" />
+    <Content Include="resources\white_pixel.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="resources\plasma.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="resources\piyg.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="resources\twilight_shifted.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="resources\vanimo.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="resources\viridis.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <Content Include="resources\magma.png">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </Content>
+    <None Include="paket.references" />
+    <Compile Include="Dialogs.fs" />
+    <Compile Include="Model.fs" />
+    <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
-  <ItemGroup />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

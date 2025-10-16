@@ -1,14 +1,10 @@
 open PRo3D.ImageMapping
 
 open Aardium
-open Aardvark.Service
 open Aardvark.UI
 open Suave
-open Suave.WebPart
-open Aardvark.Rendering.Vulkan
 open Aardvark.Base
-open FSharp.Data.Adaptive
-open System
+
 
 
 

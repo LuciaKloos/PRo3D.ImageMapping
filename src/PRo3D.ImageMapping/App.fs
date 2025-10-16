@@ -11,17 +11,17 @@ open PRo3D.ImageMapping.Model
 open System.IO
 open Newtonsoft.Json.Linq
 
-open Dialogs
+open Aardvark.GeoSpatial.Opc
 
 type Message =
-    | ToggleModel
     | CameraMessage of FreeFlyController.Message
     | SetMin of float
     | SetMax of float
     | ResetMinMax
-    | SetTexturePath of string list
+    | SetTexture of string list * string
     | SetColorMap of ColorMap
-    | SetImageType of ImageType
+    | ToggleFalseColor
+    | SetEXRChannel of string
     | Empty
 
 
@@ -48,47 +48,58 @@ module Shaders =
     type UniformScope with
         member x.MinValue : float = uniform?MinValue
         member x.MaxValue : float = uniform?MaxValue
+        member x.UseFalseColor : bool = uniform?UseFalseColor
 
     let hshColors (v : Vertex)  = 
         fragment {
-            let hshValueX = instrumentSampler.Sample(v.tc).X * 65000.0 // 0-1 range
-
+            let hshValueX = instrumentSampler.Sample(v.tc).X * 65000.0// 0-1 range
+            let remappedClampedNormalizedX =
+                ((min uniform.MaxValue (max uniform.MinValue hshValueX)) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
             let remapClampNormalize =
-                colormapTextureSampler.Sample(V2d (((min uniform.MaxValue (max uniform.MinValue hshValueX)) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue), 0.0))
-               
+                if uniform.UseFalseColor then
+                    colormapTextureSampler.Sample(V2d (remappedClampedNormalizedX, 0.0))
+                else 
+                    V4d(
+                        remappedClampedNormalizedX,
+                        remappedClampedNormalizedX,
+                        remappedClampedNormalizedX,
+                        1.0
+                    )
             return remapClampNormalize
         }
 
 
 module App =
 
-    let initialPath = @"C:\Users\pichler\Documents\Code\PRo3D\ImageMapping.Data\AF1_converted\1A\AF1_0CRQMP_250312T115031_1A.tif"
+    let initialPath = ""
 
-    let getMinMaxFromStatistics (filePath: string) =
-        let j = JObject.Parse(File.ReadAllText(filePath))
-        let rec loop (token:JToken) remaining =
-            match remaining with
-            | [] -> token.Value<int>()
-            | k::rest ->
-                match token.Type with
-                | JTokenType.Object ->
-                    let obj = token :?> JObject
-                    match obj.TryGetValue(k) with
-                        | true, t -> loop t rest
-                        | _ -> token.Value<int>()
-                | JTokenType.Array ->
-                    let obj = token.[0] :?> JObject
-                    match obj.TryGetValue(k) with
-                        | true, t -> loop t rest
-                        | _ -> token.Value<int>()
-                | _ -> token.Value<int>()
+    let getMinMaxFromStatistics (filePath: string, channel: int) =
+        if not (File.Exists(filePath)) then
+            (0, 0)
+        else 
+            let j = JObject.Parse(File.ReadAllText(filePath))
+            let rec loop (token:JToken) remaining =
+                match remaining with
+                | [] -> token.Value<int>()
+                | k::rest ->
+                    match token.Type with
+                    | JTokenType.Object ->
+                        let obj = token :?> JObject
+                        match obj.TryGetValue(k) with
+                            | true, t -> loop t rest
+                            | _ -> token.Value<int>()
+                    | JTokenType.Array ->
+                        let obj = token.[channel] :?> JObject
+                        match obj.TryGetValue(k) with
+                            | true, t -> loop t rest
+                            | _ -> token.Value<int>()
+                    | _ -> token.Value<int>()
 
-        (loop (j :> JToken) ["image_statistics"; "minimum"], loop (j :> JToken) ["image_statistics"; "maximum"])
+            (loop (j :> JToken) ["image_statistics"; "minimum"], loop (j :> JToken) ["image_statistics"; "maximum"])
 
-    let (min, max) = getMinMaxFromStatistics(initialPath + ".json")
 
     let minValue = {
-        value   = min
+        value   = 0.0
         min     = 0.0
         max     = 65000.0
         step    = 1
@@ -96,7 +107,7 @@ module App =
     }
 
     let maxValue = {
-        value   = max
+        value   = 0.0
         min     = 0.0
         max     = 65000.0
         step    = 1
@@ -106,7 +117,9 @@ module App =
     let initial = { 
         cameraState = FreeFlyController.initial;
         colorMap = ColorMap.Magma;
-        imageType = ImageType.AFC;
+        useFalseColor = true;
+        channelName = "0";
+        channelOptions = [];
         defaultMinValue = minValue.value;
         defaultMaxValue = maxValue.value;
         customMinValue = minValue;
@@ -125,13 +138,39 @@ module App =
                 { m with customMaxValue = {maxValue with value = v} }
             | ResetMinMax ->
                 { m with customMinValue = {minValue with value = m.defaultMinValue}; customMaxValue = {maxValue with value = m.defaultMaxValue} }
-            | SetTexturePath texture ->
-                let (min, max) = getMinMaxFromStatistics(texture[0] + ".json")
-                { m with texture = texture[0]; defaultMinValue = min; defaultMaxValue = max; customMinValue = {minValue with value = min}; customMaxValue = {maxValue with value = max} }
+            | SetTexture (texture, channelName) ->
+                let channelIdx =     
+                    match System.Int32.TryParse(channelName) with
+                    | true, v -> v
+                    | false, _ -> 0
+                let (min, max) = getMinMaxFromStatistics(texture[0] + ".json", channelIdx)
+                let channelOptions = ["0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"]
+                { m with 
+                    texture = texture[0];
+                    defaultMinValue = min;
+                    defaultMaxValue = max;
+                    customMinValue = {minValue with value = min};
+                    customMaxValue = {maxValue with value = max};
+                    channelName = channelName;
+                    channelOptions = channelOptions;
+                }
             | SetColorMap (map : ColorMap) ->
                 { m with colorMap = map }
-            | SetImageType (t : ImageType) ->
-                { m with imageType = t }
+            | SetEXRChannel (channelName: string) ->
+                let channelIdx =     
+                    match System.Int32.TryParse(channelName) with
+                    | true, v -> v
+                    | false, _ -> 0
+                let (min, max) = getMinMaxFromStatistics(m.texture + ".json", channelIdx)
+                { m with 
+                    defaultMinValue = min;
+                    defaultMaxValue = max;
+                    customMinValue = {minValue with value = min};
+                    customMaxValue = {maxValue with value = max};
+                    channelName = channelName;
+                }
+            | ToggleFalseColor ->
+                { m with useFalseColor = not m.useFalseColor }
             | Empty ->
                 m
     let view (m : AdaptiveModel) =
@@ -144,19 +183,30 @@ module App =
 
         let imageTexture : aval<ITexture> =
             m.texture
-            |> AVal.map (fun path ->
-                FileTexture(path, TextureParams.empty)
+            |> AVal.map (fun path_ ->
+                let path = if File.Exists(path_) then path_ else Path.Combine(Path.Combine(Directory.GetCurrentDirectory(), "resources"), "white_pixel.png")
+                match Path.GetExtension(path).ToLower() with
+                | ".exr" ->
+                    let stream = File.OpenRead "C:\Users\sophiechen\Downloads\1_0_0.exr"
+                    let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithName "0") (Some TextureLoading.TextureFormat.OpenEXR)
+                    PixTexture2d(exrTexture, TextureParams.empty)
+                | ".png"
+                | _ ->
+                    FileTexture(
+                        path, 
+                        TextureParams.empty
+                    )
             )
 
         let instrumentVisualization = 
             
             Sg.fullScreenQuad
             |> Sg.noEvents
-            //|> Sg.fileTexture "InstrumentImage" @"C:\Users\sophiechen\Documents\WORK\VRVis\PRo3D\ImageMapping.Data\AF1_converted\1A\AF1_0CRQMP_250312T115031_1A.tif" true
             |> Sg.texture "InstrumentImage" imageTexture
+            |> Sg.texture "ColormapTexture" colormapTexture
             |> Sg.uniform "MinValue" (m.customMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
             |> Sg.uniform "MaxValue" (m.customMaxValue.value |> AVal.map (fun v -> float v))
-            |> Sg.texture "ColormapTexture" colormapTexture
+            |> Sg.uniform "UseFalseColor" m.useFalseColor
             |> Sg.shader {
                 do! (Shaders.hshColors)
             }
@@ -170,64 +220,64 @@ module App =
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
 
-        let jsImportDialog = "top.aardvark.dialog.showOpenDialog({tile: 'Select AFC / TIRI image', filters: [{ name: 'Images (*.tif)', extensions: ['tif']},], properties: ['openFile']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"        
-        
-        let imageTypeContent = 
-            div [style "color: white;"] [
-                text "Image Type: "
-                Html.SemUi.dropDown m.imageType SetImageType
-            ]
+        let jsImportDialog = "top.aardvark.dialog.showOpenDialog({tile: 'Select image', filters: [{ name: 'Images (*.*)', extensions: ['tif', 'exr']},], properties: ['openFile']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"        
 
-        let afcTiriContent = Html.table [ 
-                            Html.row "Texture:" 
-                                [
-                                    button [
-                                        clazz "ui button tiny";
-                                        style "margin-left: 10px";
-                                        Dialogs.onChooseFiles (fun chosen -> SetTexturePath chosen );
-                                        clientEvent "onclick" (jsImportDialog)
-                                    ] [
-                                        text "Import"
-                                    ]
-                                ]
-                            Html.row "False Color:" [Html.SemUi.dropDown m.colorMap SetColorMap]
-                            Html.row "Minimum:" [
-                                SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMinValue.value) SetMin
-                                br []
-                                Numeric.view' [Slider] m.customMinValue
-                                |> UI.map (fun action -> 
-                                    match action with
-                                    | Numeric.Action.SetValue v ->
-                                        SetMin v
-                                    | _ ->
-                                        Empty
-                                    )
-                                ]
-                            Html.row "Maximum:"  [
-                                SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMaxValue.value) SetMax
-                                br []
-                                div [style "width: 100%"] [
-                                    Numeric.numericField' m.customMaxValue Slider
-                                    |> UI.map (fun action -> 
-                                        match action with
-                                        | Numeric.Action.SetValue v ->
-                                            SetMax v
-                                        | _ ->
-                                            Empty
-                                        )
-                                    ]
-                                ] 
-                            Html.row "" [button [clazz "ui inverted button"; onClick (fun _ -> ResetMinMax)] [
-                                    text "Reset"
-                                ]
-                            ]
-                    ]
-
-        (*
         let content = 
-            match m.imageType with
-            | ImageType.AFC -> afcTiriContent
-            | _ -> afcTiriContent*)
+            Html.table [ 
+                Html.row "Texture:" 
+                    [
+                        button [
+                            clazz "ui button tiny";
+                            style "margin-left: 10px";
+                            Dialogs.onChooseFiles (fun chosen -> SetTexture (chosen, "0") );
+                            clientEvent "onclick" (jsImportDialog)
+                        ] [
+                            text "Import"
+                        ]
+                    ]
+                Html.row "EXR Channel:" [
+                    div [style "color: white;"] [
+                        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.channelName (fun value -> SetEXRChannel (value)) (fun option -> option)
+                        // Html.SemUi.dropDown m.channel SetEXRChannel
+                    ]
+                ]
+                Html.row "False Color:" [
+                    text "Activate: " 
+                    Html.SemUi.toggleBox m.useFalseColor ToggleFalseColor
+                    br []
+                    Html.SemUi.dropDown m.colorMap SetColorMap
+                ]
+                Html.row "Minimum:" [
+                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMinValue.value) SetMin
+                    br []
+                    Numeric.view' [Slider] m.customMinValue
+                    |> UI.map (fun action -> 
+                        match action with
+                        | Numeric.Action.SetValue v ->
+                            SetMin v
+                        | _ ->
+                            Empty
+                        )
+                    ]
+                Html.row "Maximum:"  [
+                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMaxValue.value) SetMax
+                    br []
+                    div [style "width: 100%"] [
+                        Numeric.numericField' m.customMaxValue Slider
+                        |> UI.map (fun action -> 
+                            match action with
+                            | Numeric.Action.SetValue v ->
+                                SetMax v
+                            | _ ->
+                                Empty
+                            )
+                        ]
+                    ] 
+                Html.row "" [button [clazz "ui inverted button"; onClick (fun _ -> ResetMinMax)] [
+                        text "Reset"
+                    ]
+                ]
+            ]
 
         let accordion text' icon active content' =
                 let title = if active then "title active inverted" else "title inverted"
@@ -252,7 +302,7 @@ module App =
             body [] [
                 renderControl (AVal.constant (Camera.create cameraView frustum')) att instrumentVisualization
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
-                    accordion "Texture Mapping" "file image outline" false [ imageTypeContent; afcTiriContent ]
+                    accordion "Texture Mapping" "file image outline" false [ content ]
                 ]
             ])
 
