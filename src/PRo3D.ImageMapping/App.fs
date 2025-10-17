@@ -18,7 +18,7 @@ type Message =
     | SetMin of float
     | SetMax of float
     | ResetMinMax
-    | SetTexture of string list * string
+    | SetTexture of string list
     | SetColorMap of ColorMap
     | ToggleFalseColor
     | SetEXRChannel of string
@@ -97,6 +97,17 @@ module App =
 
             (loop (j :> JToken) ["image_statistics"; "minimum"], loop (j :> JToken) ["image_statistics"; "maximum"])
 
+    let getEXRChannelOptions (filePath: string) =
+        if not ((File.Exists(filePath)) || (Path.GetExtension(filePath).ToLower() != ".exr")) then
+            []
+        else 
+            let j = JObject.Parse(File.ReadAllText(filePath))
+            match j.TryGetValue("channels") with
+            | true, t -> 
+                let channels = [ 0 .. t.Value<int>() - 1 ]
+                channels |> List.map string
+            | _ -> []
+            
 
     let minValue = {
         value   = 0.0
@@ -138,20 +149,23 @@ module App =
                 { m with customMaxValue = {maxValue with value = v} }
             | ResetMinMax ->
                 { m with customMinValue = {minValue with value = m.defaultMinValue}; customMaxValue = {maxValue with value = m.defaultMaxValue} }
-            | SetTexture (texture, channelName) ->
-                let channelIdx =     
-                    match System.Int32.TryParse(channelName) with
-                    | true, v -> v
-                    | false, _ -> 0
+            | SetTexture (texture) ->
+                let channelOptions = getEXRChannelOptions(texture[0] + ".json")
+                let channelIdx =
+                    if channelOptions.IsEmpty() then
+                        0
+                    else
+                        match System.Int32.TryParse(channelOptions.[0]) with
+                        | true, v -> v
+                        | false, _ -> 0
                 let (min, max) = getMinMaxFromStatistics(texture[0] + ".json", channelIdx)
-                let channelOptions = ["0"; "1"; "2"; "3"; "4"; "5"; "6"; "7"; "8"]
                 { m with 
                     texture = texture[0];
                     defaultMinValue = min;
                     defaultMaxValue = max;
                     customMinValue = {minValue with value = min};
                     customMaxValue = {maxValue with value = max};
-                    channelName = channelName;
+                    channelName = string channelIdx;
                     channelOptions = channelOptions;
                 }
             | SetColorMap (map : ColorMap) ->
@@ -167,7 +181,7 @@ module App =
                     defaultMaxValue = max;
                     customMinValue = {minValue with value = min};
                     customMaxValue = {maxValue with value = max};
-                    channelName = channelName;
+                    channelName = string channelIdx;
                 }
             | ToggleFalseColor ->
                 { m with useFalseColor = not m.useFalseColor }
@@ -182,13 +196,12 @@ module App =
             )
 
         let imageTexture : aval<ITexture> =
-            m.texture
-            |> AVal.map (fun path_ ->
+            AVal.map2 (fun path_ channelName ->
                 let path = if File.Exists(path_) then path_ else Path.Combine(Path.Combine(Directory.GetCurrentDirectory(), "resources"), "white_pixel.png")
                 match Path.GetExtension(path).ToLower() with
                 | ".exr" ->
-                    let stream = File.OpenRead "C:\Users\sophiechen\Downloads\1_0_0.exr"
-                    let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithName "0") (Some TextureLoading.TextureFormat.OpenEXR)
+                    let stream = File.OpenRead path
+                    let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithName channelName) (Some TextureLoading.TextureFormat.OpenEXR)
                     PixTexture2d(exrTexture, TextureParams.empty)
                 | ".png"
                 | _ ->
@@ -196,7 +209,7 @@ module App =
                         path, 
                         TextureParams.empty
                     )
-            )
+            ) m.texture m.channelName
 
         let instrumentVisualization = 
             
@@ -229,7 +242,7 @@ module App =
                         button [
                             clazz "ui button tiny";
                             style "margin-left: 10px";
-                            Dialogs.onChooseFiles (fun chosen -> SetTexture (chosen, "0") );
+                            Dialogs.onChooseFiles (fun chosen -> SetTexture (chosen) );
                             clientEvent "onclick" (jsImportDialog)
                         ] [
                             text "Import"
