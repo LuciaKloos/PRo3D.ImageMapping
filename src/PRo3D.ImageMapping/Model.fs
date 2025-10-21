@@ -11,6 +11,11 @@ type ColorMap =
     | PiYG = 4
     | Vanimo = 5 
 
+type DataType =
+    | UInt32 = 0
+    | UInt16 = 1
+    | Float = 2
+
 module ColorMap =
     let getColorMapFileName (map: ColorMap) =
         match map with
@@ -30,6 +35,7 @@ type Model =
         useFalseColor   : bool
         channelName     : string
         channelOptions  : List<string>
+        dataType        : DataType
         defaultMinValue : float
         defaultMaxValue : float
         customMinValue : NumericInput

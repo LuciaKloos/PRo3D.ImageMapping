@@ -4,6 +4,7 @@ open Aardvark.UI
 open System
 
 module Dialogs =   
+
     let onChooseFiles (chosen : list<string> -> 'msg) =
         let cb xs =
             match xs with
@@ -71,3 +72,6 @@ module Dialogs =
 
     let jsImportImagesDialog =
             "top.aardvark.dialog.showOpenDialog({title:'Import Images' , filters: [{ name: 'Images (*.jpg)', extensions: ['jpg']},], properties: ['openFile']}).then(result => {top.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+    let jsImportImagesDialogGis =
+        "parent.aardvark.dialog.showOpenDialog({title:'Import Images' , filters: [{ name: 'Images (*.jpg|*.tif)', extensions: ['jpg','tif','tiff']},], properties: ['openFile', 'multiSelections']}).then(result => {parent.aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"

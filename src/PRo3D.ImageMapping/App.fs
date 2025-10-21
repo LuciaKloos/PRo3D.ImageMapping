@@ -15,13 +15,14 @@ open Aardvark.GeoSpatial.Opc
 
 type Message =
     | CameraMessage of FreeFlyController.Message
-    | SetMin of float
-    | SetMax of float
-    | ResetMinMax
+    | SetCustomMin of float
+    | SetCustomMax of float
+    | ResetCustomMinMax
     | SetTexture of string list
     | SetColorMap of ColorMap
     | ToggleFalseColor
     | SetEXRChannel of string
+    | SetDataTypeAndRange of DataType * float * float
     | Empty
 
 
@@ -49,20 +50,23 @@ module Shaders =
         member x.MinValue : float = uniform?MinValue
         member x.MaxValue : float = uniform?MaxValue
         member x.UseFalseColor : bool = uniform?UseFalseColor
+        member x.DataType : int = uniform?DataType
 
     let hshColors (v : Vertex)  = 
         fragment {
-            let hshValueX = instrumentSampler.Sample(v.tc).X * 65000.0// 0-1 range
-            let remappedClampedNormalizedX =
-                ((min uniform.MaxValue (max uniform.MinValue hshValueX)) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
+            let hshValueX = instrumentSampler.Sample(v.tc).X 
+            let remappedClampedNormalizedXInt16 =
+                ((min uniform.MaxValue (max uniform.MinValue (hshValueX * 65000.0))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
+            let remappedClampedNormalizedXFloat =
+                (hshValueX - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
             let remapClampNormalize =
                 if uniform.UseFalseColor then
-                    colormapTextureSampler.Sample(V2d (remappedClampedNormalizedX, 0.0))
+                    colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
                 else 
                     V4d(
-                        remappedClampedNormalizedX,
-                        remappedClampedNormalizedX,
-                        remappedClampedNormalizedX,
+                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
+                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
+                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
                         1.0
                     )
             return remapClampNormalize
@@ -72,6 +76,20 @@ module Shaders =
 module App =
 
     let initialPath = ""
+
+    let getDataType (filePath: string) = 
+        if not (File.Exists(filePath)) then
+            DataType.UInt16
+        else 
+            let j = JObject.Parse(File.ReadAllText(filePath))
+            match j.TryGetValue("data_type") with
+            | true, t -> 
+                match t.Value<string>() with
+                | "uint16" -> DataType.UInt16
+                | "uint32" -> DataType.UInt32
+                | "float" -> DataType.Float
+                | _ -> DataType.UInt16
+            | _ -> DataType.UInt16
 
     let getMinMaxFromStatistics (filePath: string, channel: int) =
         if not (File.Exists(filePath)) then
@@ -131,6 +149,7 @@ module App =
         useFalseColor = true;
         channelName = "0";
         channelOptions = [];
+        dataType = DataType.UInt16;
         defaultMinValue = minValue.value;
         defaultMaxValue = maxValue.value;
         customMinValue = minValue;
@@ -142,12 +161,13 @@ module App =
         match msg with
             | CameraMessage msg ->
                 { m with cameraState = FreeFlyController.update m.cameraState msg }
-
-            | SetMin v -> 
+            | SetDataTypeAndRange (dataType, min, max) ->
+                { m with customMinValue = { minValue with min = min}; customMaxValue = {minValue with max = max} }
+            | SetCustomMin v -> 
                 { m with customMinValue = {minValue with value = v} }
-            | SetMax v -> 
+            | SetCustomMax v -> 
                 { m with customMaxValue = {maxValue with value = v} }
-            | ResetMinMax ->
+            | ResetCustomMinMax ->
                 { m with customMinValue = {minValue with value = m.defaultMinValue}; customMaxValue = {maxValue with value = m.defaultMaxValue} }
             | SetTexture (texture) ->
                 let channelOptions = getEXRChannelOptions(texture[0] + ".json")
@@ -159,14 +179,21 @@ module App =
                         | true, v -> v
                         | false, _ -> 0
                 let (min, max) = getMinMaxFromStatistics(texture[0] + ".json", channelIdx)
+                let dataType = getDataType(texture[0] + ".json")
+                let (rangeMin, rangeMax) =
+                    match dataType with
+                    | DataType.Float -> (min, max)
+                    | DataType.UInt16 
+                    | _ -> (0, 65536)
                 { m with 
                     texture = texture[0];
                     defaultMinValue = min;
                     defaultMaxValue = max;
-                    customMinValue = {minValue with value = min};
-                    customMaxValue = {maxValue with value = max};
+                    customMinValue = {minValue with value = min; min = rangeMin; max = rangeMax};
+                    customMaxValue = {maxValue with value = max; min = rangeMin; max = rangeMax};
                     channelName = string channelIdx;
                     channelOptions = channelOptions;
+                    dataType = dataType;
                 }
             | SetColorMap (map : ColorMap) ->
                 { m with colorMap = map }
@@ -211,6 +238,12 @@ module App =
                     )
             ) m.texture m.channelName
 
+        let dt = 
+            (m.dataType |> 
+                AVal.map (fun dt -> 
+                int dt)
+            )
+
         let instrumentVisualization = 
             
             Sg.fullScreenQuad
@@ -220,6 +253,7 @@ module App =
             |> Sg.uniform "MinValue" (m.customMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
             |> Sg.uniform "MaxValue" (m.customMaxValue.value |> AVal.map (fun v -> float v))
             |> Sg.uniform "UseFalseColor" m.useFalseColor
+            |> Sg.uniform "DataType" (m.dataType |> AVal.map (fun dt -> int dt))
             |> Sg.shader {
                 do! (Shaders.hshColors)
             }
@@ -261,32 +295,32 @@ module App =
                     Html.SemUi.dropDown m.colorMap SetColorMap
                 ]
                 Html.row "Minimum:" [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMinValue.value) SetMin
+                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMinValue.value) SetCustomMin
                     br []
                     Numeric.view' [Slider] m.customMinValue
                     |> UI.map (fun action -> 
                         match action with
                         | Numeric.Action.SetValue v ->
-                            SetMin v
+                            SetCustomMin v
                         | _ ->
                             Empty
                         )
                     ]
                 Html.row "Maximum:"  [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMaxValue.value) SetMax
+                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMaxValue.value) SetCustomMax
                     br []
                     div [style "width: 100%"] [
                         Numeric.numericField' m.customMaxValue Slider
                         |> UI.map (fun action -> 
                             match action with
                             | Numeric.Action.SetValue v ->
-                                SetMax v
+                                SetCustomMax v
                             | _ ->
                                 Empty
                             )
                         ]
                     ] 
-                Html.row "" [button [clazz "ui inverted button"; onClick (fun _ -> ResetMinMax)] [
+                Html.row "" [button [clazz "ui inverted button"; onClick (fun _ -> ResetCustomMinMax)] [
                         text "Reset"
                     ]
                 ]
