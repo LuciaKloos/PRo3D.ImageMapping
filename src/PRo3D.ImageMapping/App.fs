@@ -12,6 +12,8 @@ open System.IO
 open Newtonsoft.Json.Linq
 
 open Aardvark.GeoSpatial.Opc
+open Aardvark.PixImage.LibTiff
+open PRo3D.InstrumentData
 
 type Message =
     | CameraMessage of FreeFlyController.Message
@@ -21,7 +23,7 @@ type Message =
     | SetTexture of string list
     | SetColorMap of ColorMap
     | ToggleFalseColor
-    | SetEXRChannel of string
+    | SetEXRChannel of Channel
     | SetDataTypeAndRange of DataType * float * float
     | Empty
 
@@ -147,7 +149,7 @@ module App =
         cameraState = FreeFlyController.initial;
         colorMap = ColorMap.Magma;
         useFalseColor = true;
-        channelName = "0";
+        channel = { idx = 0; name = None }
         channelOptions = [];
         dataType = DataType.UInt16;
         defaultMinValue = minValue.value;
@@ -191,24 +193,20 @@ module App =
                     defaultMaxValue = max;
                     customMinValue = {minValue with value = min; min = rangeMin; max = rangeMax};
                     customMaxValue = {maxValue with value = max; min = rangeMin; max = rangeMax};
-                    channelName = string channelIdx;
-                    channelOptions = channelOptions;
+                    channel = { idx = channelIdx; name = None }
+                    channelOptions = [ { idx = 0; name = None } ];
                     dataType = dataType;
                 }
             | SetColorMap (map : ColorMap) ->
                 { m with colorMap = map }
-            | SetEXRChannel (channelName: string) ->
-                let channelIdx =     
-                    match System.Int32.TryParse(channelName) with
-                    | true, v -> v
-                    | false, _ -> 0
-                let (min, max) = getMinMaxFromStatistics(m.texture + ".json", channelIdx)
+            | SetEXRChannel channel ->
+                let (min, max) = getMinMaxFromStatistics(m.texture + ".json", channel.idx)
                 { m with 
                     defaultMinValue = min;
                     defaultMaxValue = max;
                     customMinValue = {minValue with value = min};
                     customMaxValue = {maxValue with value = max};
-                    channelName = string channelIdx;
+                    channel = channel
                 }
             | ToggleFalseColor ->
                 { m with useFalseColor = not m.useFalseColor }
@@ -223,20 +221,34 @@ module App =
             )
 
         let imageTexture : aval<ITexture> =
-            AVal.map2 (fun path_ channelName ->
+            AVal.map2 (fun path_ channel ->
                 let path = if File.Exists(path_) then path_ else Path.Combine(Path.Combine(Directory.GetCurrentDirectory(), "resources"), "white_pixel.png")
                 match Path.GetExtension(path).ToLower() with
                 | ".exr" ->
                     let stream = File.OpenRead path
-                    let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithName channelName) (Some TextureLoading.TextureFormat.OpenEXR)
+                    let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
                     PixTexture2d(exrTexture, TextureParams.empty)
+                | ".tiff" | ".tif" -> 
+                    let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
+                    match MultiBandReader.tryReadMultiBandTiff path false with
+                    | Result.Ok img -> 
+                        let images = InstrumentImageTextures.instrumentImageToTexture true img 
+                        match Array.tryItem channel.idx images with
+                        | Some img -> 
+                            PixTexture2d(img.pi, TextureParams.empty)
+                        | _ -> 
+                            Log.warn "channel of out of bounds"
+                            DefaultTextures.checkerboard.GetValue()
+                    | _ -> 
+                        Log.warn "could not load texture"
+                        DefaultTextures.checkerboard.GetValue()
                 | ".png"
                 | _ ->
                     FileTexture(
                         path, 
                         TextureParams.empty
                     )
-            ) m.texture m.channelName
+            ) m.texture m.channel
 
         let dt = 
             (m.dataType |> 
@@ -284,7 +296,11 @@ module App =
                     ]
                 Html.row "EXR Channel:" [
                     div [style "color: white;"] [
-                        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.channelName (fun value -> SetEXRChannel (value)) (fun option -> option)
+                        let channelRepr (c : Channel) = 
+                            match c.name with
+                            | None -> string c.idx
+                            | Some name -> name
+                        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.channel (fun value -> SetEXRChannel (value)) channelRepr
                         // Html.SemUi.dropDown m.channel SetEXRChannel
                     ]
                 ]
