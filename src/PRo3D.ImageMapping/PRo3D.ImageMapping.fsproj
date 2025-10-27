@@ -39,5 +39,8 @@
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PRo3D.InstrumentData\PRo3D.InstrumentData.fsproj" />
+  </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

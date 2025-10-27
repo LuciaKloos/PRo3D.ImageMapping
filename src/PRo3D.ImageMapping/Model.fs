@@ -27,14 +27,21 @@ module ColorMap =
         | ColorMap.Vanimo -> "vanimo.png"
         | _ -> "magma.png"
 
+
+type Channel = 
+    {
+        idx : int
+        name : Option<string>
+    }
+
 [<ModelType>]
 type Model =
     {
         cameraState     : CameraControllerState
         colorMap        : ColorMap
         useFalseColor   : bool
-        channelName     : string
-        channelOptions  : List<string>
+        channel         : Channel
+        channelOptions  : list<Channel>
         dataType        : DataType
         defaultMinValue : float
         defaultMaxValue : float
