@@ -12,6 +12,8 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="OrbitModel.fs" />
+    <Compile Include="OrbitController.fs" />
     <Content Include="resources\white_pixel.png">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
@@ -41,6 +43,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.InstrumentData\PRo3D.InstrumentData.fsproj" />
+    <ProjectReference Include="..\PRo3D.InstrumentProjection\PRo3D.InstrumentProjection.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

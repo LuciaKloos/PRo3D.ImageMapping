@@ -14,6 +14,8 @@ let main args =
     Aardvark.Init()
     Aardium.init()
 
+    use _ = SPICE.init()
+
     // create the opengl application for rendering
     let app = new Aardvark.Application.Slim.OpenGlApplication()
     // create the media application

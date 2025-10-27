@@ -14,9 +14,10 @@ open Newtonsoft.Json.Linq
 open Aardvark.GeoSpatial.Opc
 open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentData
+open PRo3D.InstrumentProjection
 
 type Message =
-    | CameraMessage of FreeFlyController.Message
+    | OrbitCameraMessage of OrbitMessage
     | SetCustomMin of float
     | SetCustomMax of float
     | ResetCustomMinMax
@@ -146,7 +147,7 @@ module App =
     }
     
     let initial = { 
-        cameraState = FreeFlyController.initial;
+        cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
         colorMap = ColorMap.Magma;
         useFalseColor = true;
         channel = { idx = 0; name = None }
@@ -161,8 +162,8 @@ module App =
 
     let update (m : Model) (msg : Message) =
         match msg with
-            | CameraMessage msg ->
-                { m with cameraState = FreeFlyController.update m.cameraState msg }
+            | OrbitCameraMessage msg ->
+                { m with cameraState = OrbitController.update m.cameraState msg }
             | SetDataTypeAndRange (dataType, min, max) ->
                 { m with customMinValue = { minValue with min = min}; customMaxValue = {minValue with max = max} }
             | SetCustomMin v -> 
@@ -270,12 +271,6 @@ module App =
                 do! (Shaders.hshColors)
             }
 
-
-        let att =
-            [
-                style "position: fixed; left: 0; top: 0; width: 100%; height: 100%"
-            ]
-
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
 
@@ -361,9 +356,29 @@ module App =
                     ]
                 )
 
+
+        let visualization, frustum =
+            let observer = cval "MARS" //"HERA_AFC-1" 
+            let supportBody = cval "SUN"
+            let referenceFrame = cval "ECLIPJ2000"
+            let time = 
+                let startTime = "2025-03-12 11:50:30.000Z"
+                cval (DateTime.Parse(startTime))
+            let scene = 
+                Visualization.createSceneGraph (AVal.constant None) referenceFrame supportBody observer time 
+                |> Sg.noEvents
+
+            let frustum = Frustum.perspective 80.0 10.0 10000000.0 1.0 |> AVal.constant
+            scene, frustum
+
         require Html.semui (
             body [] [
-                renderControl (AVal.constant (Camera.create cameraView frustum')) att instrumentVisualization
+                div [] [
+                    let leftControl = [style "position: fixed; left: 0; top: 0; width: 50%; height: 100%"]
+                    renderControl (AVal.constant (Camera.create cameraView frustum')) leftControl instrumentVisualization
+                    let rightControl = [style "position: fixed; right: 0; top: 0; width: 50%; height: 100%"] |> AttributeMap.ofList
+                    OrbitController.controlledControl m.cameraState OrbitCameraMessage frustum rightControl visualization
+                ]
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
                     accordion "Texture Mapping" "file image outline" false [ content ]
                 ]
@@ -374,6 +389,6 @@ module App =
             initial = initial
             update = update
             view = view
-            threads = fun m -> m.cameraState |> FreeFlyController.threads |> ThreadPool.map CameraMessage
+            threads = constF ThreadPool.empty
             unpersist = Unpersist.instance
         }

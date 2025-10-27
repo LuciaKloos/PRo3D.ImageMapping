@@ -17,6 +17,8 @@ nuget Aardvark.Application.Slim             ~> 5.5.16
 nuget Aardvark.Application.Slim.GL          ~> 5.5.16
 nuget Aardvark.Application.Slim.Vulkan      ~> 5.5.16
 
+nuget Aardvark.Geometry.PolyMesh 
+
 nuget Aardvark.Service                      ~> 5.5.4
 nuget Aardvark.UI                           ~> 5.5.4
 nuget Aardvark.UI.Primitives                ~> 5.5.4
@@ -29,3 +31,11 @@ nuget Aardium                               ~> 2.1.2
 
 nuget Aardvark.GeoSpatial.Opc               ~> 5.12.0-prerelease1
 nuget BitMiracle.LibTiff.NET                ~> 2.4.0                        
+
+nuget FSharp.Data
+
+nuget PRo3D.SPICE ~> 1.0.6
+nuget CommandLineParser.FSharp ~> 2.9.1
+
+
+nuget Expecto

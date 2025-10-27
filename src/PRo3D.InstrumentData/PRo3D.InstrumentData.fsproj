@@ -11,6 +11,7 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="InstrumentMetadata.fs" />
     <Compile Include="GeoTIFF.fs" />
     <Compile Include="Tiff.fs" />
     <Compile Include="InstrumentImage.fs" />

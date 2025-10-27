@@ -37,7 +37,7 @@ type Channel =
 [<ModelType>]
 type Model =
     {
-        cameraState     : CameraControllerState
+        cameraState     : OrbitState
         colorMap        : ColorMap
         useFalseColor   : bool
         channel         : Channel
