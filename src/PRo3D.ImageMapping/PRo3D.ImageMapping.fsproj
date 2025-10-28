@@ -12,27 +12,8 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <Content Include="resources\white_pixel.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="resources\plasma.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="resources\piyg.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="resources\twilight_shifted.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="resources\vanimo.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="resources\viridis.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
-    <Content Include="resources\magma.png">
-      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </Content>
+    <Compile Include="OrbitModel.fs" />
+    <Compile Include="OrbitController.fs" />
     <None Include="paket.references" />
     <Compile Include="Dialogs.fs" />
     <Compile Include="Model.fs" />
@@ -41,6 +22,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.InstrumentData\PRo3D.InstrumentData.fsproj" />
+    <ProjectReference Include="..\PRo3D.InstrumentProjection\PRo3D.InstrumentProjection.fsproj" />
   </ItemGroup>
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

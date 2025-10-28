@@ -14,6 +14,8 @@ let main args =
     Aardvark.Init()
     Aardium.init()
 
+    use _ = SPICE.init()
+
     // create the opengl application for rendering
     let app = new Aardvark.Application.Slim.OpenGlApplication()
     // create the media application
@@ -24,7 +26,7 @@ let main args =
     ] |> ignore
     
     Aardium.run {
-        title "Aardvark rocks \\o/"
+        title "PRo3D.ImageMapping Tool"
         width 1024
         height 768
         debug true

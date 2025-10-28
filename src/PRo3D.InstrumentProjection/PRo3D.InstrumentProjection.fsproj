@@ -1,0 +1,30 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <TargetFramework>net9.0</TargetFramework>
+  </PropertyGroup>
+  <ItemGroup>
+    <Compile Include="SPICE.fs" />
+    <Compile Include="InstrumentProjection.fs" />
+    <Compile Include="ImageProjection.fs" />
+    <Compile Include="Shaders.fs" />
+    <None Include="paket.references" />
+    <Compile Include="Camera.fs" />
+    <Compile Include="Rendering.fs" />
+    <Compile Include="Visualization.fs" />
+    <Compile Include="Program.fs" />
+    <EmbeddedResource Include="resources/marswikiAnnotated.jpg" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\PRo3D.InstrumentData\PRo3D.InstrumentData.fsproj" />
+    <ProjectReference Include="..\PRo3D.InstrumentVisualization\PRo3D.InstrumentVisualization.fsproj" />
+  </ItemGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
+    <OutputPath>..\..\bin\Debug\</OutputPath>
+  </PropertyGroup>
+  <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
+    <OutputPath>..\..\bin\Release</OutputPath>
+  </PropertyGroup>
+  <Import Project="..\..\.paket\Paket.Restore.targets" />
+</Project>

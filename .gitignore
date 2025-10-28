@@ -13,3 +13,4 @@ bin/Debug
 /.paket
 /Aardvark.log
 /.vs/**
+/Tests/bin/**

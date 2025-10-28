@@ -14,9 +14,14 @@ open Newtonsoft.Json.Linq
 open Aardvark.GeoSpatial.Opc
 open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentData
+open PRo3D.InstrumentProjection
+open PRo3D.InstrumentVisualization
+open PRo3D.Core
+
+type Self = Self
 
 type Message =
-    | CameraMessage of FreeFlyController.Message
+    | OrbitCameraMessage of OrbitMessage
     | SetCustomMin of float
     | SetCustomMax of float
     | ResetCustomMinMax
@@ -146,7 +151,7 @@ module App =
     }
     
     let initial = { 
-        cameraState = FreeFlyController.initial;
+        cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
         colorMap = ColorMap.Magma;
         useFalseColor = true;
         channel = { idx = 0; name = None }
@@ -161,8 +166,8 @@ module App =
 
     let update (m : Model) (msg : Message) =
         match msg with
-            | CameraMessage msg ->
-                { m with cameraState = FreeFlyController.update m.cameraState msg }
+            | OrbitCameraMessage msg ->
+                { m with cameraState = OrbitController.update m.cameraState msg }
             | SetDataTypeAndRange (dataType, min, max) ->
                 { m with customMinValue = { minValue with min = min}; customMaxValue = {minValue with max = max} }
             | SetCustomMin v -> 
@@ -171,32 +176,39 @@ module App =
                 { m with customMaxValue = {maxValue with value = v} }
             | ResetCustomMinMax ->
                 { m with customMinValue = {minValue with value = m.defaultMinValue}; customMaxValue = {maxValue with value = m.defaultMaxValue} }
-            | SetTexture (texture) ->
-                let channelOptions = getEXRChannelOptions(texture[0] + ".json")
-                let channelIdx =
-                    if channelOptions.IsEmpty() then
-                        0
-                    else
-                        match System.Int32.TryParse(channelOptions.[0]) with
-                        | true, v -> v
-                        | false, _ -> 0
-                let (min, max) = getMinMaxFromStatistics(texture[0] + ".json", channelIdx)
-                let dataType = getDataType(texture[0] + ".json")
-                let (rangeMin, rangeMax) =
-                    match dataType with
-                    | DataType.Float -> (min, max)
-                    | DataType.UInt16 
-                    | _ -> (0, 65536)
-                { m with 
-                    texture = texture[0];
-                    defaultMinValue = min;
-                    defaultMaxValue = max;
-                    customMinValue = {minValue with value = min; min = rangeMin; max = rangeMax};
-                    customMaxValue = {maxValue with value = max; min = rangeMin; max = rangeMax};
-                    channel = { idx = channelIdx; name = None }
-                    channelOptions = [ { idx = 0; name = None } ];
-                    dataType = dataType;
-                }
+            | SetTexture (texturePaths) ->   
+                match texturePaths with
+                | [texturePath] -> 
+                    // this could be a fallback
+                    let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels texturePath
+                    let channelOptions = getEXRChannelOptions(texturePath + ".json")
+                    let channelIdx =
+                        if channelOptions.IsEmpty() then
+                            0
+                        else
+                            match System.Int32.TryParse(channelOptions.[0]) with
+                            | true, v -> v
+                            | false, _ -> 0
+                    let (min, max) = getMinMaxFromStatistics(texturePath + ".json", channelIdx)
+                    let dataType = getDataType(texturePath + ".json")
+                    let (rangeMin, rangeMax) =
+                        match dataType with
+                        | DataType.Float -> (min, max)
+                        | DataType.UInt16 
+                        | _ -> (0, 65536)
+                    { m with 
+                        texture = texturePath;
+                        defaultMinValue = min;
+                        defaultMaxValue = max;
+                        customMinValue = {minValue with value = min; min = rangeMin; max = rangeMax};
+                        customMaxValue = {maxValue with value = max; min = rangeMin; max = rangeMax};
+                        channel = { idx = channelIdx; name = None }
+                        channelOptions = [ { idx = 0; name = None } ];
+                        dataType = dataType;
+                    }
+                | _ -> 
+                    Log.warn "only single image supported"
+                    m
             | SetColorMap (map : ColorMap) ->
                 { m with colorMap = map }
             | SetEXRChannel channel ->
@@ -212,43 +224,49 @@ module App =
                 { m with useFalseColor = not m.useFalseColor }
             | Empty ->
                 m
+
+
+    let whitePix =
+        let pi = PixImage<byte>(Col.Format.RGBA, V2i.II)
+        pi.GetMatrix<C4b>().SetByCoord(fun (c : V2l) -> C4b.White) |> ignore
+        pi
+
+    let whiteTex =
+        PixTexture2d(PixImageMipMap [| whitePix :> PixImage |], false) :> ITexture
+
     let view (m : AdaptiveModel) =
 
         let colormapTexture : aval<ITexture> =
             m.colorMap
             |> AVal.map (fun map ->
-                FileTexture(Path.Combine(Path.Combine(Directory.GetCurrentDirectory(), "resources"), ColorMap.getColorMapFileName(map)), TextureParams.empty)
+                let resourceName = ColorMap.getColorMapFileName(map)
+                InstrumentImageVisualization.getColorMapTexture resourceName
             )
 
         let imageTexture : aval<ITexture> =
-            AVal.map2 (fun path_ channel ->
-                let path = if File.Exists(path_) then path_ else Path.Combine(Path.Combine(Directory.GetCurrentDirectory(), "resources"), "white_pixel.png")
-                match Path.GetExtension(path).ToLower() with
-                | ".exr" ->
-                    let stream = File.OpenRead path
-                    let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
-                    PixTexture2d(exrTexture, TextureParams.empty)
-                | ".tiff" | ".tif" -> 
-                    let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
-                    match MultiBandReader.tryReadMultiBandTiff path false with
-                    | Result.Ok img -> 
-                        let images = InstrumentImageTextures.instrumentImageToTexture true img 
-                        match Array.tryItem channel.idx images with
-                        | Some img -> 
-                            PixTexture2d(img.pi, TextureParams.empty)
+            (m.texture, m.channel) 
+            ||> AVal.map2 (fun (path : string) channel ->
+                    match Path.GetExtension(path).ToLower() with
+                    | ".exr" ->
+                        let stream = File.OpenRead path
+                        let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
+                        PixTexture2d(exrTexture, TextureParams.empty)
+                    | ".tiff" | ".tif" -> 
+                        let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
+                        match MultiBandReader.tryReadMultiBandTiff path false with
+                        | Result.Ok img -> 
+                            let images = InstrumentImageTextures.instrumentImageToTexture true img 
+                            match Array.tryItem channel.idx images with
+                            | Some img -> 
+                                PixTexture2d(img.pi, TextureParams.empty)
+                            | _ -> 
+                                Log.warn "channel of out of bounds"
+                                DefaultTextures.checkerboard.GetValue()
                         | _ -> 
-                            Log.warn "channel of out of bounds"
+                            Log.warn "could not load texture"
                             DefaultTextures.checkerboard.GetValue()
-                    | _ -> 
-                        Log.warn "could not load texture"
-                        DefaultTextures.checkerboard.GetValue()
-                | ".png"
-                | _ ->
-                    FileTexture(
-                        path, 
-                        TextureParams.empty
-                    )
-            ) m.texture m.channel
+                    | ".png" | _ -> whiteTex 
+            ) 
 
         let dt = 
             (m.dataType |> 
@@ -269,12 +287,6 @@ module App =
             |> Sg.shader {
                 do! (Shaders.hshColors)
             }
-
-
-        let att =
-            [
-                style "position: fixed; left: 0; top: 0; width: 100%; height: 100%"
-            ]
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
@@ -300,7 +312,7 @@ module App =
                             match c.name with
                             | None -> string c.idx
                             | Some name -> name
-                        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.channel (fun value -> SetEXRChannel (value)) channelRepr
+                        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.channel (fun value -> SetEXRChannel value) channelRepr
                         // Html.SemUi.dropDown m.channel SetEXRChannel
                     ]
                 ]
@@ -361,9 +373,52 @@ module App =
                     ]
                 )
 
+
+        let visualization, frustum =
+            let observer = cval "MARS" //"HERA_AFC-1" 
+            let supportBody = cval "SUN"
+            let referenceFrame = cval "ECLIPJ2000"
+            let referenceFrame = cval "IAU_MARS"
+            let farPlaneMars = 30101626.50 * 1000.0
+            let time = 
+                let startTime = "2025-03-12 11:50:30.000Z"
+                let startTime = "2025-03-12T12:15:45.947Z"
+                cval (DateTime.Parse(startTime))
+
+            let currentProjectedImage = 
+                m.texture 
+                |> AVal.map (fun path -> 
+                    if File.Exists path then
+                        Some (path, InstrumentMetadata.tryParseMetadataForImagePath path)
+                    else
+                        None
+                )
+
+            let imageSettings = 
+                { 
+                    VisualizationProperties.empty with 
+                        visualizationRange = Range1d(0.0, 0.5) |> AVal.constant
+                        colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
+                }
+
+            let scene = 
+                Visualization.createSceneGraph imageSettings currentProjectedImage referenceFrame supportBody observer time 
+                |> Sg.noEvents
+
+            let frustum = Frustum.perspective 80.0 10.0 farPlaneMars 1.0 |> AVal.constant
+            scene, frustum
+
         require Html.semui (
             body [] [
-                renderControl (AVal.constant (Camera.create cameraView frustum')) att instrumentVisualization
+                div [] [
+                    // the 2D control
+                    let leftControl = [style "position: fixed; left: 0; top: 0; width: 50%; height: 100%"; attribute "showLoader" "false"]
+                    renderControl (AVal.constant (Camera.create cameraView frustum')) leftControl instrumentVisualization
+                    
+                    // the 3D projection view
+                    let rightControl = [style "position: fixed; right: 0; top: 0; width: 50%; height: 100%"; attribute "showLoader" "false"] |> AttributeMap.ofList
+                    OrbitController.controlledControl m.cameraState OrbitCameraMessage frustum rightControl visualization
+                ]
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
                     accordion "Texture Mapping" "file image outline" false [ content ]
                 ]
@@ -374,6 +429,6 @@ module App =
             initial = initial
             update = update
             view = view
-            threads = fun m -> m.cameraState |> FreeFlyController.threads |> ThreadPool.map CameraMessage
+            threads = constF ThreadPool.empty
             unpersist = Unpersist.instance
         }
