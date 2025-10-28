@@ -23,6 +23,7 @@ open PRo3D.Core
 open PRo3D.Core.InstrumentMetadata
 open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentData
+open PRo3D.InstrumentVisualization
 
 
 [<Struct>]
@@ -36,7 +37,7 @@ type RelState =
 
 module Visualization =
 
-    let createSceneGraph (currentProjectedImage : aval<Option<string * Option<ParsedMetadata>>>) (referenceFrame : aval<string>) (supportBody : aval<string>) (observer : aval<string>) (time : aval<DateTime>) =
+    let createSceneGraph (projectedImageProperties : VisualizationProperties) (currentProjectedImage : aval<Option<string * Option<ParsedMetadata>>>) (referenceFrame : aval<string>) (supportBody : aval<string>) (observer : aval<string>) (time : aval<DateTime>) =
 
         let farPlaneMars = 30101626.50 * 1000.0
 
@@ -45,7 +46,7 @@ module Visualization =
             Map.ofList [
                 "HERA_AFC-1", frustum
                 "HERA_AFC-2", frustum
-                "HERA_HSH", Frustum.perspective 15.23999 1000.0 farPlaneMars (2048.0 / 1088.0)
+                "HERA_HSH", Frustum.perspective 15.23999 1000.0 farPlaneMars (409.0 / 217.0)
             ]
 
         let projectImage (planet : string) = 
@@ -67,7 +68,7 @@ module Visualization =
         let projectedTexture = 
             currentProjectedImage |> AVal.bind (fun img -> 
                 match img with
-                | Some (img, Some (_, _)) -> 
+                | Some (img, Some _) -> 
                     match MultiBandReader.tryReadMultiBandTiff img false with
                     | Result.Ok img -> 
                         let images = InstrumentImageTextures.instrumentImageToTexture true img 
@@ -108,13 +109,14 @@ module Visualization =
             |> Sg.trafo marsTrafo
             |> Sg.shader {
                 do! Shaders.genAndFlipTextureCoord
-                do! ImageProjection.Shaders.generateNormal
+                do! ImageProjection.Shaders.useVertexNormals
                 do! ImageProjection.Shaders.stableImageProjectionTrafo
                 do! DefaultSurfaces.stableTrafo
                 do! DefaultSurfaces.diffuseTexture
                 do! DefaultSurfaces.stableHeadlight
                 do! ImageProjection.Shaders.stableImageProjection
             }
+            |> InstrumentImageVisualization.applyProperties { projectedImageProperties with instrumentImage = projectedTexture }
             |> Sg.uniform' "ProjectedImageModelViewProjValid" true
             |> Sg.texture "ProjectedTexture" projectedTexture
 

@@ -16,6 +16,8 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PRo3D.InstrumentProjection"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Tests", "Tests\Tests.fsproj", "{99A8A8B9-67EA-4D57-8131-728C88F7B738}"
 EndProject
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "PRo3D.InstrumentVisualization", "src\PRo3D.InstrumentVisualization\PRo3D.InstrumentVisualization.fsproj", "{A3C132EF-1B2C-47AE-9536-D4597F7410F8}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -38,6 +40,10 @@ Global
 		{99A8A8B9-67EA-4D57-8131-728C88F7B738}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{99A8A8B9-67EA-4D57-8131-728C88F7B738}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{99A8A8B9-67EA-4D57-8131-728C88F7B738}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A3C132EF-1B2C-47AE-9536-D4597F7410F8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A3C132EF-1B2C-47AE-9536-D4597F7410F8}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A3C132EF-1B2C-47AE-9536-D4597F7410F8}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A3C132EF-1B2C-47AE-9536-D4597F7410F8}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

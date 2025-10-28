@@ -5,6 +5,8 @@ open FSharp.Data.Adaptive
 open Aardvark.SceneGraph
 open Aardvark.Rendering
 
+open PRo3D.InstrumentVisualization
+
 module ImageProjection =
 
     module Shaders =
@@ -36,7 +38,7 @@ module ImageProjection =
                 filter Filter.MinMagMipLinear
                 addressU WrapMode.Border
                 addressV WrapMode.Border
-                borderColor C4f.White
+                borderColor C4f.Black
             }
 
 
@@ -56,7 +58,7 @@ module ImageProjection =
 
                 let c = 
                     if uniform.ProjectedImageModelViewProjValid && inRange && normal.Z < 0.0 then
-                        let c = projectedTexture.Sample(V2d(tc.X, tc.Y)) 
+                        let c = projectedTexture.Sample(V2d(tc.X, tc.Y)).X |> Shaders.remap
                         let xBorder = (smoothstep 0.0 borderWidth tc.X) * smoothstep 1.0 (1.0 - borderWidth) tc.X 
                         let yBorder = (smoothstep 0.0 borderWidth tc.Y) * smoothstep 1.0 (1.0 - borderWidth) tc.Y
                         let borderFactor = xBorder * yBorder

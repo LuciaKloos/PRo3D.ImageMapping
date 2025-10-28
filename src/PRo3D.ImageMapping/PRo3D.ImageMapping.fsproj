@@ -14,13 +14,6 @@
   <ItemGroup>
     <Compile Include="OrbitModel.fs" />
     <Compile Include="OrbitController.fs" />
-    <EmbeddedResource Include="resources/white_pixel.png" />
-    <EmbeddedResource Include="resources/plasma.png"/>
-    <EmbeddedResource Include="resources/piyg.png"/>
-    <EmbeddedResource Include="resources/twilight_shifted.png"/>
-    <EmbeddedResource Include="resources/vanimo.png"/>
-    <EmbeddedResource Include="resources/viridis.png"/>
-    <EmbeddedResource Include="resources/magma.png"/>
     <None Include="paket.references" />
     <Compile Include="Dialogs.fs" />
     <Compile Include="Model.fs" />

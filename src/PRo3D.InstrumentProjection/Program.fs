@@ -23,7 +23,7 @@ open PRo3D.Core.InstrumentMetadata
 open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentData
 open PRo3D.InstrumentProjection
-
+open PRo3D.InstrumentVisualization
 
 module Time =
 
@@ -118,8 +118,14 @@ module InstrumentProjectionViewer =
 
 
         let scene = 
+            let imageSettings = 
+                { 
+                    VisualizationProperties.empty with 
+                        visualizationRange = Range1d(0.0, 0.4) |> AVal.constant
+                        colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
+                }
             Sg.ofList [
-                Visualization.createSceneGraph currentProjectedImage referenceFrame supportBody observer time
+                Visualization.createSceneGraph imageSettings currentProjectedImage referenceFrame supportBody observer time
             ]
             |> Sg.viewTrafo (AVal.map CameraView.viewTrafo view)
             |> Sg.projTrafo (AVal.map Frustum.projTrafo frustum)

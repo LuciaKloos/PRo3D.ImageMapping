@@ -18,6 +18,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\PRo3D.InstrumentData\PRo3D.InstrumentData.fsproj" />
+    <ProjectReference Include="..\PRo3D.InstrumentVisualization\PRo3D.InstrumentVisualization.fsproj" />
   </ItemGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|AnyCPU'">
     <OutputPath>..\..\bin\Debug\</OutputPath>

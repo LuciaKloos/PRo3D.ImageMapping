@@ -15,6 +15,7 @@ open Aardvark.GeoSpatial.Opc
 open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentData
 open PRo3D.InstrumentProjection
+open PRo3D.InstrumentVisualization
 open PRo3D.Core
 
 type Self = Self
@@ -224,14 +225,6 @@ module App =
             | Empty ->
                 m
 
-    let getResourceStream (resourceName: string) () =
-        let assembly = typeof<Self>.Assembly
-        let resourcePath = assembly.GetName().Name + ".resources." + resourceName
-        let s = assembly.GetManifestResourceStream(resourcePath)
-        if isNull s then
-            Log.warn "could not find resource: %s" resourcePath
-        s
-
 
     let whitePix =
         let pi = PixImage<byte>(Col.Format.RGBA, V2i.II)
@@ -247,10 +240,7 @@ module App =
             m.colorMap
             |> AVal.map (fun map ->
                 let resourceName = ColorMap.getColorMapFileName(map)
-                StreamTexture(
-                    getResourceStream resourceName,
-                    TextureParams.empty
-                ) :> ITexture
+                InstrumentImageVisualization.getColorMapTexture resourceName
             )
 
         let imageTexture : aval<ITexture> =
@@ -392,6 +382,7 @@ module App =
             let farPlaneMars = 30101626.50 * 1000.0
             let time = 
                 let startTime = "2025-03-12 11:50:30.000Z"
+                let startTime = "2025-03-12T12:15:45.947Z"
                 cval (DateTime.Parse(startTime))
 
             let currentProjectedImage = 
@@ -403,8 +394,15 @@ module App =
                         None
                 )
 
+            let imageSettings = 
+                { 
+                    VisualizationProperties.empty with 
+                        visualizationRange = Range1d(0.0, 0.5) |> AVal.constant
+                        colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
+                }
+
             let scene = 
-                Visualization.createSceneGraph currentProjectedImage referenceFrame supportBody observer time 
+                Visualization.createSceneGraph imageSettings currentProjectedImage referenceFrame supportBody observer time 
                 |> Sg.noEvents
 
             let frustum = Frustum.perspective 80.0 10.0 farPlaneMars 1.0 |> AVal.constant
