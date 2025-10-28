@@ -26,7 +26,7 @@ let main args =
     ] |> ignore
     
     Aardium.run {
-        title "Aardvark rocks \\o/"
+        title "PRo3D.ImageMapping Tool"
         width 1024
         height 768
         debug true

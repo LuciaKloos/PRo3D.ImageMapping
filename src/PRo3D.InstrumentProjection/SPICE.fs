@@ -27,6 +27,4 @@ let init() =
     let r = CooTransformation.AddSpiceKernel(Path.GetFullPath(spiceFileName))
     if r <> 0 then failwith "could not add spice kernel"
 
-    System.Environment.CurrentDirectory <- oldDir
-
     d

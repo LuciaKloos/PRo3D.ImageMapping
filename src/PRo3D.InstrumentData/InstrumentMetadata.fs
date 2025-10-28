@@ -92,30 +92,33 @@ module Tiff_Mbi_Json =
 // TODO
 type ParsedMetadata = Tiff_Json.ImageMetadata * FSharp.Data.JsonValue
 
-
-let discoverInstrumentFolder (dir : string) : seq<string * Option<ParsedMetadata>> = 
+let tryParseMetadataForImagePath (imagePath : string) = 
     let getJsonInfoPath (imagePath : string) (suffix : string) = 
         let fi = Path.Combine(Path.GetDirectoryName(imagePath), Path.GetFileNameWithoutExtension(imagePath) + suffix)
         if File.Exists fi then 
             fi
         else
             fi.Replace("_Stacked", "")
+    let mbi_json = getJsonInfoPath imagePath ".mbi.json"
+    let json = imagePath + ".json"
+    match File.Exists(mbi_json), File.Exists(json) with
+    | true, true -> 
+        try
+            let jimMetadata = File.ReadAllText(json) |> Tiff_Json.parseJson
+            let mbi_json = File.ReadAllText(mbi_json) |> Tiff_Mbi_Json.parseJson
+            Some (jimMetadata, mbi_json)
+        with e ->
+            printfn $"could not parse json metadtata for {imagePath}: {e}"
+            None
+    | f, e -> 
+        printfn "%s, %A" mbi_json  (f,e) 
+        None
 
+let discoverInstrumentFolder (dir : string) : seq<string * Option<ParsedMetadata>> = 
     let tifs = Directory.EnumerateFiles(dir, "*.tif", SearchOption.TopDirectoryOnly)
     tifs
     |> Seq.map (fun tifFilename -> 
-        let mbi_json = getJsonInfoPath tifFilename ".mbi.json"
-        let json = tifFilename + ".json"
-        match File.Exists(mbi_json), File.Exists(json) with
-        | true, true -> 
-            try
-                let jimMetadata = File.ReadAllText(json) |> Tiff_Json.parseJson
-                let mbi_json = File.ReadAllText(mbi_json) |> Tiff_Mbi_Json.parseJson
-                (tifFilename, Some (jimMetadata, mbi_json))
-            with e ->
-                printfn $"could not parse json metadtata for {tifFilename}: {e}"
-                tifFilename, None
-        | f, e -> 
-            printfn "%s, %A" mbi_json  (f,e) 
-            tifFilename, None
+        match tryParseMetadataForImagePath tifFilename with
+        | None -> tifFilename, None
+        | Some meta -> tifFilename, Some meta
     )

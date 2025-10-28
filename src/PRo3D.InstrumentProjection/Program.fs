@@ -68,7 +68,6 @@ module InstrumentProjectionViewer =
         let observer = cval "MARS" //"HERA_AFC-1" 
         let supportBody = cval "SUN"
         let referenceFrame = cval "ECLIPJ2000"
-        let referenceFrame = cval "IAU_MARS" 
         let time = 
             let startTime = "2025-03-12 11:50:30.000Z"
             cval (DateTime.Parse(startTime))
