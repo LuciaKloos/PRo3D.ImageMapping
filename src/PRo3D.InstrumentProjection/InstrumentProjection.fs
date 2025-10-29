@@ -70,7 +70,6 @@ module InstrumentProjection =
         | Some bodyToWorld, InstrumentImages.FocusBody target, InstrumentImages.InBody source, Some frustum -> 
             match getLookAt source observer p.instrumentReferenceFrame p.supportBody p.time with
             | Some view ->
-                //  r.Value * 
                 bodyToWorld * CameraView.viewTrafo view * (Frustum.projTrafo frustum) |> Some
             | None -> None
         | _ -> None

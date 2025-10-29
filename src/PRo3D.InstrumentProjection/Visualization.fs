@@ -37,7 +37,8 @@ type RelState =
 
 module Visualization =
 
-    let createSceneGraph (projectedImageProperties : VisualizationProperties) (currentProjectedImage : aval<Option<string * Option<ParsedMetadata>>>) (referenceFrame : aval<string>) (supportBody : aval<string>) (observer : aval<string>) (time : aval<DateTime>) =
+    let createSceneGraph (projectedImageProperties : VisualizationProperties) (currentProjectedImage : aval<Option<string * ParsedMetadata>>) 
+                         (instrumentProjection : InstrumentProjection) (referenceFrame : aval<string>) (supportBody : aval<string>) (observer : aval<string>) (time : aval<DateTime>) =
 
         let farPlaneMars = 30101626.50 * 1000.0
 
@@ -50,25 +51,23 @@ module Visualization =
             ]
 
         let projectImage (planet : string) = 
-            (currentProjectedImage, observer, time) 
-            |||> AVal.map3 (fun img observer time -> 
-                match img with
-                | _ -> 
-                    let p = {
-                        target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                        cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                        instrumentReferenceFrame = "HERA_AFC-1"
-                        instrumentName = "HERA_AFC-1"
-                        supportBody = "SUN"
+            AVal.custom (fun t -> 
+                let img = currentProjectedImage.GetValue t
+                let observer = observer.GetValue t
+                let time = time.GetValue t
+                let referenceFrame = referenceFrame.GetValue t
+                let p = {
+                    instrumentProjection with
                         time = time
                     }
-                    InstrumentProjection.projectOnto "IAU_MARS"  observer instruments p
+                InstrumentProjection.projectOnto referenceFrame observer instruments p
             )
+
 
         let projectedTexture = 
             currentProjectedImage |> AVal.bind (fun img -> 
                 match img with
-                | Some (img, Some _) -> 
+                | Some (img, (Some mbi, _)) -> 
                     match MultiBandReader.tryReadMultiBandTiff img false with
                     | Result.Ok img -> 
                         let images = InstrumentImageTextures.instrumentImageToTexture true img 

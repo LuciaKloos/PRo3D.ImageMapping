@@ -22,6 +22,7 @@ module ImageProjection =
             member x.ProjectedImageModelViewProj : M44d = uniform?ProjectedImageModelViewProj
             member x.ProjectedImagesLocalTrafos : M44d[] = uniform?StorageBuffer?ProjectedImagesLocalTrafos
             member x.ProjectedImagesCount : int = uniform?ProjectedImagesLocalTrafosCount
+            member x.ProjectedImageOpacity : float = uniform?ProjectedImageOpacity
 
         type Vertex = {
             [<Position>]    pos     : V4d
@@ -63,8 +64,9 @@ module ImageProjection =
                         let yBorder = (smoothstep 0.0 borderWidth tc.Y) * smoothstep 1.0 (1.0 - borderWidth) tc.Y
                         let borderFactor = xBorder * yBorder
                         let borderColor = V3d(0.0, 1.0, 0.0)
-                        let c = c.XYZ * borderFactor + borderColor * (1.0 - borderFactor)
-                        V4d(c.XYZ, 1.0)
+                        let blendedProjected = Fun.Lerp(uniform.ProjectedImageOpacity, v.c.XYZ, c.XYZ)
+                        let borderImage = blendedProjected.XYZ * borderFactor + borderColor * (1.0 - borderFactor)
+                        V4d(borderImage.XYZ, 1.0) 
                     else
                         v.c
                 return { v with c = c }
@@ -157,10 +159,6 @@ module ImageProjection =
                 return { v with localNormal = v.n.Normalized }
             }
 
-        let flipNormals (v : NormalVertex) =
-            vertex {
-                return { v with localNormal = -v.localNormal }
-            }
 
 module ImageProjectionTrafoSceneGraph =
     open Aardvark.Base.Ag

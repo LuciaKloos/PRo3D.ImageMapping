@@ -24,6 +24,8 @@ open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentData
 open PRo3D.InstrumentProjection
 open PRo3D.InstrumentVisualization
+open Aardvark.GeoSpatial.Opc.Configurations
+open Aardvark.GeoSpatial.Opc
 
 module Time =
 
@@ -42,6 +44,7 @@ module InstrumentProjectionViewer =
     [<EntryPoint>]
     let main argv =
 
+        Aardvark.Base.Report.Verbosity <- 100000
         Aardvark.Init()
 
         use app = new OpenGlApplication()
@@ -68,12 +71,13 @@ module InstrumentProjectionViewer =
         let observer = cval "MARS" //"HERA_AFC-1" 
         let supportBody = cval "SUN"
         let referenceFrame = cval "ECLIPJ2000"
-        let time = 
+        let referenceFrame = cval "J2000"
+        let initialTime = 
             let startTime = "2025-03-12 11:50:30.000Z"
             cval (DateTime.Parse(startTime))
 
 
-        let initialView = (Camera.getLookAt "HERA" observer.Value referenceFrame.Value "SUN" time.Value).Value |> cval
+        let initialView = (Camera.getLookAt "HERA" observer.Value referenceFrame.Value "SUN" initialTime.Value).Value |> cval
         let speed = 7900.0 * 100.0 |> cval
         let cameraMode = cval CameraMode.Orbit
         let farPlaneMars = 30101626.50 * 1000.0
@@ -99,11 +103,47 @@ module InstrumentProjectionViewer =
             }
 
 
-        let currentProjectedImageIdx = cval 0
 
-        let instrumentImages = 
-            InstrumentMetadata.discoverInstrumentFolder @"C:\pro3ddata\HERA\Workshop2\EOX_PRo3D-GIS_Data\TIFF\Mars-Swing-By\Mars-Swing-By\HSH-1B\1B"
-            |> Seq.toArray
+        let instrumentImages, projection, initialImage = 
+            let p = {
+                        target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                        cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                        instrumentReferenceFrame = "HERA_AFC-1"
+                        instrumentName = "HERA_AFC-1"
+                        supportBody = "SUN"
+                        time = DateTime.Now
+                    }
+            let images = 
+                InstrumentMetadata.discoverInstrumentFolder @"C:\pro3ddata\HERA\Workshop2\EOX_PRo3D-GIS_Data\TIFF\Mars-Swing-By\Mars-Swing-By\AFC1-1B\1B"
+                |> Seq.toArray
+            images, p, Some "AF1_0CRS8F_250312T121701_1B_AFC1.tif"
+
+
+        let instrumentImages, projection, initialImage = 
+            let p = {
+                        target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                        cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                        instrumentReferenceFrame = "HERA_HSH"
+                        instrumentName = "HERA_HSH"
+                        supportBody = "SUN"
+                        time = DateTime.Now
+                    }
+            let images = 
+                InstrumentMetadata.discoverInstrumentFolder @"C:\pro3ddata\HERA\Workshop2\EOX_PRo3D-GIS_Data\TIFF\Mars-Swing-By\Mars-Swing-By\HSH-1B\1B"
+                |> Seq.toArray
+            images, p, Some "HSH_0CRS63_250312T121545_1B_Stacked.tif"
+
+
+        let currentProjectedImageIdx = 
+            match initialImage with
+            | None -> cval 0
+            | Some img -> 
+                let idx = 
+                    instrumentImages 
+                    |> Array.tryFindIndex (fun (path, _) -> Path.GetFileName(path) = img)
+                match idx with
+                | Some i -> cval i
+                | None -> cval 0
 
         let currentProjectedImage = 
             currentProjectedImageIdx 
@@ -114,18 +154,60 @@ module InstrumentProjectionViewer =
                     Some instrumentImages.[idx]
             )
 
+        let time = 
+            (initialTime, currentProjectedImage)
+            ||> AVal.map2 (fun time img ->
+                match img with
+                | Some (img, (Some mbi, _)) -> mbi.obs_date
+                | _ -> time
+            )
+
        
+        let minMax = 
+            currentProjectedImage |> AVal.map (fun img -> 
+                match img with
+                | Some (_, (_, Some imgMeta) : ParsedMetadata) -> 
+                    Range1d(imgMeta.image_statistics[0].minimum, imgMeta.image_statistics[0].maximum)
+                | _ -> 
+                    Range1d.Unit
+            )
+
+        let projectionOpacity = 
+            cval 1.0
+
+        let showProxy = cval true
+
+        let opc =
+            let molaOpcs =
+                Seq.delay (fun _ -> 
+                    System.IO.Directory.GetDirectories(@"C:\pro3ddata\MOLA") 
+                )
+            let mola =
+                { 
+                    useCompressedTextures = true
+                    preTransform     = Trafo3d.Identity
+                    patchHierarchies = molaOpcs
+                    boundingBox      = Box3d.Parse("[[1042657.138109462, 3023778.035968372, -472791.711967824], [1492041.915577915, 3230435.734121298, -231.611523378]]") 
+                    near             = 0.1
+                    far              = 10000.0
+                    speed            = 5.0
+                    lodDecider       =  DefaultMetrics.mars2 
+                }
+            let currentProjection = None |> AVal.constant
+            MarsSurface.getMarsSurfaceSg win.Runtime win.FramebufferSignature mola currentProjection referenceFrame supportBody observer time
 
 
         let scene = 
             let imageSettings = 
                 { 
                     VisualizationProperties.empty with 
-                        visualizationRange = Range1d(0.0, 0.4) |> AVal.constant
+                        projectionOpacity = projectionOpacity
+                        visualizationRange = minMax
                         colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
                 }
             Sg.ofList [
-                Visualization.createSceneGraph imageSettings currentProjectedImage referenceFrame supportBody observer time
+                Visualization.createSceneGraph imageSettings currentProjectedImage projection referenceFrame supportBody observer time |> Sg.onOff showProxy
+                opc |> Sg.onOff (AVal.map not showProxy)
             ]
             |> Sg.viewTrafo (AVal.map CameraView.viewTrafo view)
             |> Sg.projTrafo (AVal.map Frustum.projTrafo frustum)
@@ -169,7 +251,7 @@ module InstrumentProjectionViewer =
                         | None -> TimeSpan.Zero
                         | Some l -> sw.Elapsed - l
                     if not paused then
-                        time.Value <- time.Value + dt * 200.0
+                        initialTime.Value <- initialTime.Value + dt * 200.0
 
                     //let frustum = instruments.["HERA_AFC-1"]
                     //let view = (getLookAt "HERA" observer.Value referenceFrame.Value "SUN" time.Value).Value
@@ -182,6 +264,32 @@ module InstrumentProjectionViewer =
 
         win.Keyboard.KeyDown(Keys.Space).Values.Add(fun _ -> 
             paused <- not paused
+        )
+
+        win.Keyboard.KeyDown(Keys.N).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                currentProjectedImageIdx.Value <- (currentProjectedImageIdx.Value + 1) % instrumentImages.Length
+            )
+        )
+
+        win.Keyboard.KeyDown(Keys.OemPlus).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                projectionOpacity.Value <- clamp 0.0 1.0 (projectionOpacity.Value + 0.1)
+                Log.line "opacity: %A" projectionOpacity.Value
+            )
+        )
+
+        win.Keyboard.KeyDown(Keys.OemMinus).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                projectionOpacity.Value <- clamp 0.0 1.0 (projectionOpacity.Value - 0.1)
+                Log.line "opacity: %A" projectionOpacity.Value
+            )
+        )
+
+        win.Keyboard.KeyDown(Keys.P).Values.Add(fun _ -> 
+            transact (fun _ -> 
+                showProxy.Value <- not showProxy.Value
+            )
         )
 
         win.RenderTask <- renderTask

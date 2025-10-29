@@ -16,5 +16,5 @@ module Shaders =
 
     let genAndFlipTextureCoord (v : TexturedVertex) =
         vertex {
-            return { v with tc = V2d(v.tc.X, 1.0 - v.tc.Y) }
+            return { v with tc = V2d(v.tc.X + 0.5, 1.0 - v.tc.Y) }
         }
