@@ -37,52 +37,69 @@ type RelState =
 
 module Visualization =
 
-    let createSceneGraph (projectedImageProperties : VisualizationProperties) (currentProjectedImage : aval<Option<string * ParsedMetadata>>) 
-                         (instrumentProjection : InstrumentProjection) (referenceFrame : aval<string>) (supportBody : aval<string>) (observer : aval<string>) (time : aval<DateTime>) =
+    let createProjectedTexture (currentProjectedImage : aval<Option<string * ParsedMetadata>>) : aval<ITexture> =
+        currentProjectedImage 
+        |> AVal.bind (fun img -> 
+            match img with
+            | Some (img, (Some mbi, _)) -> 
+                match MultiBandReader.tryReadMultiBandTiff img false with
+                | Result.Ok img -> 
+                    let images = InstrumentImageTextures.instrumentImageToTexture true img 
+                    match Array.tryItem 0 images with
+                    | Some img -> 
+                        PixTexture2d(img.pi, TextureParams.empty) :> ITexture |> AVal.constant
+                    | _ -> 
+                        Log.warn "channel of out of bounds"
+                        DefaultTextures.checkerboard
+                | _ -> 
+                    Log.warn "could not load texture"
+                    DefaultTextures.checkerboard
+            | _ -> 
+                DefaultTextures.checkerboard
+        )
 
+    let creatProjectionFunction (observer : aval<string>) (time : aval<DateTime>) (referenceFrame : aval<string>) 
+                                (currentProjectedImage : aval<Option<string * ParsedMetadata>>) (projection : aval<InstrumentProjection>) =
+
+    
         let farPlaneMars = 30101626.50 * 1000.0
-
         let instruments =
             let frustum = Frustum.perspective 5.5306897076421 1000.0 farPlaneMars 1.0
+            let hsh = Frustum.perspective 15.23999 1000.0 farPlaneMars (217.0 / 409.0)
+            let hsh2 = Frustum.perspective 15.23999  1000.0 farPlaneMars (409.0 / 217.0)
+            let hsh3 = Frustum.perspective 9.9 1000.0 farPlaneMars (217.0 / 409.0)
             Map.ofList [
                 "HERA_AFC-1", frustum
                 "HERA_AFC-2", frustum
-                "HERA_HSH", Frustum.perspective 15.23999 1000.0 farPlaneMars (409.0 / 217.0)
+                "HERA_HSH", hsh2
             ]
 
-        let projectImage (planet : string) = 
-            AVal.custom (fun t -> 
-                let img = currentProjectedImage.GetValue t
-                let observer = observer.GetValue t
-                let time = time.GetValue t
-                let referenceFrame = referenceFrame.GetValue t
-                let p = {
-                    instrumentProjection with
-                        time = time
-                    }
-                InstrumentProjection.projectOnto referenceFrame observer instruments p
-            )
+        let projectImage (targetPlanet : string) = 
+                AVal.custom (fun t -> 
+                    let img = currentProjectedImage.GetValue t
+                    match img with
+                    | Some (_, (Some mbi,_)) -> 
+                        let observer = observer.GetValue t
+                        let time = time.GetValue t
+                        let referenceFrame = referenceFrame.GetValue t
+                        let projection = projection.GetValue t
+                        let p = {
+                            projection with
+                                time = time
+                            }
+                        let t = InstrumentProjection.projectOntoQuat referenceFrame observer instruments p (-mbi.targetPos * 1000.0) mbi.sc_quat
+                        //let old = InstrumentProjection.projectOnto referenceFrame observer instruments p
+                        t
+                    | _  -> 
+                        None
+                )
 
+        projectImage
 
-        let projectedTexture = 
-            currentProjectedImage |> AVal.bind (fun img -> 
-                match img with
-                | Some (img, (Some mbi, _)) -> 
-                    match MultiBandReader.tryReadMultiBandTiff img false with
-                    | Result.Ok img -> 
-                        let images = InstrumentImageTextures.instrumentImageToTexture true img 
-                        match Array.tryItem 0 images with
-                        | Some img -> 
-                            PixTexture2d(img.pi, TextureParams.empty) :> ITexture |> AVal.constant
-                        | _ -> 
-                            Log.warn "channel of out of bounds"
-                            DefaultTextures.checkerboard
-                    | _ -> 
-                        Log.warn "could not load texture"
-                        DefaultTextures.checkerboard
-                | _ -> 
-                    DefaultTextures.checkerboard
-            )
+    let createSceneGraph (projectedImageProperties : VisualizationProperties) (referenceFrame : aval<string>) (supportBody : aval<string>)
+                         (observer : aval<string>) (time : aval<DateTime>) (projectImage : string -> aval<Option<Trafo3d>>) 
+                         (projectedTexture : aval<ITexture>) (projectionEnabled : aval<bool>) =
+
 
         let marsProxy = 
             let marsTrafo = 
@@ -116,7 +133,7 @@ module Visualization =
                 do! ImageProjection.Shaders.stableImageProjection
             }
             |> InstrumentImageVisualization.applyProperties { projectedImageProperties with instrumentImage = projectedTexture }
-            |> Sg.uniform' "ProjectedImageModelViewProjValid" true
+            |> Sg.uniform' "ProjectedImageModelViewProjValid" projectionEnabled
             |> Sg.texture "ProjectedTexture" projectedTexture
 
         marsProxy

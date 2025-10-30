@@ -48,4 +48,5 @@ type Model =
         customMinValue : NumericInput
         customMaxValue : NumericInput
         texture : string
+        projectionOpacity : NumericInput
     }

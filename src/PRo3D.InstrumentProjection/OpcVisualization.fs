@@ -11,6 +11,7 @@ open PRo3D.SPICE
 open Aardvark.GeoSpatial.Opc.Load
 open Aardvark.Data
 open Aardvark.SceneGraph
+open PRo3D.InstrumentVisualization
 
 module MarsSurface = 
 
@@ -23,9 +24,29 @@ module MarsSurface =
                 return c
             }
 
-    let getMarsSurfaceSg (runtime : IRuntime) (framebufferSignature : IFramebufferSignature) (scene : OpcScene) 
+        let moreContrast (v : Vertex) = 
+            fragment {
+                // basic contrast boost around mid-grey (0.5)
+                // tweak constants below to adjust effect
+                let contrast = 1.3    // >1 increases contrast, <1 decreases
+                let brightness = 0.0   // additive brightness offset
+                // read input color (already provided by previous pipeline stages)
+                let r = ((v.c.X - 0.5) * contrast) + 0.5 + brightness
+                let g = ((v.c.Y - 0.5) * contrast) + 0.5 + brightness
+                let b = ((v.c.Z - 0.5) * contrast) + 0.5 + brightness
+
+                // clamp to [0,1]
+                let rc = min 1.0 (max 0.0 r)
+                let gc = min 1.0 (max 0.0 g)
+                let bc = min 1.0 (max 0.0 b)
+
+                return V4d(rc, gc, bc, v.c.W)
+            }
+
+    let getMarsSurfaceSg (runtime : IRuntime) (framebufferSignature : IFramebufferSignature) (scene : OpcScene) (projectedImageProperties : VisualizationProperties) 
                          (currentProjection : aval<Option<Trafo3d>>) (referenceFrame : aval<string>) (supportBody : aval<string>) 
-                         (observer : aval<string>) (time : aval<DateTime>) =
+                         (observer : aval<string>) (time : aval<DateTime>) (projectImage : string -> aval<Option<Trafo3d>>) 
+                         (projectedTexture : aval<ITexture>) =
         let runner = 
             match runtime with
             | :? Aardvark.Rendering.GL.Runtime as r -> r.CreateLoadRunner 1
@@ -95,9 +116,18 @@ module MarsSurface =
         Sg.ofList [
             mola; 
         ]
+        |> Sg.applyProjectedImage projectImage
+        |> Sg.applyPlanet "mars"
         |> Sg.shader {
+            do! ImageProjection.Shaders.stableImageProjectionTrafo
+            do! ImageProjection.Shaders.generateNormal
             do! DefaultSurfaces.stableTrafo
-            do! DefaultSurfaces.diffuseTexture
+            do! DefaultSurfaces.constantColor C4f.White 
+            do! DefaultSurfaces.diffuseTexture 
+            do! Shader.moreContrast
+            do! ImageProjection.Shaders.stableImageProjection
         }
+        |> InstrumentImageVisualization.applyProperties { projectedImageProperties with instrumentImage = projectedTexture }
+        |> Sg.texture "ProjectedTexture" projectedTexture
         //|> Sg.pass afterMain
         //|> Sg.blendMode' BlendMode.Blend

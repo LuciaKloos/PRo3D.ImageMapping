@@ -72,6 +72,7 @@ module InstrumentProjectionViewer =
         let supportBody = cval "SUN"
         let referenceFrame = cval "ECLIPJ2000"
         let referenceFrame = cval "J2000"
+        let referenceFrame = cval "IAU_MARS"
         let initialTime = 
             let startTime = "2025-03-12 11:50:30.000Z"
             cval (DateTime.Parse(startTime))
@@ -119,19 +120,19 @@ module InstrumentProjectionViewer =
             images, p, Some "AF1_0CRS8F_250312T121701_1B_AFC1.tif"
 
 
-        let instrumentImages, projection, initialImage = 
-            let p = {
-                        target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                        cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                        instrumentReferenceFrame = "HERA_HSH"
-                        instrumentName = "HERA_HSH"
-                        supportBody = "SUN"
-                        time = DateTime.Now
-                    }
-            let images = 
-                InstrumentMetadata.discoverInstrumentFolder @"C:\pro3ddata\HERA\Workshop2\EOX_PRo3D-GIS_Data\TIFF\Mars-Swing-By\Mars-Swing-By\HSH-1B\1B"
-                |> Seq.toArray
-            images, p, Some "HSH_0CRS63_250312T121545_1B_Stacked.tif"
+        //let instrumentImages, projection, initialImage = 
+        //    let p = {
+        //                target = InstrumentImages.CameraFocus.FocusBody "MARS"
+        //                cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+        //                instrumentReferenceFrame = "HERA_HSH"
+        //                instrumentName = "HERA_HSH"
+        //                supportBody = "SUN"
+        //                time = DateTime.Now
+        //            }
+        //    let images = 
+        //        InstrumentMetadata.discoverInstrumentFolder @"C:\pro3ddata\HERA\Workshop2\EOX_PRo3D-GIS_Data\TIFF\Mars-Swing-By\Mars-Swing-By\HSH-1B\1B"
+        //        |> Seq.toArray
+        //    images, p, Some "HSH_0CRS63_250312T121545_1B_Stacked.tif"
 
 
         let currentProjectedImageIdx = 
@@ -177,6 +178,18 @@ module InstrumentProjectionViewer =
 
         let showProxy = cval true
 
+
+        let imageSettings = 
+            { 
+                VisualizationProperties.empty with 
+                    projectionOpacity = projectionOpacity
+                    visualizationRange = minMax
+                    colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
+            }
+
+        let projectImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage (AVal.constant projection)
+        let projectedTexture = Visualization.createProjectedTexture currentProjectedImage
+
         let opc =
             let molaOpcs =
                 Seq.delay (fun _ -> 
@@ -193,20 +206,13 @@ module InstrumentProjectionViewer =
                     speed            = 5.0
                     lodDecider       =  DefaultMetrics.mars2 
                 }
-            let currentProjection = None |> AVal.constant
-            MarsSurface.getMarsSurfaceSg win.Runtime win.FramebufferSignature mola currentProjection referenceFrame supportBody observer time
+            let currentProjection = projectImage "MARS"
+            MarsSurface.getMarsSurfaceSg win.Runtime win.FramebufferSignature mola imageSettings currentProjection referenceFrame supportBody observer time projectImage projectedTexture
 
 
         let scene = 
-            let imageSettings = 
-                { 
-                    VisualizationProperties.empty with 
-                        projectionOpacity = projectionOpacity
-                        visualizationRange = minMax
-                        colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
-                }
             Sg.ofList [
-                Visualization.createSceneGraph imageSettings currentProjectedImage projection referenceFrame supportBody observer time |> Sg.onOff showProxy
+                Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectImage projectedTexture (AVal.constant true) |> Sg.onOff showProxy
                 opc |> Sg.onOff (AVal.map not showProxy)
             ]
             |> Sg.viewTrafo (AVal.map CameraView.viewTrafo view)

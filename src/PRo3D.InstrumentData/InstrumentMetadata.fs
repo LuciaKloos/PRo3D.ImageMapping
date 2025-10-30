@@ -99,7 +99,11 @@ module Tiff_Mbi_Json =
     open FSharp.Data.JsonExtensions
     open System.Globalization
 
-    type Mbi = { obs_date : DateTime; sunPos : V3d; earthPos : V3d }
+    type Mbi = { 
+        obs_date : DateTime; sunPos : V3d; earthPos : V3d; 
+        sc_quat : QuaternionD; targetPos : V3d 
+        instrument : string
+    }
 
     let tryGetFitsHeader (headerName : string) (mbi : JsonValue) (m : JsonValue -> Option<'a>): Option<'a> = 
         let tryGetMatchingHeader (header: JsonValue) =
@@ -147,14 +151,31 @@ module Tiff_Mbi_Json =
             V3d(x,y,z) |> Some
         | _ -> None
 
+    let tryExtractSC_quat (mbi : JsonValue) = 
+        match tryGetFitsHeader "SC_QUAT0" mbi parseFloat, tryGetFitsHeader "SC_QUAT1" mbi parseFloat, tryGetFitsHeader "SC_QUAT2" mbi parseFloat, tryGetFitsHeader "SC_QUAT3" mbi parseFloat with
+        | Some q0, Some q1, Some q2, Some q3 ->  
+            QuaternionD(q0, q1, q2, q3) |> Result.Ok
+        | _ -> 
+            Result.Error "could not extract SC_QUAT from mbi json"
+
+
     let tryParseJson (content : string) = 
         match JsonValue.TryParse(content) with
         | Some mbi ->
             try
                 let sunPos = tryExtractXyz "SUN_POSX" "SUN_POSY" "SUN_POSZ" mbi
                 let earthPos = tryExtractXyz "EARTPOSX" "EARTPOSY" "EARTPOSZ" mbi
-                match tryExtractDateObsFromMbi mbi, sunPos, earthPos  with
-                | Some d, Some sunPos, Some earthPos -> { obs_date = d; sunPos = sunPos; earthPos = earthPos } |> Result.Ok
+                let targetPos = tryExtractXyz "TRG_POSX" "TRG_POSY" "TRG_POSZ" mbi
+                let instrument = tryGetFitsHeader "INSTRUME" mbi (function JsonValue.String s -> Some s | _ -> None)
+                match tryExtractDateObsFromMbi mbi, sunPos, earthPos, tryExtractSC_quat mbi, targetPos, instrument  with
+                | Some d, Some sunPos, Some earthPos, Result.Ok quat, Some targetPos, Some instrument -> 
+                    { 
+                        obs_date = d; sunPos = sunPos; 
+                        earthPos = earthPos 
+                        sc_quat = quat
+                        targetPos = targetPos
+                        instrument = instrument
+                    } |> Result.Ok
                 | _ -> Result.Error (System.Exception("could not find DATE-OBS in mbi json"))
             with e ->
                 Result.Error e
