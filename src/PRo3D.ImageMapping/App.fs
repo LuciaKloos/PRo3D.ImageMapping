@@ -57,58 +57,12 @@ module App =
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select directory', filters: [{ name: 'directories'}], properties: ['openDirectory']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
-        let content = 
-            Incremental.div listAttributes (
-                alist {
-    
-                    let! selected = m.selectedImage
-                    let white = sprintf "color: %s" (Html.color C4b.White)
-
-                    let domNodes = 
-                        m.images 
-                        |> AList.mapi (fun index img ->
-                            let t = img |> Image.view
-                            div [clazz "item"; style white] [
-                                i [clazz "bookmark middle aligned icon"; onClick (fun _ -> SelectImage index);] []
-                                div [clazz "content"; style white] [                     
-                                    div [style white] [
-                                        let descriptionText = sprintf "attr_A %A | attr_B %A" 0 0
-                                        yield div [clazz "description"] [text descriptionText]
-                                    ]  
-                                    match selected with
-                                        | Some idx when idx == index -> 
-                                            showImage img |> UI.map (fun msg -> Message.ImageMessage (idx, msg))
-                                        | Some _
-                                        | None -> 
-                                            div [] []
-                                    ]
-                            ])
-
-                    
-                    yield                 
-                        text "Texture:" 
-
-                    yield
-                        button [
-                            clazz "ui button tiny";
-                            style "margin-left: 10px";
-                            Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
-                            clientEvent "onclick" (jsImportDialog)
-                        ] [
-                            text "Import"
-                        ]
-
-                    for domNode in domNodes do
-                        yield domNode
-                })
-
-        let accordion text' icon active content' =
+        let accordion text' icon active styling content' =
                 let title = if active then "title active inverted" else "title inverted"
                 let content = if active then "content active" else "content"
-               // let arrow = if active then 
                                     
                 onBoot "$('#__ID__').accordion();" (
-                    div [clazz "ui inverted segment"] [
+                    div [styling] [
                         div [clazz "ui inverted accordion fluid"] [
                             div [clazz title; style "background-color: #282828"] [
                                     i [clazz ("dropdown icon")] []
@@ -116,15 +70,94 @@ module App =
                                     div [style "float:right"] [i [clazz (icon + " icon")] []]
                                 
                             ]
-                            div [clazz content;  style "overflow-y : auto; "] content' //max-height: 35%
+                            div [clazz content;  style "overflow-y : auto; "] content' 
                         ]
                     ]
                 )
 
+        let contentImages = 
+            let attributesSelect = attribute "style" "cursor: pointer; width: 50px; height: 30px; border-right: 1px solid #ccc; padding-left: 3px;"
+            let attributesEdit = attribute "style" "cursor: pointer; width: 50px; height: 30px; border-right: 1px solid #ccc; padding-left: 3px;"
+            let attributesAttr1 = attribute "style" "cursor: pointer; width: 100px; height: 30px; border-right: 1px solid #ccc; padding-left: 3px;"
+            let attributesAttr2 = attribute "style" "cursor: pointer; width: 100px; height: 30px; padding-left: 3px;"
+
+            let header =
+                div [ 
+                    attribute "style" "display: flex; font-weight: bold; border-bottom: 2px solid #ccc;"
+                ] [
+                    div [ attributesSelect; onClick (fun _ -> Message.Empty) ] [text "Select"]
+                    div [ attributesEdit; onClick (fun _ -> Message.Empty) ] [text "Edit"]
+                    div [ attributesAttr1; onClick (fun _ -> Message.Empty) ] [text "Dist. to Planet"]
+                    div [ attributesAttr2; onClick (fun _ -> Message.Empty) ] [text "Sth else"]
+                ]
+            Incremental.div (AttributeMap.ofList [ attribute "class" "table-container" ]) (
+                alist {
+                    yield header
+
+                    yield Incremental.div (AttributeMap.ofList [ attribute "style" "max-height: 400px; overflow-y: auto; " ]) (
+                        alist {
+                        let! selected = m.selectedImage
+                        let white = sprintf "color: %s" (Html.color C4b.White)
+
+                        let domNodes = 
+                            m.images 
+                            |> AList.mapi (fun index img ->
+                                div [attribute "style" "border-bottom: 1px solid #ccc;"] [
+                                    div [
+                                        attribute "style" "display: flex; font-weight: bold;"] 
+                                        [
+                                            div [attributesSelect] [ Html.SemUi.iconCheckBox (adaptive { return (selected == Some index) }) (SelectImage index)]  
+                                            div [attributesEdit] [ i [clazz "edit icon"; onClick (fun _ -> SelectImage index);] [] ]
+                                            div [attributesAttr1] [ text "0"]
+                                            div [attributesAttr2] [ text "0"]
+                                        ]
+                                    match selected with
+                                        | Some idx when idx == index -> 
+                                            div [attribute "style" "border-style: double"] [
+                                                showImage img |> UI.map (fun msg -> Message.ImageMessage (idx, msg))
+                                            ]
+                                        | Some _
+                                        | None -> 
+                                            div [] []
+                                ]
+                            )
+                        for domNode in domNodes do
+                            yield domNode
+                    })
+                })
+
+
+        let content = 
+            div [] [
+                button [
+                    clazz "ui button tiny";
+                    style "margin-left: 10px";
+                    Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
+                    clientEvent "onclick" (jsImportDialog)
+                ] [
+                    text "Import Directory"
+                ]
+                Incremental.div AttributeMap.empty (
+                    AList.ofAVal (
+                        AVal.map (fun c ->
+                            if c > 0 then
+                                [ 
+                                    div [style "border: 1px solid #ccc; margin-top: 10px"] [
+                                         contentImages
+                                    ] 
+                                ]
+                            else
+                                []
+                        ) (AList.count m.images)
+                    )
+                )
+            ]
+            
+
         require Html.semui (
             body [] [
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
-                    accordion "Texture Mapping" "file image outline" false [ content ]
+                    accordion "Texture Mapping" "file image outline" false (clazz "ui inverted segment") [ content ]
                 ]
             ])
 

@@ -75,6 +75,7 @@ type Message =
     | SelectImage of Index
     | LoadImagesDir of string
     | ImageMessage of Index * ImageMessage
+    | Empty
 
 
 
