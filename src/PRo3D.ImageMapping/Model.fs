@@ -57,6 +57,7 @@ type Model =
     {
         images          : IndexList<Image>
         selectedImage   : Option<Index>
+        editImages      : Option<Index list>
     }
 
 type ImageMessage =
@@ -73,9 +74,11 @@ type ImageMessage =
 
 type Message = 
     | SelectImage of Index
+    | EditImage of Index
     | LoadImagesDir of string
     | ImageMessage of Index * ImageMessage
-    | Empty
+    | SortEntriesByDistance
+    | SortEntriesByDate
 
 
 

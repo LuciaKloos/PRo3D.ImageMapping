@@ -4,19 +4,10 @@ open System
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
 
 open System.IO
-open Newtonsoft.Json.Linq
-
-open Aardvark.GeoSpatial.Opc
-open Aardvark.PixImage.LibTiff
-open PRo3D.InstrumentData
-open PRo3D.InstrumentProjection
-open PRo3D.InstrumentVisualization
-open PRo3D.Core
 
 type Self = Self
 
@@ -25,6 +16,7 @@ module App =
     let initial : Model = {
         images = IndexList.Empty;
         selectedImage = None;
+        editImages = None;
     }
 
     let update (m : Model) (msg : Message) = 
@@ -41,10 +33,32 @@ module App =
                     Image.loadFile(path)
                 ) |> IndexList.ofSeq
             { m with images = images' }
-        | SelectImage img -> 
-            { m with selectedImage = Some img }
-        | ImageMessage (idx, imageMessage) ->
+        | SelectImage idx -> 
+            { m with selectedImage = Some idx }
+        | EditImage idx ->
             m
+        | ImageMessage (idx, imageMessage) ->
+            let images' = m.images |> IndexList.mapi (fun index img ->
+                    if index == idx then
+                        Image.update img imageMessage
+                    else
+                        img
+                )
+            m
+        | SortEntriesByDistance ->
+            let images' = 
+                m.images
+                |> IndexList.toList
+                |> List.sortBy (fun p -> p.defaultMinValue)
+                |> IndexList.ofList
+            { m with images = images' }
+        | SortEntriesByDate ->
+            let images' = 
+                m.images
+                |> IndexList.toList
+                |> List.sortBy (fun p -> p.defaultMaxValue)
+                |> IndexList.ofList
+            { m with images = images' }
 
     let view (m : AdaptiveModel) (showImage : AdaptiveImage -> DomNode<ImageMessage>) =
     
@@ -78,17 +92,24 @@ module App =
         let contentImages = 
             let attributesSelect = attribute "style" "cursor: pointer; width: 50px; height: 30px; border-right: 1px solid #ccc; padding-left: 3px;"
             let attributesEdit = attribute "style" "cursor: pointer; width: 50px; height: 30px; border-right: 1px solid #ccc; padding-left: 3px;"
-            let attributesAttr1 = attribute "style" "cursor: pointer; width: 100px; height: 30px; border-right: 1px solid #ccc; padding-left: 3px;"
-            let attributesAttr2 = attribute "style" "cursor: pointer; width: 100px; height: 30px; padding-left: 3px;"
+            let attributesAttr1 = attribute "style" "cursor: pointer; width: 120px; height: 30px; border-right: 1px solid #ccc; padding-left: 3px;"
+            let attributesAttr2 = attribute "style" "cursor: pointer; width: 120px; height: 30px; padding-left: 3px;"
 
             let header =
                 div [ 
+                    // attribute "clazz" "title active inverted"
                     attribute "style" "display: flex; font-weight: bold; border-bottom: 2px solid #ccc;"
                 ] [
-                    div [ attributesSelect; onClick (fun _ -> Message.Empty) ] [text "Select"]
-                    div [ attributesEdit; onClick (fun _ -> Message.Empty) ] [text "Edit"]
-                    div [ attributesAttr1; onClick (fun _ -> Message.Empty) ] [text "Dist. to Planet"]
-                    div [ attributesAttr2; onClick (fun _ -> Message.Empty) ] [text "Sth else"]
+                    div [ attributesSelect ] [text "Select"]
+                    div [ attributesEdit ] [text "Edit"]
+                    div [ attributesAttr1 ] [
+                        i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance);] []
+                        text "Dist. to Planet"
+                    ]
+                    div [ attributesAttr2 ] [
+                        i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDate);] []
+                        text "Sth else"
+                    ]
                 ]
             Incremental.div (AttributeMap.ofList [ attribute "class" "table-container" ]) (
                 alist {
@@ -96,8 +117,7 @@ module App =
 
                     yield Incremental.div (AttributeMap.ofList [ attribute "style" "max-height: 400px; overflow-y: auto; " ]) (
                         alist {
-                        let! selected = m.selectedImage
-                        let white = sprintf "color: %s" (Html.color C4b.White)
+                        let! editEntries = m.editImages
 
                         let domNodes = 
                             m.images 
@@ -106,15 +126,16 @@ module App =
                                     div [
                                         attribute "style" "display: flex; font-weight: bold;"] 
                                         [
-                                            div [attributesSelect] [ Html.SemUi.iconCheckBox (adaptive { return (selected == Some index) }) (SelectImage index)]  
-                                            div [attributesEdit] [ i [clazz "edit icon"; onClick (fun _ -> SelectImage index);] [] ]
-                                            div [attributesAttr1] [ text "0"]
-                                            div [attributesAttr2] [ text "0"]
+                                            //div [attributesSelect] [ Html.SemUi.iconCheckBox (adaptive { return (selected == Some index) }) (SelectImage index)]
+                                            div [attributesSelect] [ Html.SemUi.iconCheckBox (cval (m.selectedImage = adaptive { return (Some index) })) (SelectImage index)]
+                                            div [attributesEdit] [ i [clazz "edit icon"; onClick (fun _ -> EditImage index);] [] ]
+                                            div [attributesAttr1] [ Incremental.text (img.defaultMinValue |> AVal.map string) ]
+                                            div [attributesAttr2] [ Incremental.text (img.defaultMaxValue |> AVal.map string) ]
                                         ]
-                                    match selected with
-                                        | Some idx when idx == index -> 
+                                    match editEntries with
+                                        | Some indices when List.contains index indices -> 
                                             div [attribute "style" "border-style: double"] [
-                                                showImage img |> UI.map (fun msg -> Message.ImageMessage (idx, msg))
+                                                showImage img |> UI.map (fun msg -> Message.ImageMessage (index, msg))
                                             ]
                                         | Some _
                                         | None -> 
