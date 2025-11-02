@@ -126,8 +126,7 @@ module App =
                                     div [
                                         attribute "style" "display: flex; font-weight: bold;"] 
                                         [
-                                            //div [attributesSelect] [ Html.SemUi.iconCheckBox (adaptive { return (selected == Some index) }) (SelectImage index)]
-                                            div [attributesSelect] [ Html.SemUi.iconCheckBox (cval (m.selectedImage = adaptive { return (Some index) })) (SelectImage index)]
+                                            div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
                                             div [attributesEdit] [ i [clazz "edit icon"; onClick (fun _ -> EditImage index);] [] ]
                                             div [attributesAttr1] [ Incremental.text (img.defaultMinValue |> AVal.map string) ]
                                             div [attributesAttr2] [ Incremental.text (img.defaultMaxValue |> AVal.map string) ]
