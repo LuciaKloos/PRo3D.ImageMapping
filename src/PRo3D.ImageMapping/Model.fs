@@ -57,7 +57,7 @@ type Model =
     {
         images          : IndexList<Image>
         selectedImage   : Option<Index>
-        editImages      : Option<Index list>
+        editImages      : Index list
     }
 
 type ImageMessage =

@@ -16,7 +16,7 @@ module App =
     let initial : Model = {
         images = IndexList.Empty;
         selectedImage = None;
-        editImages = None;
+        editImages = List.Empty;
     }
 
     let update (m : Model) (msg : Message) = 
@@ -36,7 +36,12 @@ module App =
         | SelectImage idx -> 
             { m with selectedImage = Some idx }
         | EditImage idx ->
-            m
+            let editImages' =
+                if List.contains idx m.editImages then
+                    m.editImages |> List.filter ((<>) idx)
+                else
+                    idx :: m.editImages
+            { m with editImages = editImages'} 
         | ImageMessage (idx, imageMessage) ->
             let images' = m.images |> IndexList.mapi (fun index img ->
                     if index == idx then
@@ -48,19 +53,67 @@ module App =
         | SortEntriesByDistance ->
             let images' = 
                 m.images
+                |> IndexList.mapi (fun idx e -> (idx, e))
                 |> IndexList.toList
-                |> List.sortBy (fun p -> p.defaultMinValue)
+                |> List.sortBy (fun (idx, p) -> p.defaultMinValue)
                 |> IndexList.ofList
-            { m with images = images' }
+            let newSelectedIdx = 
+                match m.selectedImage with
+                | Some selectedImage ->
+                    let (newIdx, (oldIdx, img) )= 
+                        images'
+                        |> IndexList.mapi (fun newIdx (idx, p) -> (newIdx, (idx, p)))
+                        |> IndexList.filter (fun (newIdx, (idx, p)) -> idx = selectedImage)
+                        |> IndexList.toSeq
+                        |> Seq.head
+                    Some newIdx
+                | None -> None
+            let editImages' = 
+                images'
+                |> IndexList.mapi (fun newIdx (idx, p) -> (newIdx, (idx, p)))
+                |> IndexList.filter (fun (newIdx, (idx, p)) -> List.contains idx m.editImages)
+                |> IndexList.map (fun (newIdx, (idx, p)) -> newIdx)
+                |> IndexList.toList
+            { m with
+                images = images' |> IndexList.map (fun (idx, img) -> img);
+                selectedImage = newSelectedIdx;
+                editImages = editImages'
+            }
         | SortEntriesByDate ->
             let images' = 
                 m.images
+                |> IndexList.mapi (fun idx e -> (idx, e))
                 |> IndexList.toList
-                |> List.sortBy (fun p -> p.defaultMaxValue)
+                |> List.sortBy (fun (idx, p) -> p.defaultMaxValue)
                 |> IndexList.ofList
-            { m with images = images' }
+            let newSelectedIdx = 
+                match m.selectedImage with
+                | Some selectedImage ->
+                    let (newIdx, (oldIdx, img) )= 
+                        images'
+                        |> IndexList.mapi (fun newIdx (idx, p) -> (newIdx, (idx, p)))
+                        |> IndexList.filter (fun (newIdx, (idx, p)) -> idx = selectedImage)
+                        |> IndexList.toSeq
+                        |> Seq.head
+                    Some newIdx
+                | None -> None
+            let editImages' = 
+                images'
+                |> IndexList.mapi (fun newIdx (idx, p) -> (newIdx, (idx, p)))
+                |> IndexList.filter (fun (newIdx, (idx, p)) -> List.contains idx m.editImages)
+                |> IndexList.map (fun (newIdx, (idx, p)) -> newIdx)
+                |> IndexList.toList
+            { m with 
+                images = images' |> IndexList.map (fun (idx, img) -> img);
+                selectedImage = newSelectedIdx;
+                editImages = editImages'}
 
-    let view (m : AdaptiveModel) (showImage : AdaptiveImage -> DomNode<ImageMessage>) =
+
+    let view 
+        (m : AdaptiveModel)
+        (showDOM : AdaptiveImage -> DomNode<ImageMessage>) 
+        (showRelative2DImage : AdaptiveImage -> DomNode<ImageMessage>)
+        (showAbsolute2DAnd3DImage : AdaptiveImage -> DomNode<ImageMessage>) =
     
         let listAttributes =
             amap {
@@ -127,17 +180,16 @@ module App =
                                         attribute "style" "display: flex; font-weight: bold;"] 
                                         [
                                             div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
-                                            div [attributesEdit] [ i [clazz "edit icon"; onClick (fun _ -> EditImage index);] [] ]
+                                            div [attributesEdit] [ i [clazz (if List.contains index editEntries then "eye icon" else "eye slash icon" ); onClick (fun _ -> EditImage index);] [] ]
                                             div [attributesAttr1] [ Incremental.text (img.defaultMinValue |> AVal.map string) ]
                                             div [attributesAttr2] [ Incremental.text (img.defaultMaxValue |> AVal.map string) ]
                                         ]
                                     match editEntries with
-                                        | Some indices when List.contains index indices -> 
+                                        | indices when List.contains index indices -> 
                                             div [attribute "style" "border-style: double"] [
-                                                showImage img |> UI.map (fun msg -> Message.ImageMessage (index, msg))
+                                                showDOM img |> UI.map (fun msg -> Message.ImageMessage (index, msg))
                                             ]
-                                        | Some _
-                                        | None -> 
+                                        | _ -> 
                                             div [] []
                                 ]
                             )
@@ -185,7 +237,7 @@ module App =
         {
             initial = initial
             update = update
-            view = (fun m -> view m Image.view)
+            view = (fun m -> view m Image.view Image.view2DRelative Image.view2DAnd3DImageAbsolute)
             threads = constF ThreadPool.empty
             unpersist = Unpersist.instance
         }
