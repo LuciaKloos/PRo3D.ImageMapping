@@ -14,7 +14,7 @@ type Self = Self
 
 module App =
 
-    let borderColor = "#ccc"
+    let borderColor = "rgba(255,255,255,.1)"
 
     let initial : Model = {
         images = IndexList.Empty;
@@ -146,15 +146,15 @@ module App =
                 )
 
         let contentImages = 
-            let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 30px; border-right: 1px solid {borderColor}; padding-left: 3px;"
-            let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 30px; border-right: 1px solid {borderColor}; padding-left: 3px;"
-            let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 30px; border-right: 1px solid {borderColor}; padding-left: 3px;"
-            let attributesAttr2 = attribute "style" "cursor: pointer; width: 120px; height: 30px; padding-left: 3px;"
+            let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 30px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 30px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 30px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesAttr2 = attribute "style" $"cursor: pointer; width: 120px; height: 30px; display: flex; justify-content: center; align-items: center;"
 
             let header =
                 div [ 
                     // attribute "clazz" "title active inverted"
-                    attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid {borderColor};" 
+                    attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black" 
                 ] [
                     div [ attributesSelect ] [text "Select"]
                     div [ attributesEdit ] [text "Edit"]
@@ -171,7 +171,7 @@ module App =
                 alist {
                     yield header
 
-                    yield Incremental.div (AttributeMap.ofList [ attribute "style" "max-height: 400px; overflow-y: auto; " ]) (
+                    yield Incremental.div (AttributeMap.ofList [ attribute "style" "max-height: 700px; overflow-y: auto; " ]) (
                         alist {
                         let! editEntries = m.editImages
 
@@ -179,19 +179,19 @@ module App =
                             m.images 
                             |> AList.mapi (fun index img ->
                                 // let distanceToPlanet = CooTransformation.getRelState "HERA" "SUN" "MARS"  
-                                div [attribute "style" "border-bottom: 1px solid rgba(34,36,38,.15);"] [
-                                    div [attribute "style" $"border-bottom: 1px solid rgba(34,36,38,.15); background: {borderColor}"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
+                                div [attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"] [
+                                    div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
                                     div [
                                         attribute "style" "display: flex; font-weight: bold;"] 
                                         [
                                             div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
-                                            div [attributesEdit] [ i [clazz (if List.contains index editEntries then "eye icon" else "eye slash icon" ); onClick (fun _ -> EditImage index);] [] ]
+                                            div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
                                             div [attributesAttr1] [ Incremental.text (img.defaultMinValue |> AVal.map string) ]
                                             div [attributesAttr2] [ Incremental.text (img.defaultMaxValue |> AVal.map string) ]
                                         ]
                                     match editEntries with
                                         | indices when List.contains index indices -> 
-                                            div [attribute "style" "border-style: double"] [
+                                            div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
                                                 showDOM img |> UI.map (fun msg -> Message.ImageMessage (index, msg))
                                             ]
                                         | _ -> 
@@ -232,7 +232,7 @@ module App =
                         let! imageCount = AList.count m.images
                         if imageCount > 0 then
                             yield 
-                                div [style "border: 1px solid rgba(34,36,38,.15); margin-top: 10px"] [
+                                div [style $"border: 2px solid black; margin-top: 10px"] [
                                         contentImages
                                 ]
                     }
