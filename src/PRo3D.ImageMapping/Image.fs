@@ -169,7 +169,7 @@ module Image =
             | DataType.UInt16 
             | _ -> (0, 65536)
         { initial with
-            texture = texturePath;
+            texture = Path.GetFullPath(texturePath);
             defaultMinValue = min;
             defaultMaxValue = max;
             customMinValue = {minValue with value = min; min = rangeMin; max = rangeMax};
@@ -201,7 +201,7 @@ module Image =
             | SetColorMap (map : ColorMap) ->
                 { m with colorMap = map }
             | SetEXRChannel channel ->
-                let (min, max) = getMinMaxFromStatistics(m.texture + ".json", channel.idx)
+                let (min, max) = getMinMaxFromStatistics(Path.Combine (m.texture, ".json"), channel.idx)
                 { m with 
                     defaultMinValue = min;
                     defaultMaxValue = max;
@@ -224,22 +224,8 @@ module Image =
         PixTexture2d(PixImageMipMap [| whitePix :> PixImage |], false) :> ITexture
 
     let view (m : AdaptiveImage) =
-
-        let jsImportDialog = "top.aardvark.dialog.showOpenDialog({tile: 'Select image', filters: [{ name: 'Images (*.*)', extensions: ['tif', 'exr']},], properties: ['openFile']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"        
-
         let content = 
             Html.table [ 
-                Html.row "Texture:" 
-                    [
-                        button [
-                            clazz "ui button tiny";
-                            style "margin-left: 10px";
-                            Dialogs.onChooseFiles (fun chosen -> SetTexture (chosen) );
-                            clientEvent "onclick" (jsImportDialog)
-                        ] [
-                            text "Import"
-                        ]
-                    ]
                 Html.row "EXR Channel:" [
                     div [style "color: white;"] [
                         let channelRepr (c : Channel) = 
@@ -445,10 +431,8 @@ module Image =
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
 
         require Html.semui (
-            div [] [
-                div [style "position: relative; paddingLeft: 25px; paddingTop: 25px; width: 100%"] [
-                    let s = [style "position: relative; width: 100%;"; attribute "showLoader" "false"]
-                    renderControl (AVal.constant (Camera.create cameraView frustum')) s instrumentVisualization
-                ]
+            div [style "position: relative; paddingLeft: 25px; paddingTop: 25px; width: 200px; height: 200px"] [
+                let style = [style "position: relative; width: 100%; height: 100%"; attribute "showLoader" "false"]
+                renderControl (AVal.constant (Camera.create cameraView frustum')) style instrumentVisualization
             ]
         )

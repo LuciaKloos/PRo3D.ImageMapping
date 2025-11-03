@@ -5,6 +5,7 @@ open Adaptify
 
 open FSharp.Data.Adaptive
 
+
 type ColorMap =
     | Magma = 0
     | Plasma = 1

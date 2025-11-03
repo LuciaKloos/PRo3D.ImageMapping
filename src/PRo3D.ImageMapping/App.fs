@@ -6,12 +6,15 @@ open Aardvark.UI
 open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
+open PRo3D.Extensions.FSharp
 
 open System.IO
 
 type Self = Self
 
 module App =
+
+    let borderColor = "#ccc"
 
     let initial : Model = {
         images = IndexList.Empty;
@@ -44,12 +47,12 @@ module App =
             { m with editImages = editImages'} 
         | ImageMessage (idx, imageMessage) ->
             let images' = m.images |> IndexList.mapi (fun index img ->
-                    if index == idx then
+                    if index = idx then
                         Image.update img imageMessage
                     else
                         img
                 )
-            m
+            { m with images = images' }
         | SortEntriesByDistance ->
             let images' = 
                 m.images
@@ -143,15 +146,15 @@ module App =
                 )
 
         let contentImages = 
-            let attributesSelect = attribute "style" "cursor: pointer; width: 50px; height: 30px; border-right: 1px solid #ccc; padding-left: 3px;"
-            let attributesEdit = attribute "style" "cursor: pointer; width: 50px; height: 30px; border-right: 1px solid #ccc; padding-left: 3px;"
-            let attributesAttr1 = attribute "style" "cursor: pointer; width: 120px; height: 30px; border-right: 1px solid #ccc; padding-left: 3px;"
+            let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 30px; border-right: 1px solid {borderColor}; padding-left: 3px;"
+            let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 30px; border-right: 1px solid {borderColor}; padding-left: 3px;"
+            let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 30px; border-right: 1px solid {borderColor}; padding-left: 3px;"
             let attributesAttr2 = attribute "style" "cursor: pointer; width: 120px; height: 30px; padding-left: 3px;"
 
             let header =
                 div [ 
                     // attribute "clazz" "title active inverted"
-                    attribute "style" "display: flex; font-weight: bold; border-bottom: 2px solid #ccc;"
+                    attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid {borderColor};" 
                 ] [
                     div [ attributesSelect ] [text "Select"]
                     div [ attributesEdit ] [text "Edit"]
@@ -175,7 +178,9 @@ module App =
                         let domNodes = 
                             m.images 
                             |> AList.mapi (fun index img ->
-                                div [attribute "style" "border-bottom: 1px solid #ccc;"] [
+                                // let distanceToPlanet = CooTransformation.getRelState "HERA" "SUN" "MARS"  
+                                div [attribute "style" "border-bottom: 1px solid rgba(34,36,38,.15);"] [
+                                    div [attribute "style" $"border-bottom: 1px solid rgba(34,36,38,.15); background: {borderColor}"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
                                     div [
                                         attribute "style" "display: flex; font-weight: bold;"] 
                                         [
@@ -209,25 +214,51 @@ module App =
                 ] [
                     text "Import Directory"
                 ]
+                let preview2D = 
+                    adaptive {
+                        let! selectedImage = m.selectedImage
+                        match selectedImage with
+                        | Some sel -> 
+                            let! img = AList.tryGet sel m.images
+                            match img with
+                            | Some img' -> return showRelative2DImage img' |> UI.map (fun msg -> Message.ImageMessage (sel, msg))
+                            | None -> return div [] []
+                        | None -> return div [] []
+                    }
                 Incremental.div AttributeMap.empty (
-                    AList.ofAVal (
-                        AVal.map (fun c ->
-                            if c > 0 then
-                                [ 
-                                    div [style "border: 1px solid #ccc; margin-top: 10px"] [
-                                         contentImages
-                                    ] 
+                    alist {
+                        let! preview2D' = preview2D
+                        yield preview2D'
+                        let! imageCount = AList.count m.images
+                        if imageCount > 0 then
+                            yield 
+                                div [style "border: 1px solid rgba(34,36,38,.15); margin-top: 10px"] [
+                                        contentImages
                                 ]
-                            else
-                                []
-                        ) (AList.count m.images)
-                    )
+                    }
                 )
             ]
             
 
         require Html.semui (
             body [] [
+                let preview2D3D = 
+                    adaptive {
+                        let! selectedImage = m.selectedImage
+                        match selectedImage with
+                        | Some sel -> 
+                            let! img = AList.tryGet sel m.images
+                            match img with
+                            | Some img' -> return showAbsolute2DAnd3DImage img' |> UI.map (fun msg -> Message.ImageMessage (sel, msg))
+                            | None -> return div [] []
+                        | None -> return div [] []
+                    }
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! preview2D3D' = preview2D3D
+                        yield preview2D3D'
+                    }
+                )
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
                     accordion "Texture Mapping" "file image outline" false (clazz "ui inverted segment") [ content ]
                 ]
