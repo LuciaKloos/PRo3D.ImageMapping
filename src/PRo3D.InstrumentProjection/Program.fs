@@ -120,19 +120,19 @@ module InstrumentProjectionViewer =
             images, p, Some "AF1_0CRS8F_250312T121701_1B_AFC1.tif"
 
 
-        //let instrumentImages, projection, initialImage = 
-        //    let p = {
-        //                target = InstrumentImages.CameraFocus.FocusBody "MARS"
-        //                cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-        //                instrumentReferenceFrame = "HERA_HSH"
-        //                instrumentName = "HERA_HSH"
-        //                supportBody = "SUN"
-        //                time = DateTime.Now
-        //            }
-        //    let images = 
-        //        InstrumentMetadata.discoverInstrumentFolder @"C:\pro3ddata\HERA\Workshop2\EOX_PRo3D-GIS_Data\TIFF\Mars-Swing-By\Mars-Swing-By\HSH-1B\1B"
-        //        |> Seq.toArray
-        //    images, p, Some "HSH_0CRS63_250312T121545_1B_Stacked.tif"
+        let instrumentImages, projection, initialImage = 
+            let p = {
+                        target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                        cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                        instrumentReferenceFrame = "HERA_HSH"
+                        instrumentName = "HERA_HSH"
+                        supportBody = "SUN"
+                        time = DateTime.Now
+                    }
+            let images = 
+                InstrumentMetadata.discoverInstrumentFolder @"C:\pro3ddata\HERA\Workshop2\EOX_PRo3D-GIS_Data\TIFF\Mars-Swing-By\Mars-Swing-By\HSH-1B\1B"
+                |> Seq.toArray
+            images, p, Some "HSH_0CRS63_250312T121545_1B_Stacked.tif"
 
 
         let currentProjectedImageIdx = 
@@ -178,13 +178,15 @@ module InstrumentProjectionViewer =
 
         let showProxy = cval true
 
+        let colorMap = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
+        let heightColorMap = InstrumentImageVisualization.getColorMapTexture "coolwarm.png" |> AVal.constant
 
         let imageSettings = 
             { 
                 VisualizationProperties.empty with 
                     projectionOpacity = projectionOpacity
                     visualizationRange = minMax
-                    colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
+                    colorMapping = colorMap
             }
 
         let projectImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage (AVal.constant projection)
@@ -207,7 +209,7 @@ module InstrumentProjectionViewer =
                     lodDecider       =  DefaultMetrics.mars2 
                 }
             let currentProjection = projectImage "MARS"
-            MarsSurface.getMarsSurfaceSg win.Runtime win.FramebufferSignature mola imageSettings currentProjection referenceFrame supportBody observer time projectImage projectedTexture
+            MarsSurface.getMarsSurfaceSg win.Runtime win.FramebufferSignature mola imageSettings currentProjection referenceFrame supportBody observer time projectImage projectedTexture heightColorMap
 
 
         let scene = 

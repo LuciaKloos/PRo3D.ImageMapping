@@ -24,6 +24,28 @@ module MarsSurface =
                 return c
             }
 
+        let molaGrayScale = 
+            sampler2d {
+                texture uniform?DiffuseColorTexture
+                filter Filter.MinMagMipPoint
+                addressU WrapMode.Clamp
+                addressV WrapMode.Clamp
+            }
+
+        let colorMap = 
+            sampler2d {
+                texture uniform?ColorMap
+                filter Filter.MinMagMipPoint
+                addressU WrapMode.Clamp
+                addressV WrapMode.Clamp
+            }
+
+        let molaColor (v : Vertex) = 
+            fragment {
+                let color = colorMap.Sample(V2d(v.c.X * 1.5, 0.5))
+                return color
+            }
+
         let moreContrast (v : Vertex) = 
             fragment {
                 // basic contrast boost around mid-grey (0.5)
@@ -46,7 +68,7 @@ module MarsSurface =
     let getMarsSurfaceSg (runtime : IRuntime) (framebufferSignature : IFramebufferSignature) (scene : OpcScene) (projectedImageProperties : VisualizationProperties) 
                          (currentProjection : aval<Option<Trafo3d>>) (referenceFrame : aval<string>) (supportBody : aval<string>) 
                          (observer : aval<string>) (time : aval<DateTime>) (projectImage : string -> aval<Option<Trafo3d>>) 
-                         (projectedTexture : aval<ITexture>) =
+                         (projectedTexture : aval<ITexture>) (colorMap : aval<ITexture>)=
         let runner = 
             match runtime with
             | :? Aardvark.Rendering.GL.Runtime as r -> r.CreateLoadRunner 1
@@ -92,7 +114,7 @@ module MarsSurface =
                     )
 
                 n
-                |> Sg.trafo (trafo |> AVal.map (Option.defaultValue Trafo3d.Identity))
+                |> Sg.trafo (trafo |> AVal.map (fun v -> Option.defaultValue Trafo3d.Identity v))
                 |> Sg.applyBody (AVal.constant (Some "MARS"))
                 |> Sg.applyProjectedImages' (
                     fun s -> 
@@ -122,12 +144,13 @@ module MarsSurface =
             do! ImageProjection.Shaders.stableImageProjectionTrafo
             do! ImageProjection.Shaders.generateNormal
             do! DefaultSurfaces.stableTrafo
-            do! DefaultSurfaces.constantColor C4f.White 
-            do! DefaultSurfaces.diffuseTexture 
+            do! DefaultSurfaces.diffuseTexture
+            do! Shader.molaColor
             do! Shader.moreContrast
             do! ImageProjection.Shaders.stableImageProjection
         }
         |> InstrumentImageVisualization.applyProperties { projectedImageProperties with instrumentImage = projectedTexture }
         |> Sg.texture "ProjectedTexture" projectedTexture
+        |> Sg.texture "ColorMap" colorMap
         //|> Sg.pass afterMain
         //|> Sg.blendMode' BlendMode.Blend
