@@ -4,6 +4,7 @@ open Aardium
 open Aardvark.UI
 open Suave
 open Aardvark.Base
+open PRo3D.SPICE
 
 
 

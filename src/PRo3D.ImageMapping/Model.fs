@@ -51,6 +51,7 @@ type Image =
         customMinValue : NumericInput
         customMaxValue : NumericInput
         texture : string
+        projectionOpacity : NumericInput
     }
 
 [<ModelType>]
@@ -66,7 +67,6 @@ type ImageMessage =
     | SetCustomMin of float
     | SetCustomMax of float
     | ResetCustomMinMax
-    | SetTexture of string list
     | SetColorMap of ColorMap
     | ToggleFalseColor
     | SetEXRChannel of Channel
@@ -80,6 +80,3 @@ type Message =
     | ImageMessage of Index * ImageMessage
     | SortEntriesByDistance
     | SortEntriesByDate
-
-
-

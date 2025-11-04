@@ -18,6 +18,7 @@ type VisualizationProperties =
         dataType : aval<DataType>
         instrumentImage : aval<ITexture>
         colorMapping : aval<Option<ITexture>>
+        projectionOpacity : aval<float>
     }
 
 module VisualizationProperties =
@@ -27,6 +28,7 @@ module VisualizationProperties =
             dataType = AVal.constant DataType.Float32
             instrumentImage = DefaultTextures.checkerboard
             colorMapping = AVal.constant None
+            projectionOpacity = AVal.constant 1.0
         }
 
 [<AutoOpen>]
@@ -55,11 +57,13 @@ module InstrumentImageVisualization =
         |> Sg.uniform "UseFalseColor" (p.colorMapping |> AVal.map Option.isSome)
         |> Sg.texture "InstrumentImage" p.instrumentImage
         |> Sg.uniform "DataType" (p.dataType |> AVal.map int)
+        |> Sg.uniform "ProjectedImageOpacity" p.projectionOpacity
         |> Sg.texture "ColormapTexture" (
             p.colorMapping |> AVal.bind (function
                 | None -> DefaultTextures.blackTex 
                 | Some t -> AVal.constant t)
         )
+
 
 module Shaders = 
     open FShade

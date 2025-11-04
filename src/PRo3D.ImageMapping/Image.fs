@@ -17,6 +17,7 @@ open PRo3D.InstrumentData
 open PRo3D.InstrumentProjection
 open PRo3D.InstrumentVisualization
 open PRo3D.Core
+open PRo3D.SPICE
 
 
 module Shaders = 
@@ -135,7 +136,7 @@ module Image =
         step    = 1
         format  = "{0:0.00}"
     }
-    
+
     let initial = { 
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
         colorMap = ColorMap.Magma;
@@ -148,6 +149,7 @@ module Image =
         customMinValue = minValue;
         customMaxValue = maxValue;
         texture = initialPath;
+        projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; value = 1.0 }
     }
 
     let loadFile (texturePath : string) =
@@ -191,13 +193,6 @@ module Image =
                 { m with customMaxValue = {maxValue with value = v} }
             | ResetCustomMinMax ->
                 { m with customMinValue = {minValue with value = m.defaultMinValue}; customMaxValue = {maxValue with value = m.defaultMaxValue} }
-            | SetTexture (texturePaths) ->   
-                match texturePaths with
-                | [texturePath] -> 
-                    m
-                | _ -> 
-                    Log.warn "only single image supported"
-                    m
             | SetColorMap (map : ColorMap) ->
                 { m with colorMap = map }
             | SetEXRChannel channel ->
@@ -338,10 +333,6 @@ module Image =
             let referenceFrame = cval "ECLIPJ2000"
             let referenceFrame = cval "IAU_MARS"
             let farPlaneMars = 30101626.50 * 1000.0
-            let time = 
-                let startTime = "2025-03-12 11:50:30.000Z"
-                let startTime = "2025-03-12T12:15:45.947Z"
-                cval (DateTime.Parse(startTime))
 
             let currentProjectedImage = 
                 m.texture 
@@ -355,12 +346,52 @@ module Image =
             let imageSettings = 
                 { 
                     VisualizationProperties.empty with 
-                        visualizationRange = Range1d(0.0, 0.5) |> AVal.constant
+                        visualizationRange = (m.customMinValue.value, m.customMaxValue.value) ||> AVal.map2 (fun min max -> Range1d(min,max))
                         colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
+                        projectionOpacity = m.projectionOpacity.value
                 }
 
+            let projectionSetup = 
+                let p = {
+                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                    instrumentReferenceFrame = "HERA_AFC-1"
+                    instrumentName = "HERA_AFC-1"
+                    supportBody = "SUN"
+                    time = DateTime.Now
+                }
+                currentProjectedImage |> AVal.map (function 
+                    | Some (f, (Some mbi,_)) -> 
+                        let p = 
+                            { p with
+                                time = mbi.obs_date
+                                instrumentName = 
+                                    match InstrumentProjection.instrument2SpiceName mbi.instrument with
+                                    | None -> failwith "no spice name for the given instrument."
+                                    | Some i -> i
+                                instrumentReferenceFrame = "J2000"
+                            }
+                        p, mbi.obs_date
+                    | _ -> 
+                        let defaultTime = "2025-03-12 11:50:30.000Z"
+                        p, DateTime.Parse(defaultTime)
+                )
+
+            let projection = projectionSetup |> AVal.map fst
+            let time = projectionSetup |> AVal.map snd
+            
+            let projectImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage projection
+            let projectedTexture = Visualization.createProjectedTexture currentProjectedImage
+
+            let projectionEnabled = 
+                currentProjectedImage 
+                |> AVal.map (function 
+                    | Some (_, (Some _, _)) -> true
+                    | _ -> false
+                )
+
             let scene = 
-                Visualization.createSceneGraph imageSettings currentProjectedImage referenceFrame supportBody observer time 
+                Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectImage projectedTexture projectionEnabled
                 |> Sg.noEvents
 
             let frustum = Frustum.perspective 80.0 10.0 farPlaneMars 1.0 |> AVal.constant
