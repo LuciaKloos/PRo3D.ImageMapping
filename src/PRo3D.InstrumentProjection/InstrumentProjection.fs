@@ -70,7 +70,50 @@ module InstrumentProjection =
         | Some bodyToWorld, InstrumentImages.FocusBody target, InstrumentImages.InBody source, Some frustum -> 
             match getLookAt source observer p.instrumentReferenceFrame p.supportBody p.time with
             | Some view ->
-                //  r.Value * 
                 bodyToWorld * CameraView.viewTrafo view * (Frustum.projTrafo frustum) |> Some
             | None -> None
         | _ -> None
+
+    let getLookAtQuat (viewerBody : string) (observer : string) (referenceFrame : string) 
+                      (supportBody : string) (time : DateTime) (position : V3d) (sc_quat : QuaternionD) =
+        let afc1Pos = CooTransformation.getRelState viewerBody supportBody observer time referenceFrame
+        match afc1Pos with    
+        | Some targetState ->
+            let pos = targetState.pos
+            let rot = Rot3d(sc_quat.Conjugated)
+            let frame = M33d.Rotation rot
+            let t = Trafo3d.FromBasis(-frame.C0, -frame.C1, -frame.C2, V3d.Zero)
+            let u = CameraView.ofTrafo t
+            let z = CameraView.withLocation position u
+            Some z
+        | _ -> 
+            None
+
+    let specialTrafos = 
+        Map.ofList [
+            "HERA_AFC-2", Trafo3d.FromOrthoNormalBasis(V3d.OIO, V3d.IOO, V3d.OOI)
+            "HERA_AFC-1", Trafo3d.FromOrthoNormalBasis(-V3d.OIO, -V3d.IOO, V3d.OOI)
+            "HERA_HSH", Trafo3d.FromOrthoNormalBasis(-V3d.OIO, -V3d.IOO, V3d.OOI)
+        ] 
+
+    let projectOntoQuat (referenceFrame : string) (observer : string) (instruments : Map<string, Frustum>) 
+                        (p : InstrumentProjection) (position : V3d) (sc_quat : QuaternionD) = 
+        let toSpaceCraft = CooTransformation.getRotationTrafo referenceFrame "J2000" p.time
+        match p.target, p.cameraSource, Map.tryFind p.instrumentName instruments, toSpaceCraft with
+        | InstrumentImages.FocusBody target, InstrumentImages.InBody source, Some frustum, Some toSpaceCraft -> 
+            match getLookAtQuat source observer referenceFrame p.supportBody p.time position sc_quat, getLookAt source observer referenceFrame p.supportBody p.time with
+            | Some view, Some refold ->
+                toSpaceCraft * CameraView.viewTrafo view * specialTrafos[p.instrumentName] * (Frustum.projTrafo frustum) |> Some
+            | _ -> None
+        | _ -> None
+
+    // maps fits names to spice names
+    let instrumentNames = 
+        Map.ofList [
+            "AFC1", "HERA_AFC-1"
+            "HSH", "HERA_HSH"
+            "AFC2", "HERA_AFC-2"
+        ]
+
+    let instrument2SpiceName (fitsName : string) = 
+        Map.tryFind fitsName instrumentNames

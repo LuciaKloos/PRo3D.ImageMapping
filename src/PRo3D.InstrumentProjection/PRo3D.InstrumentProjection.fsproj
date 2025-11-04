@@ -12,6 +12,8 @@
     <None Include="paket.references" />
     <Compile Include="Camera.fs" />
     <Compile Include="Rendering.fs" />
+    <Compile Include="OpcRenderingProperties.fs" />
+    <Compile Include="OpcVisualization.fs" />
     <Compile Include="Visualization.fs" />
     <Compile Include="Program.fs" />
     <EmbeddedResource Include="resources/marswikiAnnotated.jpg" />
