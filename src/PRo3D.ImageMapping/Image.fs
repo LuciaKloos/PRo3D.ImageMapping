@@ -54,14 +54,14 @@ module Shaders =
                 (hshValueX - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
             let remapClampNormalize =
                 if uniform.UseFalseColor then
-                    colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
-                else 
                     V4d(
                         (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
                         (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
                         (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
                         1.0
                     )
+                else 
+                    colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
             return remapClampNormalize
         }
 
