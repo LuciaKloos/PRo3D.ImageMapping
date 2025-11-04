@@ -25,15 +25,7 @@ open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentData
 open PRo3D.InstrumentVisualization
 
-
-[<Struct>]
-type RelState = 
-    {
-        pos : V3d
-        vel : V3d
-        rot : M33d
-    }
-
+type Self = Self
 
 module Visualization =
 
@@ -108,7 +100,7 @@ module Visualization =
 
             let marsTexture = 
                 let getImageStream () = 
-                    typeof<RelState>.Assembly.GetManifestResourceStream("PRo3D.InstrumentProjection.resources.marswikiAnnotated.jpg")
+                    typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.InstrumentProjection.resources.marswikiAnnotated.jpg")
                 StreamTexture(getImageStream)
 
             let sphericalUnitBody (scale : float) = 
