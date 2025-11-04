@@ -21,7 +21,7 @@ open PRo3D.SPICE
 
 let logDir = Path.Combine(".", "logs")
 let spiceRoot = Path.combine [ ".."; ".."; ".."; ".."; ".."]
-let spiceFileName = Path.GetFullPath(Path.combine [ spiceRoot; "./spice2/kernels/mk/hera_ops.tm"])
+let spiceFileName = Path.GetFullPath(Path.combine [ spiceRoot; "./spice/kernels/mk/hera_ops.tm"])
 
 do Aardvark.Base.Aardvark.UnpackNativeDependencies(typeof<CooTransformation.RelState>.Assembly)
 
