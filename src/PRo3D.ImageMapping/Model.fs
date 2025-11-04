@@ -3,6 +3,9 @@ namespace PRo3D.ImageMapping.Model
 open Aardvark.UI.Primitives
 open Adaptify
 
+open FSharp.Data.Adaptive
+
+
 type ColorMap =
     | Magma = 0
     | Plasma = 1
@@ -35,7 +38,7 @@ type Channel =
     }
 
 [<ModelType>]
-type Model =
+type Image =
     {
         cameraState     : OrbitState
         colorMap        : ColorMap
@@ -50,3 +53,30 @@ type Model =
         texture : string
         projectionOpacity : NumericInput
     }
+
+[<ModelType>]
+type Model =
+    {
+        images          : IndexList<Image>
+        selectedImage   : Option<Index>
+        editImages      : Index list
+    }
+
+type ImageMessage =
+    | OrbitCameraMessage of OrbitMessage
+    | SetCustomMin of float
+    | SetCustomMax of float
+    | ResetCustomMinMax
+    | SetColorMap of ColorMap
+    | ToggleFalseColor
+    | SetEXRChannel of Channel
+    | SetDataTypeAndRange of DataType * float * float
+    | Empty
+
+type Message = 
+    | SelectImage of Index
+    | EditImage of Index
+    | LoadImagesDir of string
+    | ImageMessage of Index * ImageMessage
+    | SortEntriesByDistance
+    | SortEntriesByDate

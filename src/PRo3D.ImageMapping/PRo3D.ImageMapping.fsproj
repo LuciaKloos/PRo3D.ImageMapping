@@ -17,6 +17,7 @@
     <None Include="paket.references" />
     <Compile Include="Dialogs.fs" />
     <Compile Include="Model.fs" />
+	<Compile Include="Image.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

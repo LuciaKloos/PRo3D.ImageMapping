@@ -4,371 +4,135 @@ open System
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
+open PRo3D.Extensions.FSharp
 
 open System.IO
-open Newtonsoft.Json.Linq
-
-open Aardvark.GeoSpatial.Opc
-open Aardvark.PixImage.LibTiff
-open PRo3D.InstrumentData
-open PRo3D.InstrumentProjection
-open PRo3D.InstrumentVisualization
-open PRo3D.Core
-open PRo3D.SPICE
 
 type Self = Self
 
-type Message =
-    | OrbitCameraMessage of OrbitMessage
-    | SetCustomMin of float
-    | SetCustomMax of float
-    | ResetCustomMinMax
-    | SetTexture of string list
-    | SetColorMap of ColorMap
-    | ToggleFalseColor
-    | SetEXRChannel of Channel
-    | SetDataTypeAndRange of DataType * float * float
-    | SetProjectionOpacity of Numeric.Action
-    | Empty
-
-
-module Shaders = 
-    open FShade
-    open Aardvark.Rendering.Effects
-
-    let instrumentSampler = 
-        sampler2d {
-            texture uniform?InstrumentImage
-            filter Filter.MinMagMipLinear
-            addressU WrapMode.Wrap
-            addressV WrapMode.Wrap
-        }
-
-    let colormapTextureSampler =
-        sampler2d {
-            texture uniform?ColormapTexture
-            filter Filter.MinMagMipLinear
-            addressU WrapMode.Wrap
-            addressV WrapMode.Wrap
-        }
-
-    type UniformScope with
-        member x.MinValue : float = uniform?MinValue
-        member x.MaxValue : float = uniform?MaxValue
-        member x.UseFalseColor : bool = uniform?UseFalseColor
-        member x.DataType : int = uniform?DataType
-
-    let hshColors (v : Vertex)  = 
-        fragment {
-            let hshValueX = instrumentSampler.Sample(v.tc).X 
-            let remappedClampedNormalizedXInt16 =
-                ((min uniform.MaxValue (max uniform.MinValue (hshValueX * 65000.0))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
-            let remappedClampedNormalizedXFloat =
-                (hshValueX - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
-            let remapClampNormalize =
-                if uniform.UseFalseColor then
-                    colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
-                else 
-                    V4d(
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        1.0
-                    )
-            return remapClampNormalize
-        }
-
-
 module App =
 
-    let initialPath = ""
+    let borderColor = "rgba(255,255,255,.1)"
 
-    let getDataType (filePath: string) = 
-        if not (File.Exists(filePath)) then
-            DataType.UInt16
-        else 
-            let j = JObject.Parse(File.ReadAllText(filePath))
-            match j.TryGetValue("data_type") with
-            | true, t -> 
-                match t.Value<string>() with
-                | "uint16" -> DataType.UInt16
-                | "uint32" -> DataType.UInt32
-                | "float" -> DataType.Float
-                | _ -> DataType.UInt16
-            | _ -> DataType.UInt16
-
-    let getMinMaxFromStatistics (filePath: string, channel: int) =
-        if not (File.Exists(filePath)) then
-            (0, 0)
-        else 
-            let j = JObject.Parse(File.ReadAllText(filePath))
-            let rec loop (token:JToken) remaining =
-                match remaining with
-                | [] -> token.Value<int>()
-                | k::rest ->
-                    match token.Type with
-                    | JTokenType.Object ->
-                        let obj = token :?> JObject
-                        match obj.TryGetValue(k) with
-                            | true, t -> loop t rest
-                            | _ -> token.Value<int>()
-                    | JTokenType.Array ->
-                        let obj = token.[channel] :?> JObject
-                        match obj.TryGetValue(k) with
-                            | true, t -> loop t rest
-                            | _ -> token.Value<int>()
-                    | _ -> token.Value<int>()
-
-            (loop (j :> JToken) ["image_statistics"; "minimum"], loop (j :> JToken) ["image_statistics"; "maximum"])
-
-    let getEXRChannelOptions (filePath: string) =
-        if not ((File.Exists(filePath)) || (Path.GetExtension(filePath).ToLower() != ".exr")) then
-            []
-        else 
-            let j = JObject.Parse(File.ReadAllText(filePath))
-            match j.TryGetValue("channels") with
-            | true, t -> 
-                let channels = [ 0 .. t.Value<int>() - 1 ]
-                channels |> List.map string
-            | _ -> []
-            
-
-    let minValue = {
-        value   = 0.0
-        min     = 0.0
-        max     = 65000.0
-        step    = 1
-        format  = "{0:0.00}"
+    let initial : Model = {
+        images = IndexList.Empty;
+        selectedImage = None;
+        editImages = List.Empty;
     }
 
-    let maxValue = {
-        value   = 0.0
-        min     = 0.0
-        max     = 65000.0
-        step    = 1
-        format  = "{0:0.00}"
-    }
-    
-    let initial = { 
-        cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
-        colorMap = ColorMap.Magma;
-        useFalseColor = true;
-        channel = { idx = 0; name = None }
-        channelOptions = [];
-        dataType = DataType.UInt16;
-        defaultMinValue = minValue.value;
-        defaultMaxValue = maxValue.value;
-        customMinValue = minValue;
-        customMaxValue = maxValue;
-        texture = initialPath;
-        projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; value = 1.0 }
-    }
-
-    let update (m : Model) (msg : Message) =
+    let update (m : Model) (msg : Message) = 
         match msg with
-            | OrbitCameraMessage msg ->
-                { m with cameraState = OrbitController.update m.cameraState msg }
-            | SetDataTypeAndRange (dataType, min, max) ->
-                { m with customMinValue = { minValue with min = min}; customMaxValue = {minValue with max = max} }
-            | SetCustomMin v -> 
-                { m with customMinValue = {minValue with value = v} }
-            | SetCustomMax v -> 
-                { m with customMaxValue = {maxValue with value = v} }
-            | ResetCustomMinMax ->
-                { m with customMinValue = {minValue with value = m.defaultMinValue}; customMaxValue = {maxValue with value = m.defaultMaxValue} }
-            | SetTexture (texturePaths) ->   
-                match texturePaths with
-                | [texturePath] -> 
-                    // this could be a fallback
-                    let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels texturePath
-                    let channelOptions = getEXRChannelOptions(texturePath + ".json")
-                    let channelIdx =
-                        if channelOptions.IsEmpty() then
-                            0
-                        else
-                            match System.Int32.TryParse(channelOptions.[0]) with
-                            | true, v -> v
-                            | false, _ -> 0
-                    let (min, max) = getMinMaxFromStatistics(texturePath + ".json", channelIdx)
-                    let dataType = getDataType(texturePath + ".json")
-                    let (rangeMin, rangeMax) =
-                        match dataType with
-                        | DataType.Float -> (min, max)
-                        | DataType.UInt16 
-                        | _ -> (0, 65536)
-                    { m with 
-                        texture = texturePath;
-                        defaultMinValue = min;
-                        defaultMaxValue = max;
-                        customMinValue = {minValue with value = min; min = rangeMin; max = rangeMax};
-                        customMaxValue = {maxValue with value = max; min = rangeMin; max = rangeMax};
-                        channel = { idx = channelIdx; name = None }
-                        channelOptions = [ { idx = 0; name = None } ];
-                        dataType = dataType;
-                    }
-                | _ -> 
-                    Log.warn "only single image supported"
-                    m
-            | SetColorMap (map : ColorMap) ->
-                { m with colorMap = map }
-            | SetEXRChannel channel ->
-                let (min, max) = getMinMaxFromStatistics(m.texture + ".json", channel.idx)
-                { m with 
-                    defaultMinValue = min;
-                    defaultMaxValue = max;
-                    customMinValue = {minValue with value = min};
-                    customMaxValue = {maxValue with value = max};
-                    channel = channel
-                }
-            | ToggleFalseColor ->
-                { m with useFalseColor = not m.useFalseColor }
-            | SetProjectionOpacity msg -> 
-                { m with projectionOpacity = Numeric.update m.projectionOpacity msg }
-            | Empty ->
-                m
-
-
-    let whitePix =
-        let pi = PixImage<byte>(Col.Format.RGBA, V2i.II)
-        pi.GetMatrix<C4b>().SetByCoord(fun (c : V2l) -> C4b.White) |> ignore
-        pi
-
-    let whiteTex =
-        PixTexture2d(PixImageMipMap [| whitePix :> PixImage |], false) :> ITexture
-
-    let view (m : AdaptiveModel) =
-
-        let colormapTexture : aval<ITexture> =
-            m.colorMap
-            |> AVal.map (fun map ->
-                let resourceName = ColorMap.getColorMapFileName(map)
-                InstrumentImageVisualization.getColorMapTexture resourceName
-            )
-
-        let imageTexture : aval<ITexture> =
-            (m.texture, m.channel) 
-            ||> AVal.map2 (fun (path : string) channel ->
-                    match Path.GetExtension(path).ToLower() with
-                    | ".exr" ->
-                        let stream = File.OpenRead path
-                        let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
-                        PixTexture2d(exrTexture, TextureParams.empty)
-                    | ".tiff" | ".tif" -> 
-                        let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
-                        match MultiBandReader.tryReadMultiBandTiff path false with
-                        | Result.Ok img -> 
-                            let images = InstrumentImageTextures.instrumentImageToTexture true img 
-                            match Array.tryItem channel.idx images with
-                            | Some img -> 
-                                PixTexture2d(img.pi, TextureParams.empty)
-                            | _ -> 
-                                Log.warn "channel of out of bounds"
-                                DefaultTextures.checkerboard.GetValue()
-                        | _ -> 
-                            Log.warn "could not load texture"
-                            DefaultTextures.checkerboard.GetValue()
-                    | ".png" | _ -> whiteTex 
-            ) 
-
-        let dt = 
-            (m.dataType |> 
-                AVal.map (fun dt -> 
-                int dt)
-            )
-
-        let instrumentVisualization = 
-            
-            Sg.fullScreenQuad
-            |> Sg.noEvents
-            |> Sg.texture "InstrumentImage" imageTexture
-            |> Sg.texture "ColormapTexture" colormapTexture
-            |> Sg.uniform "MinValue" (m.customMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
-            |> Sg.uniform "MaxValue" (m.customMaxValue.value |> AVal.map (fun v -> float v))
-            |> Sg.uniform "UseFalseColor" m.useFalseColor
-            |> Sg.uniform "DataType" (m.dataType |> AVal.map (fun dt -> int dt))
-            |> Sg.shader {
-                do! (Shaders.hshColors)
+        | LoadImagesDir directory -> 
+            let imageExts = [".tif";".tiff";".jpg";".exr"]
+            let images' = 
+                Directory.EnumerateFiles(directory) 
+                |> Seq.filter (fun p -> 
+                    let e = Path.GetExtension p
+                    List.contains e imageExts 
+                )
+                |> Seq.map (fun path -> 
+                    Image.loadFile(path)
+                ) |> IndexList.ofSeq
+            { m with images = images' }
+        | SelectImage idx -> 
+            { m with selectedImage = Some idx }
+        | EditImage idx ->
+            let editImages' =
+                if List.contains idx m.editImages then
+                    m.editImages |> List.filter ((<>) idx)
+                else
+                    idx :: m.editImages
+            { m with editImages = editImages'} 
+        | ImageMessage (idx, imageMessage) ->
+            let images' = m.images |> IndexList.mapi (fun index img ->
+                    if index = idx then
+                        Image.update img imageMessage
+                    else
+                        img
+                )
+            { m with images = images' }
+        | SortEntriesByDistance ->
+            let images' = 
+                m.images
+                |> IndexList.mapi (fun idx e -> (idx, e))
+                |> IndexList.toList
+                |> List.sortBy (fun (idx, p) -> p.defaultMinValue)
+                |> IndexList.ofList
+            let newSelectedIdx = 
+                match m.selectedImage with
+                | Some selectedImage ->
+                    let (newIdx, (oldIdx, img) )= 
+                        images'
+                        |> IndexList.mapi (fun newIdx (idx, p) -> (newIdx, (idx, p)))
+                        |> IndexList.filter (fun (newIdx, (idx, p)) -> idx = selectedImage)
+                        |> IndexList.toSeq
+                        |> Seq.head
+                    Some newIdx
+                | None -> None
+            let editImages' = 
+                images'
+                |> IndexList.mapi (fun newIdx (idx, p) -> (newIdx, (idx, p)))
+                |> IndexList.filter (fun (newIdx, (idx, p)) -> List.contains idx m.editImages)
+                |> IndexList.map (fun (newIdx, (idx, p)) -> newIdx)
+                |> IndexList.toList
+            { m with
+                images = images' |> IndexList.map (fun (idx, img) -> img);
+                selectedImage = newSelectedIdx;
+                editImages = editImages'
             }
+        | SortEntriesByDate ->
+            let images' = 
+                m.images
+                |> IndexList.mapi (fun idx e -> (idx, e))
+                |> IndexList.toList
+                |> List.sortBy (fun (idx, p) -> p.defaultMaxValue)
+                |> IndexList.ofList
+            let newSelectedIdx = 
+                match m.selectedImage with
+                | Some selectedImage ->
+                    let (newIdx, (oldIdx, img) )= 
+                        images'
+                        |> IndexList.mapi (fun newIdx (idx, p) -> (newIdx, (idx, p)))
+                        |> IndexList.filter (fun (newIdx, (idx, p)) -> idx = selectedImage)
+                        |> IndexList.toSeq
+                        |> Seq.head
+                    Some newIdx
+                | None -> None
+            let editImages' = 
+                images'
+                |> IndexList.mapi (fun newIdx (idx, p) -> (newIdx, (idx, p)))
+                |> IndexList.filter (fun (newIdx, (idx, p)) -> List.contains idx m.editImages)
+                |> IndexList.map (fun (newIdx, (idx, p)) -> newIdx)
+                |> IndexList.toList
+            { m with 
+                images = images' |> IndexList.map (fun (idx, img) -> img);
+                selectedImage = newSelectedIdx;
+                editImages = editImages'}
 
-        let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
-        let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
 
-        let jsImportDialog = "top.aardvark.dialog.showOpenDialog({tile: 'Select image', filters: [{ name: 'Images (*.*)', extensions: ['tif', 'exr']},], properties: ['openFile']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"        
+    let view 
+        (m : AdaptiveModel)
+        (showDOM : AdaptiveImage -> DomNode<ImageMessage>) 
+        (showRelative2DImage : AdaptiveImage -> DomNode<ImageMessage>)
+        (showAbsolute2DAnd3DImage : AdaptiveImage -> DomNode<ImageMessage>) =
+    
+        let listAttributes =
+            amap {
+                yield clazz "ui divided list inverted segment"
+                yield style "overflow-y : hidden"
+            } |> AttributeMap.ofAMap
 
-        let content = 
-            Html.table [ 
-                Html.row "Texture:" 
-                    [
-                        button [
-                            clazz "ui button tiny";
-                            style "margin-left: 10px";
-                            Dialogs.onChooseFiles (fun chosen -> SetTexture (chosen) );
-                            clientEvent "onclick" (jsImportDialog)
-                        ] [
-                            text "Import"
-                        ]
-                    ]
-                Html.row "EXR Channel:" [
-                    div [style "color: white;"] [
-                        let channelRepr (c : Channel) = 
-                            match c.name with
-                            | None -> string c.idx
-                            | Some name -> name
-                        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.channel (fun value -> SetEXRChannel value) channelRepr
-                        // Html.SemUi.dropDown m.channel SetEXRChannel
-                    ]
-                ]
-                Html.row "False Color:" [
-                    text "Activate: " 
-                    Html.SemUi.toggleBox m.useFalseColor ToggleFalseColor
-                    br []
-                    Html.SemUi.dropDown m.colorMap SetColorMap
-                ]
-                Html.row "Minimum:" [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMinValue.value) SetCustomMin
-                    br []
-                    Numeric.view' [Slider] m.customMinValue
-                    |> UI.map (fun action -> 
-                        match action with
-                        | Numeric.Action.SetValue v ->
-                            SetCustomMin v
-                        | _ ->
-                            Empty
-                        )
-                    ]
-                Html.row "Maximum:"  [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMaxValue.value) SetCustomMax
-                    br []
-                    div [style "width: 100%"] [
-                        Numeric.numericField' m.customMaxValue Slider
-                        |> UI.map (fun action -> 
-                            match action with
-                            | Numeric.Action.SetValue v ->
-                                SetCustomMax v
-                            | _ ->
-                                Empty
-                            )
-                        ]
-                    ] 
-                Html.row "" [button [clazz "ui inverted button"; onClick (fun _ -> ResetCustomMinMax)] [
-                        text "Reset"
-                    ]
-                ]
-                Html.row "Projection opacity" [
-                    Numeric.numericField' m.projectionOpacity NumericInputType.Slider |> UI.map SetProjectionOpacity
-                ]
-            ]
+        let jsImportDialog =
+            "top.aardvark.dialog.showOpenDialog({tile: 'Select directory', filters: [{ name: 'directories'}], properties: ['openDirectory']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
-        let accordion text' icon active content' =
+        let accordion text' icon active styling content' =
                 let title = if active then "title active inverted" else "title inverted"
                 let content = if active then "content active" else "content"
-               // let arrow = if active then 
                                     
                 onBoot "$('#__ID__').accordion();" (
-                    div [clazz "ui inverted segment"] [
+                    div [styling] [
                         div [clazz "ui inverted accordion fluid"] [
                             div [clazz title; style "background-color: #282828"] [
                                     i [clazz ("dropdown icon")] []
@@ -376,95 +140,127 @@ module App =
                                     div [style "float:right"] [i [clazz (icon + " icon")] []]
                                 
                             ]
-                            div [clazz content;  style "overflow-y : auto; "] content' //max-height: 35%
+                            div [clazz content;  style "overflow-y : auto; "] content' 
                         ]
                     ]
                 )
 
+        let contentImages = 
+            let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 30px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 30px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 30px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesAttr2 = attribute "style" $"cursor: pointer; width: 120px; height: 30px; display: flex; justify-content: center; align-items: center;"
 
-        let visualization, frustum =
-            let observer = cval "MARS" //"HERA_AFC-1" 
-            let supportBody = cval "SUN"
-            let referenceFrame = cval "ECLIPJ2000"
-            let referenceFrame = cval "IAU_MARS"
-            let farPlaneMars = 30101626.50 * 1000.0
+            let header =
+                div [ 
+                    // attribute "clazz" "title active inverted"
+                    attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black" 
+                ] [
+                    div [ attributesSelect ] [text "Select"]
+                    div [ attributesEdit ] [text "Edit"]
+                    div [ attributesAttr1 ] [
+                        i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance);] []
+                        text "Dist. to Planet"
+                    ]
+                    div [ attributesAttr2 ] [
+                        i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDate);] []
+                        text "Sth else"
+                    ]
+                ]
+            Incremental.div (AttributeMap.ofList [ attribute "class" "table-container" ]) (
+                alist {
+                    yield header
 
-            let currentProjectedImage = 
-                m.texture 
-                |> AVal.map (fun path -> 
-                    if File.Exists path then
-                        Some (path, InstrumentMetadata.tryParseMetadataForImagePath path)
-                    else
-                        None
+                    yield Incremental.div (AttributeMap.ofList [ attribute "style" "max-height: 700px; overflow-y: auto; " ]) (
+                        alist {
+                        let! editEntries = m.editImages
+
+                        let domNodes = 
+                            m.images 
+                            |> AList.mapi (fun index img ->
+                                // let distanceToPlanet = CooTransformation.getRelState "HERA" "SUN" "MARS"  
+                                div [attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"] [
+                                    div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
+                                    div [
+                                        attribute "style" "display: flex; font-weight: bold;"] 
+                                        [
+                                            div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
+                                            div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
+                                            div [attributesAttr1] [ Incremental.text (img.defaultMinValue |> AVal.map string) ]
+                                            div [attributesAttr2] [ Incremental.text (img.defaultMaxValue |> AVal.map string) ]
+                                        ]
+                                    match editEntries with
+                                        | indices when List.contains index indices -> 
+                                            div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
+                                                showDOM img |> UI.map (fun msg -> Message.ImageMessage (index, msg))
+                                            ]
+                                        | _ -> 
+                                            div [] []
+                                ]
+                            )
+                        for domNode in domNodes do
+                            yield domNode
+                    })
+                })
+
+
+        let content = 
+            div [] [
+                button [
+                    clazz "ui button tiny";
+                    style "margin-left: 10px";
+                    Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
+                    clientEvent "onclick" (jsImportDialog)
+                ] [
+                    text "Import Directory"
+                ]
+                let preview2D = 
+                    adaptive {
+                        let! selectedImage = m.selectedImage
+                        match selectedImage with
+                        | Some sel -> 
+                            let! img = AList.tryGet sel m.images
+                            match img with
+                            | Some img' -> return showRelative2DImage img' |> UI.map (fun msg -> Message.ImageMessage (sel, msg))
+                            | None -> return div [] []
+                        | None -> return div [] []
+                    }
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! preview2D' = preview2D
+                        yield preview2D'
+                        let! imageCount = AList.count m.images
+                        if imageCount > 0 then
+                            yield 
+                                div [style $"border: 2px solid black; margin-top: 10px"] [
+                                        contentImages
+                                ]
+                    }
                 )
-
-            let imageSettings = 
-                { 
-                    VisualizationProperties.empty with 
-                        visualizationRange = (m.customMinValue.value, m.customMaxValue.value) ||> AVal.map2 (fun min max -> Range1d(min,max))
-                        colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
-                        projectionOpacity = m.projectionOpacity.value
-                }
-
-            let projectionSetup = 
-                let p = {
-                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                    instrumentReferenceFrame = "HERA_AFC-1"
-                    instrumentName = "HERA_AFC-1"
-                    supportBody = "SUN"
-                    time = DateTime.Now
-                }
-                currentProjectedImage |> AVal.map (function 
-                    | Some (f, (Some mbi,_)) -> 
-                        let p = 
-                            { p with
-                                time = mbi.obs_date
-                                instrumentName = 
-                                    match InstrumentProjection.instrument2SpiceName mbi.instrument with
-                                    | None -> failwith "no spice name for the given instrument."
-                                    | Some i -> i
-                                instrumentReferenceFrame = "J2000"
-                            }
-                        p, mbi.obs_date
-                    | _ -> 
-                        let defaultTime = "2025-03-12 11:50:30.000Z"
-                        p, DateTime.Parse(defaultTime)
-                )
-
-            let projection = projectionSetup |> AVal.map fst
-            let time = projectionSetup |> AVal.map snd
+            ]
             
-            let projectImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage projection
-            let projectedTexture = Visualization.createProjectedTexture currentProjectedImage
-
-            let projectionEnabled = 
-                currentProjectedImage 
-                |> AVal.map (function 
-                    | Some (_, (Some _, _)) -> true
-                    | _ -> false
-                )
-
-            let scene = 
-                Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectImage projectedTexture projectionEnabled
-                |> Sg.noEvents
-
-            let frustum = Frustum.perspective 80.0 10.0 farPlaneMars 1.0 |> AVal.constant
-            scene, frustum
 
         require Html.semui (
             body [] [
-                div [] [
-                    // the 2D control
-                    let leftControl = [style "position: fixed; left: 0; top: 0; width: 50%; height: 100%"; attribute "showLoader" "false"]
-                    renderControl (AVal.constant (Camera.create cameraView frustum')) leftControl instrumentVisualization
-                    
-                    // the 3D projection view
-                    let rightControl = [style "position: fixed; right: 0; top: 0; width: 50%; height: 100%"; attribute "showLoader" "false"] |> AttributeMap.ofList
-                    OrbitController.controlledControl m.cameraState OrbitCameraMessage frustum rightControl visualization
-                ]
+                let preview2D3D = 
+                    adaptive {
+                        let! selectedImage = m.selectedImage
+                        match selectedImage with
+                        | Some sel -> 
+                            let! img = AList.tryGet sel m.images
+                            match img with
+                            | Some img' -> return showAbsolute2DAnd3DImage img' |> UI.map (fun msg -> Message.ImageMessage (sel, msg))
+                            | None -> return div [] []
+                        | None -> return div [] []
+                    }
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! preview2D3D' = preview2D3D
+                        yield preview2D3D'
+                    }
+                )
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
-                    accordion "Texture Mapping" "file image outline" false [ content ]
+                    accordion "Texture Mapping" "file image outline" false (clazz "ui inverted segment") [ content ]
                 ]
             ])
 
@@ -472,7 +268,7 @@ module App =
         {
             initial = initial
             update = update
-            view = view
+            view = (fun m -> view m Image.view Image.view2DRelative Image.view2DAnd3DImageAbsolute)
             threads = constF ThreadPool.empty
             unpersist = Unpersist.instance
         }
