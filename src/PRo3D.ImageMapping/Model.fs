@@ -26,7 +26,7 @@ module ColorMap =
         | ColorMap.Plasma -> "plasma.png"
         | ColorMap.TwilightShifted -> "twilight_shifted.png"
         | ColorMap.Viridis -> "viridis.png"
-        | ColorMap.PiYG -> "PiYG.png"
+        | ColorMap.PiYG -> "piyg.png"
         | ColorMap.Vanimo -> "vanimo.png"
         | _ -> "magma.png"
 
