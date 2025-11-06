@@ -171,7 +171,7 @@ module App =
                 alist {
                     yield header
 
-                    yield Incremental.div (AttributeMap.ofList [ attribute "style" "max-height: 700px; overflow-y: auto; " ]) (
+                    yield Incremental.div (AttributeMap.ofList [ attribute "style" "max-height: calc(100vh - 390px); overflow-y: auto; " ]) (
                         alist {
                         let! editEntries = m.editImages
 
