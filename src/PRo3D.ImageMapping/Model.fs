@@ -40,7 +40,6 @@ type Channel =
 [<ModelType>]
 type Image =
     {
-        cameraState     : OrbitState
         colorMap        : ColorMap
         useFalseColor   : bool
         channel         : Channel
@@ -78,10 +77,10 @@ type Model =
         editImages      : Index list
         projectionOpacity : NumericInput
         boresightAdjustment : BoresightAdjustment
+        cameraState     : OrbitState
     }
 
 type ImageMessage =
-    | OrbitCameraMessage of OrbitMessage
     | SetCustomMin of float
     | SetCustomMax of float
     | ResetCustomMinMax
@@ -93,6 +92,7 @@ type ImageMessage =
 
 
 type Message = 
+    | OrbitCameraMessage of OrbitMessage
     | SelectImage of Index
     | EditImage of Index
     | LoadImagesDir of string
@@ -103,3 +103,4 @@ type Message =
     | SetRoll of Numeric.Action
     | SetYaw of Numeric.Action
     | SetPitch of Numeric.Action
+    | Nop

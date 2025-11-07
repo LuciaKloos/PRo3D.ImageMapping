@@ -138,7 +138,6 @@ module Image =
     }
 
     let initial = { 
-        cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
         colorMap = ColorMap.Magma;
         useFalseColor = true;
         channel = { idx = 0; name = None }
@@ -182,8 +181,6 @@ module Image =
 
     let update (m : Image) (msg : ImageMessage) =
         match msg with
-            | OrbitCameraMessage msg ->
-                { m with cameraState = OrbitController.update m.cameraState msg }
             | SetDataTypeAndRange (dataType, min, max) ->
                 { m with customMinValue = { minValue with min = min}; customMaxValue = {minValue with max = max} }
             | SetCustomMin v -> 
@@ -276,16 +273,16 @@ module Image =
             ]
         )
 
-    let view2DAnd3DImageAbsolute (opacity : aval<float>) (boresightAdjustment : aval<Option<Trafo3d>>) (m : AdaptiveImage) =
+    let view2DAnd3DImageAbsolute (opacity : aval<float>) (boresightAdjustment : aval<Option<Trafo3d>>) (orbitState : AdaptiveOrbitState) (m : aval<Option<AdaptiveImage>>) =
 
-        let colormapTexture : aval<ITexture> =
+        let colormapTexture (m : AdaptiveImage) : aval<ITexture> =
             m.colorMap
             |> AVal.map (fun map ->
                 let resourceName = ColorMap.getColorMapFileName(map)
                 InstrumentImageVisualization.getColorMapTexture resourceName
             )
 
-        let imageTexture : aval<ITexture> =
+        let imageTexture (m : AdaptiveImage) : aval<ITexture> =
             (m.texture, m.channel) 
             ||> AVal.map2 (fun (path : string) channel ->
                     match Path.GetExtension(path).ToLower() with
@@ -310,105 +307,124 @@ module Image =
                     | ".png" | _ -> whiteTex 
             ) 
 
-        let instrumentVisualization = 
-            Sg.fullScreenQuad
-            |> Sg.noEvents
-            |> Sg.texture "InstrumentImage" imageTexture
-            |> Sg.texture "ColormapTexture" colormapTexture
-            |> Sg.uniform "MinValue" (m.customMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
-            |> Sg.uniform "MaxValue" (m.customMaxValue.value |> AVal.map (fun v -> float v))
-            |> Sg.uniform "UseFalseColor" m.useFalseColor
-            |> Sg.uniform "DataType" (m.dataType |> AVal.map (fun dt -> int dt))
-            |> Sg.shader {
-                do! (Shaders.hshColors)
-            }
+        let instrumentVisualization =
+            m 
+            |> AVal.map (function 
+                | None -> Sg.empty 
+                | Some m -> 
+                    Sg.fullScreenQuad
+                    |> Sg.noEvents
+                    |> Sg.texture "InstrumentImage" (imageTexture m)
+                    |> Sg.texture "ColormapTexture" (colormapTexture m)
+                    |> Sg.uniform "MinValue" (m.customMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
+                    |> Sg.uniform "MaxValue" (m.customMaxValue.value |> AVal.map (fun v -> float v))
+                    |> Sg.uniform "UseFalseColor" m.useFalseColor
+                    |> Sg.uniform "DataType" (m.dataType |> AVal.map (fun dt -> int dt))
+                    |> Sg.shader {
+                        do! (Shaders.hshColors)
+                    }
+            )
+            |> Sg.dynamic
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
-        let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
+        let frustum2D = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
+        let farPlaneMars = 30101626.50 * 1000.0
+        let frustum = Frustum.perspective 80.0 10.0 farPlaneMars 1.0 |> AVal.constant
 
-        let visualization, frustum =
-            let observer = cval "MARS" //"HERA_AFC-1" 
-            let supportBody = cval "SUN"
-            let referenceFrame = cval "ECLIPJ2000"
-            let referenceFrame = cval "IAU_MARS"
-            let farPlaneMars = 30101626.50 * 1000.0
+        let visualization =
+            fun (m : AdaptiveImage) ->
+                let observer = cval "MARS" //"HERA_AFC-1" 
+                let supportBody = cval "SUN"
+                let referenceFrame = cval "ECLIPJ2000"
+                let referenceFrame = cval "IAU_MARS"
 
-            let currentProjectedImage = 
-                m.texture 
-                |> AVal.map (fun path -> 
-                    if File.Exists path then
-                        Some (path, InstrumentMetadata.tryParseMetadataForImagePath path)
-                    else
-                        None
-                )
+                let currentProjectedImage = 
+                    m.texture 
+                    |> AVal.map (fun path -> 
+                        if File.Exists path then
+                            Some (path, InstrumentMetadata.tryParseMetadataForImagePath path)
+                        else
+                            None
+                    )
 
-            let imageSettings = 
-                { 
-                    VisualizationProperties.empty with 
-                        visualizationRange = (m.customMinValue.value, m.customMaxValue.value) ||> AVal.map2 (fun min max -> Range1d(min,max))
-                        colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
-                        projectionOpacity = opacity
-                }
+                let imageSettings = 
+                    { 
+                        VisualizationProperties.empty with 
+                            visualizationRange = (m.customMinValue.value, m.customMaxValue.value) ||> AVal.map2 (fun min max -> Range1d(min,max))
+                            colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
+                            projectionOpacity = opacity
+                    }
 
-            let projectionSetup = 
-                let p = {
-                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                    instrumentReferenceFrame = "HERA_AFC-1"
-                    instrumentName = "HERA_AFC-1"
-                    supportBody = "SUN"
-                    time = DateTime.Now
-                    boresightAdjustment = None
-                }
-                (currentProjectedImage, boresightAdjustment) ||> AVal.map2 (fun currentProjectedImage boresight -> 
-                    match currentProjectedImage with
-                    | Some (f, (Some mbi,_)) -> 
-                        let p = 
-                            { p with
-                                time = mbi.obs_date
-                                instrumentName = 
-                                    match InstrumentProjection.instrument2SpiceName mbi.instrument with
-                                    | None -> failwith "no spice name for the given instrument."
-                                    | Some i -> i
-                                instrumentReferenceFrame = "J2000"
-                                boresightAdjustment = boresight
-                            }
-                        p, mbi.obs_date
-                    | _ -> 
-                        let defaultTime = "2025-03-12 11:50:30.000Z"
-                        p, DateTime.Parse(defaultTime)
-                )
+                let projectionSetup = 
+                    let p = {
+                        target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                        cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                        instrumentReferenceFrame = "HERA_AFC-1"
+                        instrumentName = "HERA_AFC-1"
+                        supportBody = "SUN"
+                        time = DateTime.Now
+                        boresightAdjustment = None
+                    }
+                    (currentProjectedImage, boresightAdjustment) ||> AVal.map2 (fun currentProjectedImage boresight -> 
+                        match currentProjectedImage with
+                        | Some (f, (Some mbi,_)) -> 
+                            let p = 
+                                { p with
+                                    time = mbi.obs_date
+                                    instrumentName = 
+                                        match InstrumentProjection.instrument2SpiceName mbi.instrument with
+                                        | None -> failwith "no spice name for the given instrument."
+                                        | Some i -> i
+                                    instrumentReferenceFrame = "J2000"
+                                    boresightAdjustment = boresight
+                                }
+                            p, mbi.obs_date
+                        | _ -> 
+                            let defaultTime = "2025-03-12 11:50:30.000Z"
+                            p, DateTime.Parse(defaultTime)
+                    )
 
-            let projection = projectionSetup |> AVal.map fst
-            let time = projectionSetup |> AVal.map snd
+                let projection = projectionSetup |> AVal.map fst
+                let time = projectionSetup |> AVal.map snd
             
-            let projectImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage projection
-            let projectedTexture = Visualization.createProjectedTexture currentProjectedImage
+                let projectImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage projection
+                let projectedTexture = Visualization.createProjectedTexture currentProjectedImage
 
-            let projectionEnabled = 
-                currentProjectedImage 
-                |> AVal.map (function 
-                    | Some (_, (Some _, _)) -> true
-                    | _ -> false
-                )
+                let projectionEnabled = 
+                    currentProjectedImage 
+                    |> AVal.map (function 
+                        | Some (_, (Some _, _)) -> true
+                        | _ -> false
+                    )
 
-            let scene = 
-                Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectImage projectedTexture projectionEnabled
-                |> Sg.noEvents
+                let scene = 
+                    Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectImage projectedTexture projectionEnabled
+                    |> Sg.noEvents
 
-            let frustum = Frustum.perspective 80.0 10.0 farPlaneMars 1.0 |> AVal.constant
-            scene, frustum
+                scene
 
         require Html.semui (
                 div [] [
                     div [] [
                         // the 2D control
                         let leftControl = [style "position: fixed; left: 0; top: 0; width: 50%; height: 100%"; attribute "showLoader" "false"]
-                        renderControl (AVal.constant (Camera.create cameraView frustum')) leftControl instrumentVisualization
+                        renderControl (AVal.constant (Camera.create cameraView frustum2D)) leftControl instrumentVisualization
                     
                         // the 3D projection view
                         let rightControl = [style "position: fixed; right: 0; top: 0; width: 50%; height: 100%"; attribute "showLoader" "false"] |> AttributeMap.ofList
-                        OrbitController.controlledControl m.cameraState OrbitCameraMessage frustum rightControl visualization
+
+                        // use empty scene if no image is here
+                        let scene = 
+                            m 
+                            |> AVal.map (function
+                                | None -> 
+                                    Sg.empty
+                                | Some m -> 
+                                    visualization m
+                            )
+                            |> Sg.dynamic
+
+                        OrbitController.controlledControl orbitState OrbitCameraMessage frustum rightControl scene
                     ]
                 ]
         )
