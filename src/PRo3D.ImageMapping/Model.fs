@@ -40,7 +40,6 @@ type Channel =
 [<ModelType>]
 type Image =
     {
-        cameraState     : OrbitState
         colorMap        : ColorMap
         useFalseColor   : bool
         channel         : Channel
@@ -51,8 +50,24 @@ type Image =
         customMinValue : NumericInput
         customMaxValue : NumericInput
         texture : string
-        projectionOpacity : NumericInput
     }
+
+[<ModelType>]
+type BoresightAdjustment =
+    {
+        roll : NumericInput
+        pitch : NumericInput
+        yaw : NumericInput
+
+    }
+
+module BoresightAdjustment =
+    let identity =
+        {
+            roll = { Numeric.init with min = -180.0; max = 180.0; value = 0.0 }
+            pitch = { Numeric.init with min = -180.0; max = 180.0; value = 0.0 }
+            yaw = { Numeric.init with min = -180.0; max = 180.0; value = 0.0 }
+        }
 
 [<ModelType>]
 type Model =
@@ -60,10 +75,12 @@ type Model =
         images          : IndexList<Image>
         selectedImage   : Option<Index>
         editImages      : Index list
+        projectionOpacity : NumericInput
+        boresightAdjustment : BoresightAdjustment
+        cameraState     : OrbitState
     }
 
 type ImageMessage =
-    | OrbitCameraMessage of OrbitMessage
     | SetCustomMin of float
     | SetCustomMax of float
     | ResetCustomMinMax
@@ -73,10 +90,17 @@ type ImageMessage =
     | SetDataTypeAndRange of DataType * float * float
     | Empty
 
+
 type Message = 
+    | OrbitCameraMessage of OrbitMessage
     | SelectImage of Index
     | EditImage of Index
     | LoadImagesDir of string
     | ImageMessage of Index * ImageMessage
     | SortEntriesByDistance
     | SortEntriesByDate
+    | SetProjectionOpacity of Numeric.Action
+    | SetRoll of Numeric.Action
+    | SetYaw of Numeric.Action
+    | SetPitch of Numeric.Action
+    | Nop

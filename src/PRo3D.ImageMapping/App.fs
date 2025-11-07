@@ -20,10 +20,21 @@ module App =
         images = IndexList.Empty;
         selectedImage = None;
         editImages = List.Empty;
+        projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
+        boresightAdjustment = BoresightAdjustment.identity
+        cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
     }
 
     let update (m : Model) (msg : Message) = 
         match msg with
+        | Nop -> m
+        | OrbitCameraMessage msg ->
+            { m with cameraState = OrbitController.update m.cameraState msg }
+        | SetProjectionOpacity opacity -> 
+            { m with projectionOpacity = Numeric.update m.projectionOpacity opacity }
+        | SetRoll r -> { m with boresightAdjustment = { m.boresightAdjustment with roll = Numeric.update m.boresightAdjustment.roll r } }
+        | SetPitch r -> { m with boresightAdjustment = { m.boresightAdjustment with pitch = Numeric.update m.boresightAdjustment.pitch r } }
+        | SetYaw r -> { m with boresightAdjustment = { m.boresightAdjustment with yaw = Numeric.update m.boresightAdjustment.yaw r } }
         | LoadImagesDir directory -> 
             let imageExts = [".tif";".tiff";".jpg";".exr"]
             let images' = 
@@ -35,7 +46,13 @@ module App =
                 |> Seq.map (fun path -> 
                     Image.loadFile(path)
                 ) |> IndexList.ofSeq
-            { m with images = images' }
+            let firstIndex = 
+                if IndexList.isEmpty images' then
+                    None
+                else
+                    Some (IndexList.firstIndex images')
+
+            { m with images = images'; selectedImage = firstIndex }
         | SelectImage idx -> 
             { m with selectedImage = Some idx }
         | EditImage idx ->
@@ -116,7 +133,7 @@ module App =
         (m : AdaptiveModel)
         (showDOM : AdaptiveImage -> DomNode<ImageMessage>) 
         (showRelative2DImage : AdaptiveImage -> DomNode<ImageMessage>)
-        (showAbsolute2DAnd3DImage : AdaptiveImage -> DomNode<ImageMessage>) =
+        (showAbsolute2DAnd3DImage : aval<Option<AdaptiveImage>> -> DomNode<Message>) =
     
         let listAttributes =
             amap {
@@ -173,47 +190,66 @@ module App =
 
                     yield Incremental.div (AttributeMap.ofList [ attribute "style" "max-height: calc(100vh - 390px); overflow-y: auto; " ]) (
                         alist {
-                        let! editEntries = m.editImages
-
-                        let domNodes = 
-                            m.images 
-                            |> AList.mapi (fun index img ->
-                                // let distanceToPlanet = CooTransformation.getRelState "HERA" "SUN" "MARS"  
-                                div [attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"] [
-                                    div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
-                                    div [
-                                        attribute "style" "display: flex; font-weight: bold;"] 
-                                        [
-                                            div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
-                                            div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
-                                            div [attributesAttr1] [ Incremental.text (img.defaultMinValue |> AVal.map string) ]
-                                            div [attributesAttr2] [ Incremental.text (img.defaultMaxValue |> AVal.map string) ]
-                                        ]
-                                    match editEntries with
-                                        | indices when List.contains index indices -> 
-                                            div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
-                                                showDOM img |> UI.map (fun msg -> Message.ImageMessage (index, msg))
+                            let domNodes = 
+                                m.images 
+                                |> AList.mapi (fun index img ->
+                                    // let distanceToPlanet = CooTransformation.getRelState "HERA" "SUN" "MARS"  
+                                    div [attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"] [
+                                        div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
+                                        div [
+                                            attribute "style" "display: flex; font-weight: bold;"] 
+                                            [
+                                                div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
+                                                div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
+                                                div [attributesAttr1] [ Incremental.text (img.defaultMinValue |> AVal.map string) ]
+                                                div [attributesAttr2] [ Incremental.text (img.defaultMaxValue |> AVal.map string) ]
                                             ]
-                                        | _ -> 
-                                            div [] []
-                                ]
-                            )
-                        for domNode in domNodes do
-                            yield domNode
+                                        
+                                        Incremental.div AttributeMap.empty (
+                                            alist { 
+                                                let! isInEditMode = m.editImages |> AVal.map (fun editEntries -> List.contains index editEntries)
+                                                if isInEditMode then
+                                                    div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
+                                                        showDOM img |> UI.map (fun msg -> Message.ImageMessage (index, msg))
+                                                    ]
+                                                else
+                                                    div [] []
+                                            }
+                                        )
+                                    ]
+                                )
+                            for domNode in domNodes do
+                                yield domNode
                     })
                 })
 
 
         let content = 
             div [] [
-                button [
-                    clazz "ui button tiny";
-                    style "margin-left: 10px";
-                    Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
-                    clientEvent "onclick" (jsImportDialog)
-                ] [
-                    text "Import Directory"
+
+                div [clazz "ui inverted list"] [
+                    div [clazz "item"] [
+                        div [clazz "ui header"] [text "Data:"]
+                        button [clazz "ui button tiny"; style "margin-left: 10px";
+                                Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
+                                clientEvent "onclick" (jsImportDialog) ] [
+                                text "Import Directory"
+                        ]
+                    ]
+                    div [clazz "item"] [
+                        div [clazz "ui header"] [text "Visualization:"]
+                        Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
+                    ]
+                    div [clazz "item"] [
+                        div [clazz "ui header"] [text "Registration:"]
+                        Html.table [  
+                            Html.row "Roll:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll |> UI.map SetRoll]
+                            Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]
+                            Html.row "Yaw:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.yaw |> UI.map SetYaw]
+                        ]
+                    ]
                 ]
+
                 let preview2D = 
                     adaptive {
                         let! selectedImage = m.selectedImage
@@ -225,50 +261,59 @@ module App =
                             | None -> return div [] []
                         | None -> return div [] []
                     }
-                Incremental.div AttributeMap.empty (
-                    alist {
-                        let! preview2D' = preview2D
-                        yield preview2D'
-                        let! imageCount = AList.count m.images
-                        if imageCount > 0 then
-                            yield 
-                                div [style $"border: 2px solid black; margin-top: 10px"] [
-                                        contentImages
-                                ]
-                    }
-                )
+
+                div [] [
+                    Incremental.div AttributeMap.empty (
+                        alist {
+                            let! preview2D' = preview2D
+                            yield preview2D'
+                        }
+                    )
+                    div [style $"border: 2px solid black; margin-top: 10px"] [
+                            contentImages
+                    ]
+                ]
             ]
             
 
         require Html.semui (
             body [] [
-                let preview2D3D = 
+
+                let selectedImage = 
                     adaptive {
                         let! selectedImage = m.selectedImage
                         match selectedImage with
                         | Some sel -> 
                             let! img = AList.tryGet sel m.images
                             match img with
-                            | Some img' -> return showAbsolute2DAnd3DImage img' |> UI.map (fun msg -> Message.ImageMessage (sel, msg))
-                            | None -> return div [] []
-                        | None -> return div [] []
+                            | Some img' -> return Some img'
+                            | None -> return None
+                        | None -> return None
                     }
-                Incremental.div AttributeMap.empty (
-                    alist {
-                        let! preview2D3D' = preview2D3D
-                        yield preview2D3D'
-                    }
-                )
+
+                div [] [
+                    showAbsolute2DAnd3DImage selectedImage 
+                ]
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
                     accordion "Texture Mapping" "file image outline" false (clazz "ui inverted segment") [ content ]
                 ]
             ])
 
+
+    let viewFull (m : AdaptiveModel) = 
+        let computeBoresight (b : AdaptiveBoresightAdjustment) : aval<Trafo3d> = 
+            b.Current |> AVal.map (fun b -> 
+                Trafo3d.RotationXInDegrees(b.yaw.value) * Trafo3d.RotationYInDegrees(b.pitch.value) * Trafo3d.RotationZInDegrees(b.roll.value)
+            )
+        let boresight = computeBoresight m.boresightAdjustment |> AVal.map Some
+        let backgroundImageAnd3D = Image.view2DAnd3DImageAbsolute m.projectionOpacity.value boresight m.cameraState
+        view m Image.view Image.view2DRelative backgroundImageAnd3D
+
     let app () =
         {
             initial = initial
             update = update
-            view = (fun m -> view m Image.view Image.view2DRelative Image.view2DAnd3DImageAbsolute)
+            view = viewFull
             threads = constF ThreadPool.empty
             unpersist = Unpersist.instance
         }
