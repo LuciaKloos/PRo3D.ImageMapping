@@ -20,10 +20,17 @@ module App =
         images = IndexList.Empty;
         selectedImage = None;
         editImages = List.Empty;
+        projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
+        boresightAdjustment = BoresightAdjustment.identity
     }
 
     let update (m : Model) (msg : Message) = 
         match msg with
+        | SetProjectionOpacity opacity -> 
+            { m with projectionOpacity = Numeric.update m.projectionOpacity opacity }
+        | SetRoll r -> { m with boresightAdjustment = { m.boresightAdjustment with roll = Numeric.update m.boresightAdjustment.roll r } }
+        | SetPitch r -> { m with boresightAdjustment = { m.boresightAdjustment with pitch = Numeric.update m.boresightAdjustment.pitch r } }
+        | SetYaw r -> { m with boresightAdjustment = { m.boresightAdjustment with yaw = Numeric.update m.boresightAdjustment.yaw r } }
         | LoadImagesDir directory -> 
             let imageExts = [".tif";".tiff";".jpg";".exr"]
             let images' = 
@@ -35,7 +42,13 @@ module App =
                 |> Seq.map (fun path -> 
                     Image.loadFile(path)
                 ) |> IndexList.ofSeq
-            { m with images = images' }
+            let firstIndex = 
+                if IndexList.isEmpty images' then
+                    None
+                else
+                    Some (IndexList.firstIndex images')
+
+            { m with images = images'; selectedImage = firstIndex }
         | SelectImage idx -> 
             { m with selectedImage = Some idx }
         | EditImage idx ->
@@ -206,14 +219,30 @@ module App =
 
         let content = 
             div [] [
-                button [
-                    clazz "ui button tiny";
-                    style "margin-left: 10px";
-                    Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
-                    clientEvent "onclick" (jsImportDialog)
-                ] [
-                    text "Import Directory"
+
+                div [clazz "ui inverted list"] [
+                    div [clazz "item"] [
+                        div [clazz "ui header"] [text "Data:"]
+                        button [clazz "ui button tiny"; style "margin-left: 10px";
+                                Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
+                                clientEvent "onclick" (jsImportDialog) ] [
+                                text "Import Directory"
+                        ]
+                    ]
+                    div [clazz "item"] [
+                        div [clazz "ui header"] [text "Visualization:"]
+                        Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
+                    ]
+                    div [clazz "item"] [
+                        div [clazz "ui header"] [text "Registration:"]
+                        Html.table [  
+                            Html.row "Roll:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll |> UI.map SetRoll]
+                            Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]
+                            Html.row "Yaw:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.yaw |> UI.map SetYaw]
+                        ]
+                    ]
                 ]
+
                 let preview2D = 
                     adaptive {
                         let! selectedImage = m.selectedImage
@@ -264,11 +293,20 @@ module App =
                 ]
             ])
 
+
+    let viewFull (m : AdaptiveModel) = 
+        let computeBoresight (b : AdaptiveBoresightAdjustment) : aval<Trafo3d> = 
+            b.Current |> AVal.map (fun b -> 
+                Trafo3d.RotationXInDegrees(b.yaw.value) * Trafo3d.RotationYInDegrees(b.pitch.value) * Trafo3d.RotationZInDegrees(b.roll.value)
+            )
+        let boresight = computeBoresight m.boresightAdjustment |> AVal.map Some
+        view m Image.view Image.view2DRelative (Image.view2DAnd3DImageAbsolute m.projectionOpacity.value boresight)
+
     let app () =
         {
             initial = initial
             update = update
-            view = (fun m -> view m Image.view Image.view2DRelative Image.view2DAnd3DImageAbsolute)
+            view = viewFull
             threads = constF ThreadPool.empty
             unpersist = Unpersist.instance
         }

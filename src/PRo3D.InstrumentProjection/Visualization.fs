@@ -80,8 +80,8 @@ module Visualization =
                                 time = time
                             }
                         let t = InstrumentProjection.projectOntoQuat referenceFrame observer instruments p (-mbi.targetPos * 1000.0) mbi.sc_quat
-                        let old = InstrumentProjection.projectOnto referenceFrame observer instruments p
-                        t
+                        let spice = InstrumentProjection.projectOnto referenceFrame observer instruments p
+                        spice
                     | _  -> 
                         None
                 )

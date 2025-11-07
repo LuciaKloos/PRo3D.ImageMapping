@@ -149,7 +149,6 @@ module Image =
         customMinValue = minValue;
         customMaxValue = maxValue;
         texture = initialPath;
-        projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; value = 1.0 }
     }
 
     let loadFile (texturePath : string) =
@@ -277,7 +276,7 @@ module Image =
             ]
         )
 
-    let view2DAnd3DImageAbsolute (m : AdaptiveImage) =
+    let view2DAnd3DImageAbsolute (opacity : aval<float>) (boresightAdjustment : aval<Option<Trafo3d>>) (m : AdaptiveImage) =
 
         let colormapTexture : aval<ITexture> =
             m.colorMap
@@ -348,7 +347,7 @@ module Image =
                     VisualizationProperties.empty with 
                         visualizationRange = (m.customMinValue.value, m.customMaxValue.value) ||> AVal.map2 (fun min max -> Range1d(min,max))
                         colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
-                        projectionOpacity = m.projectionOpacity.value
+                        projectionOpacity = opacity
                 }
 
             let projectionSetup = 
@@ -359,8 +358,10 @@ module Image =
                     instrumentName = "HERA_AFC-1"
                     supportBody = "SUN"
                     time = DateTime.Now
+                    boresightAdjustment = None
                 }
-                currentProjectedImage |> AVal.map (function 
+                (currentProjectedImage, boresightAdjustment) ||> AVal.map2 (fun currentProjectedImage boresight -> 
+                    match currentProjectedImage with
                     | Some (f, (Some mbi,_)) -> 
                         let p = 
                             { p with
@@ -370,6 +371,7 @@ module Image =
                                     | None -> failwith "no spice name for the given instrument."
                                     | Some i -> i
                                 instrumentReferenceFrame = "J2000"
+                                boresightAdjustment = boresight
                             }
                         p, mbi.obs_date
                     | _ -> 

@@ -113,6 +113,7 @@ module InstrumentProjectionViewer =
                         instrumentName = "HERA_AFC-1"
                         supportBody = "SUN"
                         time = DateTime.Now
+                        boresightAdjustment = None
                     }
             let images = 
                 InstrumentMetadata.discoverInstrumentFolder @"C:\pro3ddata\HERA\Workshop2\EOX_PRo3D-GIS_Data\TIFF\Mars-Swing-By\Mars-Swing-By\AFC1-1B\1B"
@@ -128,6 +129,7 @@ module InstrumentProjectionViewer =
                         instrumentName = "HERA_HSH"
                         supportBody = "SUN"
                         time = DateTime.Now
+                        boresightAdjustment = None
                     }
             let images = 
                 InstrumentMetadata.discoverInstrumentFolder @"C:\pro3ddata\HERA\Workshop2\EOX_PRo3D-GIS_Data\TIFF\Mars-Swing-By\Mars-Swing-By\HSH-1B\1B"

@@ -49,6 +49,7 @@ type InstrumentProjection =
         instrumentName : string
         supportBody : string
         time : DateTime
+        boresightAdjustment : Option<Trafo3d>
     }
 
 module InstrumentProjection =
@@ -70,7 +71,8 @@ module InstrumentProjection =
         | Some bodyToWorld, InstrumentImages.FocusBody target, InstrumentImages.InBody source, Some frustum -> 
             match getLookAt source observer p.instrumentReferenceFrame p.supportBody p.time with
             | Some view ->
-                bodyToWorld * CameraView.viewTrafo view * (Frustum.projTrafo frustum) |> Some
+                let boresightAdjustedView = p.boresightAdjustment |> Option.defaultValue Trafo3d.Identity
+                bodyToWorld * boresightAdjustedView * CameraView.viewTrafo view * (Frustum.projTrafo frustum) |> Some
             | None -> None
         | _ -> None
 
