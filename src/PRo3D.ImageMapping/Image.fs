@@ -9,7 +9,6 @@ open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
 
 open System.IO
-open Newtonsoft.Json.Linq
 
 open Aardvark.GeoSpatial.Opc
 open Aardvark.PixImage.LibTiff
@@ -71,56 +70,6 @@ module Image =
 
     let initialPath = ""
 
-    let getDataType (filePath: string) = 
-        if not (File.Exists(filePath)) then
-            DataType.UInt16
-        else 
-            let j = JObject.Parse(File.ReadAllText(filePath))
-            match j.TryGetValue("data_type") with
-            | true, t -> 
-                match t.Value<string>() with
-                | "uint16" -> DataType.UInt16
-                | "uint32" -> DataType.UInt32
-                | "float" -> DataType.Float
-                | _ -> DataType.UInt16
-            | _ -> DataType.UInt16
-
-    let getMinMaxFromStatistics (filePath: string, channel: int) =
-        if not (File.Exists(filePath)) then
-            (0, 0)
-        else 
-            let j = JObject.Parse(File.ReadAllText(filePath))
-            let rec loop (token:JToken) remaining =
-                match remaining with
-                | [] -> token.Value<int>()
-                | k::rest ->
-                    match token.Type with
-                    | JTokenType.Object ->
-                        let obj = token :?> JObject
-                        match obj.TryGetValue(k) with
-                            | true, t -> loop t rest
-                            | _ -> token.Value<int>()
-                    | JTokenType.Array ->
-                        let obj = token.[channel] :?> JObject
-                        match obj.TryGetValue(k) with
-                            | true, t -> loop t rest
-                            | _ -> token.Value<int>()
-                    | _ -> token.Value<int>()
-
-            (loop (j :> JToken) ["image_statistics"; "minimum"], loop (j :> JToken) ["image_statistics"; "maximum"])
-
-    let getEXRChannelOptions (filePath: string) =
-        if not ((File.Exists(filePath)) || (Path.GetExtension(filePath).ToLower() != ".exr")) then
-            []
-        else 
-            let j = JObject.Parse(File.ReadAllText(filePath))
-            match j.TryGetValue("channels") with
-            | true, t -> 
-                let channels = [ 0 .. t.Value<int>() - 1 ]
-                channels |> List.map string
-            | _ -> []
-            
-
     let minValue = {
         value   = 0.0
         min     = 0.0
@@ -140,65 +89,104 @@ module Image =
     let initial = { 
         colorMap = ColorMap.Magma;
         useFalseColor = true;
-        channel = { idx = 0; name = None }
+        selectedChannel = { idx = 0; name = None }
         channelOptions = [];
         dataType = DataType.UInt16;
-        defaultMinValue = minValue.value;
-        defaultMaxValue = maxValue.value;
-        customMinValue = minValue;
-        customMaxValue = maxValue;
+        defaultMinValues = [minValue.value];
+        defaultMaxValues = [maxValue.value];
+        inputMinValue = minValue;
+        inputMaxValue = maxValue;
         texture = initialPath;
+        distance = 0;
+        time = new DateTime();
     }
 
     let loadFile (texturePath : string) =
         // this could be a fallback
         let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels texturePath
-        let channelOptions = getEXRChannelOptions(texturePath + ".json")
-        let channelIdx =
-            if channelOptions.IsEmpty() then
-                0
-            else
-                match System.Int32.TryParse(channelOptions.[0]) with
-                | true, v -> v
-                | false, _ -> 0
-        let (min, max) = getMinMaxFromStatistics(texturePath + ".json", channelIdx)
-        let dataType = getDataType(texturePath + ".json")
+
+        let (tiffMbiJson, tiffJson) = InstrumentMetadata.tryParseMetadataForImagePath texturePath
+
+        let channels =
+            match tiffJson with
+            | Some tf -> tf.channels
+            | None -> 1
+
+        let channelOptions = [ 0 .. channels - 1 ] |> List.map (fun channel -> {idx = channel; name = None})
+
+        let selectedChannelIdx = 0
+
+        let defaultMinValues = 
+            match tiffJson with
+            | Some tf -> tf.image_statistics |> Array.toList |> List.map (fun x -> x.minimum)
+            | None -> [0.0]
+
+        let defaultMaxValues = 
+            match tiffJson with
+            | Some tf -> tf.image_statistics |> Array.toList|> List.map (fun x -> x.maximum)
+            | None -> [0.0]
+
+        let dataType = 
+            match tiffJson with
+            | Some tf -> 
+                match tf.data_type with
+                | "uint16" -> DataType.UInt16
+                | "uint32" -> DataType.UInt32
+                | "float" -> DataType.Float
+                | _ -> DataType.UInt16
+            | None -> DataType.UInt16
+
         let (rangeMin, rangeMax) =
             match dataType with
-            | DataType.Float -> (min, max)
+            | DataType.Float -> (defaultMinValues[selectedChannelIdx], defaultMaxValues[selectedChannelIdx])
             | DataType.UInt16 
             | _ -> (0, 65536)
+
+        let inputMinValue = { minValue with value = defaultMinValues[selectedChannelIdx]; min = rangeMin; max = rangeMax}
+
+        let inputMaxValue = { minValue with value = defaultMaxValues[selectedChannelIdx]; min = rangeMin; max = rangeMax }
+
+        let distance =
+            match tiffMbiJson with
+            | Some mbi -> (mbi.targetPos - mbi.earthPos).Length
+            | None -> 0.0
+
+        let time =
+            match tiffMbiJson with
+            | Some mbi -> mbi.obs_date
+            | None -> System.DateTime.MinValue // which default time?
+
         { initial with
             texture = Path.GetFullPath(texturePath);
-            defaultMinValue = min;
-            defaultMaxValue = max;
-            customMinValue = {minValue with value = min; min = rangeMin; max = rangeMax};
-            customMaxValue = {maxValue with value = max; min = rangeMin; max = rangeMax};
-            channel = { idx = channelIdx; name = None }
-            channelOptions = [ { idx = 0; name = None } ];
+            defaultMinValues = defaultMinValues;
+            defaultMaxValues = defaultMaxValues;
+            inputMinValue = inputMinValue;
+            inputMaxValue = inputMaxValue;
+            selectedChannel = channelOptions[selectedChannelIdx];
+            channelOptions = channelOptions;
             dataType = dataType;
+            distance = distance;
+            time = time;
         }
 
     let update (m : Image) (msg : ImageMessage) =
         match msg with
             | SetDataTypeAndRange (dataType, min, max) ->
-                { m with customMinValue = { minValue with min = min}; customMaxValue = {minValue with max = max} }
+                { m with inputMinValue = { minValue with min = min}; inputMaxValue = {minValue with max = max} }
             | SetCustomMin v -> 
-                { m with customMinValue = {minValue with value = v} }
+                { m with inputMinValue = {minValue with value = v} }
             | SetCustomMax v -> 
-                { m with customMaxValue = {maxValue with value = v} }
+                { m with inputMaxValue = {maxValue with value = v} }
             | ResetCustomMinMax ->
-                { m with customMinValue = {minValue with value = m.defaultMinValue}; customMaxValue = {maxValue with value = m.defaultMaxValue} }
+                { m with inputMinValue = {minValue with value = m.defaultMinValues[m.selectedChannel.idx]}; inputMaxValue = {maxValue with value = m.defaultMaxValues[m.selectedChannel.idx]} }
             | SetColorMap (map : ColorMap) ->
                 { m with colorMap = map }
             | SetEXRChannel channel ->
-                let (min, max) = getMinMaxFromStatistics(Path.Combine (m.texture, ".json"), channel.idx)
+                let (min, max) = (m.defaultMinValues[channel.idx], m.defaultMaxValues[channel.idx])
                 { m with 
-                    defaultMinValue = min;
-                    defaultMaxValue = max;
-                    customMinValue = {minValue with value = min};
-                    customMaxValue = {maxValue with value = max};
-                    channel = channel
+                    inputMinValue = {minValue with value = min};
+                    inputMaxValue = {maxValue with value = max};
+                    selectedChannel = channel
                 }
             | ToggleFalseColor ->
                 { m with useFalseColor = not m.useFalseColor }
@@ -223,7 +211,7 @@ module Image =
                             match c.name with
                             | None -> string c.idx
                             | Some name -> name
-                        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.channel (fun value -> SetEXRChannel value) channelRepr
+                        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.selectedChannel (fun value -> SetEXRChannel value) channelRepr
                         // Html.SemUi.dropDown m.channel SetEXRChannel
                     ]
                 ]
@@ -234,9 +222,9 @@ module Image =
                     Html.SemUi.dropDown m.colorMap SetColorMap
                 ]
                 Html.row "Minimum:" [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMinValue.value) SetCustomMin
+                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.inputMinValue.value) SetCustomMin
                     br []
-                    Numeric.view' [Slider] m.customMinValue
+                    Numeric.view' [Slider] m.inputMinValue
                     |> UI.map (fun action -> 
                         match action with
                         | Numeric.Action.SetValue v ->
@@ -246,10 +234,10 @@ module Image =
                         )
                     ]
                 Html.row "Maximum:"  [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.customMaxValue.value) SetCustomMax
+                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.inputMaxValue.value) SetCustomMax
                     br []
                     div [style "width: 100%"] [
-                        Numeric.numericField' m.customMaxValue Slider
+                        Numeric.numericField' m.inputMaxValue Slider
                         |> UI.map (fun action -> 
                             match action with
                             | Numeric.Action.SetValue v ->
@@ -283,7 +271,7 @@ module Image =
             )
 
         let imageTexture (m : AdaptiveImage) : aval<ITexture> =
-            (m.texture, m.channel) 
+            (m.texture, m.selectedChannel) 
             ||> AVal.map2 (fun (path : string) channel ->
                     match Path.GetExtension(path).ToLower() with
                     | ".exr" ->
@@ -316,8 +304,8 @@ module Image =
                     |> Sg.noEvents
                     |> Sg.texture "InstrumentImage" (imageTexture m)
                     |> Sg.texture "ColormapTexture" (colormapTexture m)
-                    |> Sg.uniform "MinValue" (m.customMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
-                    |> Sg.uniform "MaxValue" (m.customMaxValue.value |> AVal.map (fun v -> float v))
+                    |> Sg.uniform "MinValue" (m.inputMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
+                    |> Sg.uniform "MaxValue" (m.inputMaxValue.value |> AVal.map (fun v -> float v))
                     |> Sg.uniform "UseFalseColor" m.useFalseColor
                     |> Sg.uniform "DataType" (m.dataType |> AVal.map (fun dt -> int dt))
                     |> Sg.shader {
@@ -350,7 +338,7 @@ module Image =
                 let imageSettings = 
                     { 
                         VisualizationProperties.empty with 
-                            visualizationRange = (m.customMinValue.value, m.customMaxValue.value) ||> AVal.map2 (fun min max -> Range1d(min,max))
+                            visualizationRange = (m.inputMinValue.value, m.inputMaxValue.value) ||> AVal.map2 (fun min max -> Range1d(min,max))
                             colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
                             projectionOpacity = opacity
                     }
@@ -439,7 +427,7 @@ module Image =
             )
 
         let imageTexture : aval<ITexture> =
-            (m.texture, m.channel) 
+            (m.texture, m.selectedChannel) 
             ||> AVal.map2 (fun (path : string) channel ->
                     match Path.GetExtension(path).ToLower() with
                     | ".exr" ->
@@ -468,8 +456,8 @@ module Image =
             |> Sg.noEvents
             |> Sg.texture "InstrumentImage" imageTexture
             |> Sg.texture "ColormapTexture" colormapTexture
-            |> Sg.uniform "MinValue" (m.customMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
-            |> Sg.uniform "MaxValue" (m.customMaxValue.value |> AVal.map (fun v -> float v))
+            |> Sg.uniform "MinValue" (m.inputMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
+            |> Sg.uniform "MaxValue" (m.inputMaxValue.value |> AVal.map (fun v -> float v))
             |> Sg.uniform "UseFalseColor" m.useFalseColor
             |> Sg.uniform "DataType" (m.dataType |> AVal.map (fun dt -> int dt))
             |> Sg.shader {

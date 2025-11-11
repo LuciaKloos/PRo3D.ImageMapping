@@ -42,14 +42,16 @@ type Image =
     {
         colorMap        : ColorMap
         useFalseColor   : bool
-        channel         : Channel
+        selectedChannel : Channel
         channelOptions  : list<Channel>
         dataType        : DataType
-        defaultMinValue : float
-        defaultMaxValue : float
-        customMinValue : NumericInput
-        customMaxValue : NumericInput
+        defaultMinValues : list<float>
+        defaultMaxValues : list<float>
+        inputMinValue : NumericInput
+        inputMaxValue : NumericInput
         texture : string
+        distance: float
+        time: System.DateTime
     }
 
 [<ModelType>]

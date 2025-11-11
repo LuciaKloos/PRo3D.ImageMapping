@@ -75,7 +75,7 @@ module App =
                 m.images
                 |> IndexList.mapi (fun idx e -> (idx, e))
                 |> IndexList.toList
-                |> List.sortBy (fun (idx, p) -> p.defaultMinValue)
+                |> List.sortBy (fun (idx, p) -> p.distance)
                 |> IndexList.ofList
             let newSelectedIdx = 
                 match m.selectedImage with
@@ -104,7 +104,7 @@ module App =
                 m.images
                 |> IndexList.mapi (fun idx e -> (idx, e))
                 |> IndexList.toList
-                |> List.sortBy (fun (idx, p) -> p.defaultMaxValue)
+                |> List.sortBy (fun (idx, p) -> p.time)
                 |> IndexList.ofList
             let newSelectedIdx = 
                 match m.selectedImage with
@@ -163,10 +163,10 @@ module App =
                 )
 
         let contentImages = 
-            let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 30px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
-            let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 30px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
-            let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 30px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
-            let attributesAttr2 = attribute "style" $"cursor: pointer; width: 120px; height: 30px; display: flex; justify-content: center; align-items: center;"
+            let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesAttr2 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; display: flex; justify-content: center; align-items: center;"
 
             let header =
                 div [ 
@@ -181,7 +181,7 @@ module App =
                     ]
                     div [ attributesAttr2 ] [
                         i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDate);] []
-                        text "Sth else"
+                        text "OBS Date"
                     ]
                 ]
             Incremental.div (AttributeMap.ofList [ attribute "class" "table-container" ]) (
@@ -196,13 +196,12 @@ module App =
                                     // let distanceToPlanet = CooTransformation.getRelState "HERA" "SUN" "MARS"  
                                     div [attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"] [
                                         div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
-                                        div [
-                                            attribute "style" "display: flex; font-weight: bold;"] 
+                                        div [attribute "style" "display: flex; font-weight: bold"] 
                                             [
                                                 div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
                                                 div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
-                                                div [attributesAttr1] [ Incremental.text (img.defaultMinValue |> AVal.map string) ]
-                                                div [attributesAttr2] [ Incremental.text (img.defaultMaxValue |> AVal.map string) ]
+                                                div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
+                                                div [attributesAttr2] [ Incremental.text (img.time |> AVal.map string) ]
                                             ]
                                         
                                         Incremental.div AttributeMap.empty (
@@ -229,7 +228,7 @@ module App =
 
                 div [clazz "ui inverted list"] [
                     div [clazz "item"] [
-                        div [clazz "ui header"] [text "Data:"]
+                        div [clazz "ui header"; style "background: black; padding: 5px"] [text "Data:"]
                         button [clazz "ui button tiny"; style "margin-left: 10px";
                                 Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
                                 clientEvent "onclick" (jsImportDialog) ] [
@@ -237,11 +236,11 @@ module App =
                         ]
                     ]
                     div [clazz "item"] [
-                        div [clazz "ui header"] [text "Visualization:"]
+                        div [clazz "ui header"; style "background: black; padding: 5px"] [text "Visualization:"]
                         Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
                     ]
                     div [clazz "item"] [
-                        div [clazz "ui header"] [text "Registration:"]
+                        div [clazz "ui header"; style "background: black; padding: 5px"] [text "Registration:"]
                         Html.table [  
                             Html.row "Roll:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll |> UI.map SetRoll]
                             Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]
