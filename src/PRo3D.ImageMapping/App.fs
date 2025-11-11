@@ -228,20 +228,23 @@ module App =
             div [style "overlow-y: auto; max-height: calc(100vh - 95px);"] [
 
                 div [clazz "ui inverted list"] [
-                    div [clazz "item"; style "border: solid 1px black; padding-left: 5px"] [
-                        div [clazz "ui header"] [text "Data:"]
+                    div [clazz "item"; style "border-bottom: solid 1px black; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                        div [] [text "Data:"]
                         button [clazz "ui button tiny";
+                                style "margin-left: auto;"
                                 Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
                                 clientEvent "onclick" (jsImportDialog) ] [
                                 text "Import Directory"
                         ]
                     ]
-                    div [clazz "item"; style "border: solid 1px black; margin-top: 10px; padding-left: 5px"] [
-                        div [clazz "ui header"] [text "Visualization:"]
-                        Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
+                    div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                        div [] [text "Visualization:"]
+                        div [style "margin-left: auto;"] [
+                            Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
+                        ]
                     ]
-                    div [clazz "item"; style "border: solid 1px black; margin-top: 10px;"] [
-                        div [clazz "ui header"; style "padding-left: 5px"] [text "Registration:"]
+                    div [clazz "item"; style "margin-top: 10px;"] [
+                        div [style "padding-left: 5px"] [text "Registration:"]
                         Html.table [  
                             Html.row "Roll:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll |> UI.map SetRoll]
                             Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]
