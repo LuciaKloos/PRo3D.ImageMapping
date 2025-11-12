@@ -132,7 +132,7 @@ module App =
     let view 
         (m : AdaptiveModel)
         (showDOM : AdaptiveImage -> DomNode<ImageMessage>) 
-        (showRelative2DImage : AdaptiveImage -> DomNode<ImageMessage>)
+        (showRelative2DImage : aval<Option<AdaptiveImage>> -> DomNode<Message>)
         (showAbsolute2DAnd3DImage : aval<Option<AdaptiveImage>> -> DomNode<Message>) =
     
         let listAttributes =
@@ -143,6 +143,20 @@ module App =
 
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select directory', filters: [{ name: 'directories'}], properties: ['openDirectory']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+
+
+
+        let selectedImage = 
+            adaptive {
+                let! selectedImage = m.selectedImage
+                match selectedImage with
+                | Some sel -> 
+                    let! img = AList.tryGet sel m.images
+                    match img with
+                    | Some img' -> return Some img'
+                    | None -> return None
+                | None -> return None
+            }
 
         let accordion text' icon active styling content' =
                 let title = if active then "title active inverted" else "title inverted"
@@ -253,25 +267,8 @@ module App =
                     ]
                 ]
 
-                let preview2D = 
-                    adaptive {
-                        let! selectedImage = m.selectedImage
-                        match selectedImage with
-                        | Some sel -> 
-                            let! img = AList.tryGet sel m.images
-                            match img with
-                            | Some img' -> return showRelative2DImage img' |> UI.map (fun msg -> Message.ImageMessage (sel, msg))
-                            | None -> return div [] []
-                        | None -> return div [] []
-                    }
-
                 div [] [
-                    Incremental.div AttributeMap.empty (
-                        alist {
-                            let! preview2D' = preview2D
-                            yield preview2D'
-                        }
-                    )
+                    div [] [showRelative2DImage selectedImage]
                     div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages
                     ]
@@ -281,18 +278,6 @@ module App =
 
         require Html.semui (
             body [] [
-
-                let selectedImage = 
-                    adaptive {
-                        let! selectedImage = m.selectedImage
-                        match selectedImage with
-                        | Some sel -> 
-                            let! img = AList.tryGet sel m.images
-                            match img with
-                            | Some img' -> return Some img'
-                            | None -> return None
-                        | None -> return None
-                    }
 
                 div [] [
                     showAbsolute2DAnd3DImage selectedImage 

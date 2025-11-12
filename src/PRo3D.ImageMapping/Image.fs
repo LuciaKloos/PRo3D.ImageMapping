@@ -261,58 +261,70 @@ module Image =
             ]
         )
 
+    let createInstrumentScene (img : aval<Option<AdaptiveImage>>) =
+        let extract  (defaultValue : aval<'a>) (f : AdaptiveImage -> aval<'a>) (m : aval<Option<AdaptiveImage>>) =
+            m |> AVal.bind (function
+                | None -> defaultValue 
+                | Some v -> f v
+            )
+
+        let colormapTexture : aval<ITexture> =
+            img |> extract DefaultTextures.checkerboard (fun img -> 
+                img.colorMap
+                |> AVal.map (fun map ->
+                    let resourceName = ColorMap.getColorMapFileName(map)
+                    InstrumentImageVisualization.getColorMapTexture resourceName
+                )
+            )
+
+        let imageTexture : aval<ITexture> =
+            img |> extract DefaultTextures.checkerboard (fun img -> 
+                (img.texture, img.selectedChannel) 
+                ||> AVal.map2 (fun (path : string) channel ->
+                        match Path.GetExtension(path).ToLower() with
+                        | ".exr" ->
+                            let stream = File.OpenRead path
+                            let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
+                            PixTexture2d(exrTexture, TextureParams.empty)
+                        | ".tiff" | ".tif" -> 
+                            let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
+                            match MultiBandReader.tryReadMultiBandTiff path false with
+                            | Result.Ok img -> 
+                                let images = InstrumentImageTextures.instrumentImageToTexture true img 
+                                match Array.tryItem channel.idx images with
+                                | Some img -> 
+                                    PixTexture2d(img.pi, TextureParams.empty)
+                                | _ -> 
+                                    Log.warn "channel of out of bounds"
+                                    DefaultTextures.checkerboard.GetValue()
+                            | _ -> 
+                                Log.warn "could not load texture"
+                                DefaultTextures.checkerboard.GetValue()
+                        | ".png" | _ -> whiteTex 
+                ) 
+            )
+
+        let min = img |> extract (AVal.constant 0.0) (fun m -> m.inputMinValue.value |> AVal.map (fun v -> float v))
+        let max = img |> extract (AVal.constant 1.0) (fun m -> m.inputMaxValue.value |> AVal.map (fun v -> float v))
+        let falseColor = img |> extract (AVal.constant false) (fun m -> m.useFalseColor)
+        let dataType = img |> extract (AVal.constant 2) (fun m -> m.dataType |> AVal.map (fun dt -> int dt))
+
+        Sg.fullScreenQuad
+        |> Sg.noEvents
+        |> Sg.texture "InstrumentImage" imageTexture
+        |> Sg.texture "ColormapTexture" colormapTexture
+        |> Sg.uniform "MinValue" min
+        |> Sg.uniform "MaxValue" max
+        |> Sg.uniform "UseFalseColor" falseColor
+        |> Sg.uniform "DataType" dataType
+        |> Sg.shader {
+            do! (Shaders.hshColors)
+        }
+
     let view2DAnd3DImageAbsolute (opacity : aval<float>) (boresightAdjustment : aval<Option<Trafo3d>>) (orbitState : AdaptiveOrbitState) (m : aval<Option<AdaptiveImage>>) =
 
-        let colormapTexture (m : AdaptiveImage) : aval<ITexture> =
-            m.colorMap
-            |> AVal.map (fun map ->
-                let resourceName = ColorMap.getColorMapFileName(map)
-                InstrumentImageVisualization.getColorMapTexture resourceName
-            )
-
-        let imageTexture (m : AdaptiveImage) : aval<ITexture> =
-            (m.texture, m.selectedChannel) 
-            ||> AVal.map2 (fun (path : string) channel ->
-                    match Path.GetExtension(path).ToLower() with
-                    | ".exr" ->
-                        let stream = File.OpenRead path
-                        let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
-                        PixTexture2d(exrTexture, TextureParams.empty)
-                    | ".tiff" | ".tif" -> 
-                        let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
-                        match MultiBandReader.tryReadMultiBandTiff path false with
-                        | Result.Ok img -> 
-                            let images = InstrumentImageTextures.instrumentImageToTexture true img 
-                            match Array.tryItem channel.idx images with
-                            | Some img -> 
-                                PixTexture2d(img.pi, TextureParams.empty)
-                            | _ -> 
-                                Log.warn "channel of out of bounds"
-                                DefaultTextures.checkerboard.GetValue()
-                        | _ -> 
-                            Log.warn "could not load texture"
-                            DefaultTextures.checkerboard.GetValue()
-                    | ".png" | _ -> whiteTex 
-            ) 
-
         let instrumentVisualization =
-            m 
-            |> AVal.map (function 
-                | None -> Sg.empty 
-                | Some m -> 
-                    Sg.fullScreenQuad
-                    |> Sg.noEvents
-                    |> Sg.texture "InstrumentImage" (imageTexture m)
-                    |> Sg.texture "ColormapTexture" (colormapTexture m)
-                    |> Sg.uniform "MinValue" (m.inputMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
-                    |> Sg.uniform "MaxValue" (m.inputMaxValue.value |> AVal.map (fun v -> float v))
-                    |> Sg.uniform "UseFalseColor" m.useFalseColor
-                    |> Sg.uniform "DataType" (m.dataType |> AVal.map (fun dt -> int dt))
-                    |> Sg.shader {
-                        do! (Shaders.hshColors)
-                    }
-            )
-            |> Sg.dynamic
+            createInstrumentScene m
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum2D = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
@@ -404,12 +416,7 @@ module Image =
                         // use empty scene if no image is here
                         let scene = 
                             m 
-                            |> AVal.map (function
-                                | None -> 
-                                    Sg.empty
-                                | Some m -> 
-                                    visualization m
-                            )
+                            |> AVal.map (function | None -> Sg.empty | Some m -> visualization m)
                             |> Sg.dynamic
 
                         OrbitController.controlledControl orbitState OrbitCameraMessage frustum rightControl scene
@@ -417,58 +424,15 @@ module Image =
                 ]
         )
 
-    let view2DRelative (m : AdaptiveImage) =
+    let view2DRelative (img : aval<Option<AdaptiveImage>>) =
 
-        let colormapTexture : aval<ITexture> =
-            m.colorMap
-            |> AVal.map (fun map ->
-                let resourceName = ColorMap.getColorMapFileName(map)
-                InstrumentImageVisualization.getColorMapTexture resourceName
-            )
-
-        let imageTexture : aval<ITexture> =
-            (m.texture, m.selectedChannel) 
-            ||> AVal.map2 (fun (path : string) channel ->
-                    match Path.GetExtension(path).ToLower() with
-                    | ".exr" ->
-                        let stream = File.OpenRead path
-                        let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
-                        PixTexture2d(exrTexture, TextureParams.empty)
-                    | ".tiff" | ".tif" -> 
-                        let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
-                        match MultiBandReader.tryReadMultiBandTiff path false with
-                        | Result.Ok img -> 
-                            let images = InstrumentImageTextures.instrumentImageToTexture true img 
-                            match Array.tryItem channel.idx images with
-                            | Some img -> 
-                                PixTexture2d(img.pi, TextureParams.empty)
-                            | _ -> 
-                                Log.warn "channel of out of bounds"
-                                DefaultTextures.checkerboard.GetValue()
-                        | _ -> 
-                            Log.warn "could not load texture"
-                            DefaultTextures.checkerboard.GetValue()
-                    | ".png" | _ -> whiteTex 
-            ) 
-
-        let instrumentVisualization = 
-            Sg.fullScreenQuad
-            |> Sg.noEvents
-            |> Sg.texture "InstrumentImage" imageTexture
-            |> Sg.texture "ColormapTexture" colormapTexture
-            |> Sg.uniform "MinValue" (m.inputMinValue.value |> AVal.map (fun v -> float v)) // float v / 65535.0
-            |> Sg.uniform "MaxValue" (m.inputMaxValue.value |> AVal.map (fun v -> float v))
-            |> Sg.uniform "UseFalseColor" m.useFalseColor
-            |> Sg.uniform "DataType" (m.dataType |> AVal.map (fun dt -> int dt))
-            |> Sg.shader {
-                do! (Shaders.hshColors)
-            }
+        let instrumentVisualization = createInstrumentScene img
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
 
         require Html.semui (
-            div [style "width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; margin-top: 10px; border: solid 2px black; background: rgb(0, 0, 0, 0.5);"] [
+            div [style "width: 200px; height: 200px; display: flex; align-items: center; justify-content: center; margin-top: 10px; border: solid 2px black; background: rgb(0, 0, 0, 0.5);"] [
                 let style = [style "position: relative; width: 200px; height: 200px; padding: 2px"; attribute "showLoader" "false"]
                 renderControl (AVal.constant (Camera.create cameraView frustum')) style instrumentVisualization
             ]
