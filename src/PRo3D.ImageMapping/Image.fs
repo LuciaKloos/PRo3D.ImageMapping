@@ -148,7 +148,7 @@ module Image =
 
         let distance =
             match tiffMbiJson with
-            | Some mbi -> (mbi.targetPos - mbi.earthPos).Length
+            | Some mbi -> mbi.targetPos.Length
             | None -> 0.0
 
         let time =
