@@ -75,7 +75,7 @@ module App =
                 m.images
                 |> IndexList.mapi (fun idx e -> (idx, e))
                 |> IndexList.toList
-                |> List.sortBy (fun (idx, p) -> p.defaultMinValue)
+                |> List.sortBy (fun (idx, p) -> p.distance)
                 |> IndexList.ofList
             let newSelectedIdx = 
                 match m.selectedImage with
@@ -104,7 +104,7 @@ module App =
                 m.images
                 |> IndexList.mapi (fun idx e -> (idx, e))
                 |> IndexList.toList
-                |> List.sortBy (fun (idx, p) -> p.defaultMaxValue)
+                |> List.sortBy (fun (idx, p) -> p.time)
                 |> IndexList.ofList
             let newSelectedIdx = 
                 match m.selectedImage with
@@ -163,10 +163,10 @@ module App =
                 )
 
         let contentImages = 
-            let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 30px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
-            let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 30px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
-            let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 30px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
-            let attributesAttr2 = attribute "style" $"cursor: pointer; width: 120px; height: 30px; display: flex; justify-content: center; align-items: center;"
+            let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesAttr2 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; display: flex; justify-content: center; align-items: center;"
 
             let header =
                 div [ 
@@ -181,67 +181,70 @@ module App =
                     ]
                     div [ attributesAttr2 ] [
                         i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDate);] []
-                        text "Sth else"
+                        text "OBS Date"
                     ]
                 ]
             Incremental.div (AttributeMap.ofList [ attribute "class" "table-container" ]) (
                 alist {
                     yield header
-
-                    yield Incremental.div (AttributeMap.ofList [ attribute "style" "max-height: calc(100vh - 390px); overflow-y: auto; " ]) (
-                        alist {
-                            let domNodes = 
-                                m.images 
-                                |> AList.mapi (fun index img ->
-                                    // let distanceToPlanet = CooTransformation.getRelState "HERA" "SUN" "MARS"  
-                                    div [attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"] [
-                                        div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
-                                        div [
-                                            attribute "style" "display: flex; font-weight: bold;"] 
-                                            [
-                                                div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
-                                                div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
-                                                div [attributesAttr1] [ Incremental.text (img.defaultMinValue |> AVal.map string) ]
-                                                div [attributesAttr2] [ Incremental.text (img.defaultMaxValue |> AVal.map string) ]
-                                            ]
+                    yield div [attribute "style" "max-height: calc(100vh - 300px); overflow: auto;" ] [
+                        yield Incremental.div (AttributeMap.ofList [ attribute "style" "overflow-y: visible; " ]) (
+                            alist {
+                                let domNodes = 
+                                    m.images 
+                                    |> AList.mapi (fun index img ->
+                                        // let distanceToPlanet = CooTransformation.getRelState "HERA" "SUN" "MARS"  
+                                        div [attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"] [
+                                            div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
+                                            div [attribute "style" "display: flex; font-weight: bold"] 
+                                                [
+                                                    div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
+                                                    div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
+                                                    div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
+                                                    div [attributesAttr2] [ Incremental.text (img.time |> AVal.map string) ]
+                                                ]
                                         
-                                        Incremental.div AttributeMap.empty (
-                                            alist { 
-                                                let! isInEditMode = m.editImages |> AVal.map (fun editEntries -> List.contains index editEntries)
-                                                if isInEditMode then
-                                                    div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
-                                                        showDOM img |> UI.map (fun msg -> Message.ImageMessage (index, msg))
-                                                    ]
-                                                else
-                                                    div [] []
-                                            }
-                                        )
-                                    ]
-                                )
-                            for domNode in domNodes do
-                                yield domNode
-                    })
+                                            Incremental.div AttributeMap.empty (
+                                                alist { 
+                                                    let! isInEditMode = m.editImages |> AVal.map (fun editEntries -> List.contains index editEntries)
+                                                    if isInEditMode then
+                                                        div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
+                                                            showDOM img |> UI.map (fun msg -> Message.ImageMessage (index, msg))
+                                                        ]
+                                                    else
+                                                        div [] []
+                                                }
+                                            )
+                                        ]
+                                    )
+                                for domNode in domNodes do
+                                    yield domNode
+                        })
+                    ]
                 })
 
 
         let content = 
-            div [] [
+            div [style "overlow-y: auto; max-height: calc(100vh - 95px);"] [
 
                 div [clazz "ui inverted list"] [
-                    div [clazz "item"] [
-                        div [clazz "ui header"] [text "Data:"]
-                        button [clazz "ui button tiny"; style "margin-left: 10px";
+                    div [clazz "item"; style "border-bottom: solid 1px black; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                        div [] [text "Data:"]
+                        button [clazz "ui button tiny";
+                                style "margin-left: auto;"
                                 Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
                                 clientEvent "onclick" (jsImportDialog) ] [
                                 text "Import Directory"
                         ]
                     ]
-                    div [clazz "item"] [
-                        div [clazz "ui header"] [text "Visualization:"]
-                        Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
+                    div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                        div [] [text "Visualization:"]
+                        div [style "margin-left: auto;"] [
+                            Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
+                        ]
                     ]
-                    div [clazz "item"] [
-                        div [clazz "ui header"] [text "Registration:"]
+                    div [clazz "item"; style "margin-top: 10px;"] [
+                        div [style "padding-left: 5px"] [text "Registration:"]
                         Html.table [  
                             Html.row "Roll:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll |> UI.map SetRoll]
                             Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]
