@@ -14,7 +14,7 @@ open Aardvark.SceneGraph
 open Aardvark.Rendering.Text
 open Aardvark.Geometry
 open Aardvark.FontProvider
-
+open Aardvark.GeoSpatial.Opc
 
 open PRo3D.Extensions
 open PRo3D.Extensions.FSharp
@@ -24,31 +24,48 @@ open PRo3D.Core.InstrumentMetadata
 open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentData
 open PRo3D.InstrumentVisualization
+//open PRo3D.ImageMapping.Model
+
 
 type Self = Self
 
+type Channel = {
+    idx : int
+    name : Option<string>
+}
+
 module Visualization =
 
-    let createProjectedTexture (currentProjectedImage : aval<Option<string * ParsedMetadata>>) : aval<ITexture> =
-        currentProjectedImage 
-        |> AVal.bind (fun img -> 
+    let createProjectedExrTexture (path : string) (channel : int) : aval<ITexture> = 
+        let stream = File.OpenRead path
+        let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel) (Some TextureLoading.TextureFormat.OpenEXR)
+        PixTexture2d(exrTexture, TextureParams.empty) :> ITexture |> AVal.constant
+
+    let createProjectedTiffTexture (path : string) (channel : int) : aval<ITexture> = 
+        match MultiBandReader.tryReadMultiBandTiff path false with
+        | Result.Ok img -> 
+            let images = InstrumentImageTextures.instrumentImageToTexture true img 
+            match Array.tryItem channel images with
+            | Some img -> 
+                PixTexture2d(img.pi, TextureParams.empty) :> ITexture |> AVal.constant
+            | _ -> 
+                Log.warn "channel of out of bounds"
+                DefaultTextures.checkerboard
+        | _ -> 
+            Log.warn "could not load texture"
+            DefaultTextures.checkerboard
+
+    let createProjectedTexture (currentProjectedImage : aval<Option<string * ParsedMetadata>>) (channel: aval<Channel>) : aval<ITexture> = 
+        AVal.bind2 (fun img  c -> 
             match img with
-            | Some (img, (Some mbi, _)) -> 
-                match MultiBandReader.tryReadMultiBandTiff img false with
-                | Result.Ok img -> 
-                    let images = InstrumentImageTextures.instrumentImageToTexture true img 
-                    match Array.tryItem 0 images with
-                    | Some img -> 
-                        PixTexture2d(img.pi, TextureParams.empty) :> ITexture |> AVal.constant
-                    | _ -> 
-                        Log.warn "channel of out of bounds"
-                        DefaultTextures.checkerboard
-                | _ -> 
-                    Log.warn "could not load texture"
-                    DefaultTextures.checkerboard
+            | Some (img : string, (Some mbi, _)) -> 
+                match Path.GetExtension(img).ToLower() with
+                | ".tiff" | ".tif" -> createProjectedTiffTexture img c.idx
+                | ".exr" -> createProjectedExrTexture img c.idx
+                | _ -> DefaultTextures.checkerboard
             | _ -> 
                 DefaultTextures.checkerboard
-        )
+        ) currentProjectedImage channel
 
     let creatProjectionFunction (observer : aval<string>) (time : aval<DateTime>) (referenceFrame : aval<string>) 
                                 (currentProjectedImage : aval<Option<string * ParsedMetadata>>) (projection : aval<InstrumentProjection>) =

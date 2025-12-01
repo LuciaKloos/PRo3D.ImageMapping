@@ -3,6 +3,8 @@ namespace PRo3D.ImageMapping.Model
 open Aardvark.UI.Primitives
 open Adaptify
 
+open PRo3D.InstrumentProjection
+
 open FSharp.Data.Adaptive
 
 
@@ -30,12 +32,6 @@ module ColorMap =
         | ColorMap.Vanimo -> "vanimo.png"
         | _ -> "magma.png"
 
-
-type Channel = 
-    {
-        idx : int
-        name : Option<string>
-    }
 
 [<ModelType>]
 type Image =
