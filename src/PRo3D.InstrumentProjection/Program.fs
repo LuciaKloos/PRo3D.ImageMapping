@@ -1,5 +1,4 @@
-﻿
-open System
+﻿open System
 open System.IO
 
 open FSharp.Data.Adaptive
@@ -192,7 +191,7 @@ module InstrumentProjectionViewer =
             }
 
         let projectImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage (AVal.constant projection)
-        let projectedTexture = Visualization.createProjectedTexture currentProjectedImage
+        let projectedTexture = Visualization.createProjectedTexture currentProjectedImage (AVal.constant { idx = 0; name = None})
 
         let opc =
             let molaOpcs =

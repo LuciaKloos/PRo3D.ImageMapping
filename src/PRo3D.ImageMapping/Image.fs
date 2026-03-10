@@ -388,7 +388,7 @@ module Image =
                 let time = projectionSetup |> AVal.map snd
             
                 let projectImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage projection
-                let projectedTexture = Visualization.createProjectedTexture currentProjectedImage
+                let projectedTexture = Visualization.createProjectedTexture currentProjectedImage m.selectedChannel
 
                 let projectionEnabled = 
                     currentProjectedImage 
