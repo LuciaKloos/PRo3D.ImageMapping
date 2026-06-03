@@ -19,10 +19,11 @@ module App =
     let initial : Model = {
         images = IndexList.Empty;
         selectedImage = None;
+        overlayImage = None;
         editImages = List.Empty;
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
-        cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))
+        cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))  
     }
 
     let update (m : Model) (msg : Message) = 
@@ -46,15 +47,18 @@ module App =
                 |> Seq.map (fun path -> 
                     Image.loadFile(path)
                 ) |> IndexList.ofSeq
-            let firstIndex = 
-                if IndexList.isEmpty images' then
-                    None
-                else
-                    Some (IndexList.firstIndex images')
+            let indices = 
+                images' 
+                |> IndexList.mapi (fun i _ -> i)
+                |> IndexList.toList
+            let firstIndex = indices |> List.tryHead
+            let secondIndex = indices |> List.tryItem 1
 
-            { m with images = images'; selectedImage = firstIndex }
+            { m with images = images'; selectedImage = firstIndex; overlayImage = secondIndex }
         | SelectImage idx -> 
             { m with selectedImage = Some idx }
+        | SetOverlayImage idx -> 
+            { m with overlayImage = Some idx }
         | EditImage idx ->
             let editImages' =
                 if List.contains idx m.editImages then
@@ -132,8 +136,8 @@ module App =
     let view 
         (m : AdaptiveModel)
         (showDOM : AdaptiveImage -> DomNode<ImageMessage>) 
-        (showRelative2DImage : aval<Option<AdaptiveImage>> -> DomNode<Message>)
-        (showAbsolute2DAnd3DImage : aval<Option<AdaptiveImage>> -> DomNode<Message>) =
+        (showRelative2DImage : aval<Option<AdaptiveImage>> -> aval<Option<AdaptiveImage>> -> DomNode<Message>)
+        (showAbsolute2DAnd3DImage : aval<Option<AdaptiveImage>> -> aval<Option<AdaptiveImage>> -> DomNode<Message>) =
     
         let listAttributes =
             amap {
@@ -144,19 +148,24 @@ module App =
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({tile: 'Select directory', filters: [{ name: 'directories'}], properties: ['openDirectory']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
 
-
-
-        let selectedImage = 
+        let selectedAdaptiveImage (selected : aval<Option<Index>>) =
             adaptive {
-                let! selectedImage = m.selectedImage
+                let! selectedImage = selected
                 match selectedImage with
                 | Some sel -> 
                     let! img = AList.tryGet sel m.images
                     match img with
                     | Some img' -> return Some img'
                     | None -> return None
-                | None -> return None
+                | None ->
+                    return None
             }
+
+        let primaryImage =
+            selectedAdaptiveImage m.selectedImage
+
+        let overlayImage =
+            selectedAdaptiveImage m.overlayImage
 
         let accordion text' icon active styling content' =
                 let title = if active then "title active inverted" else "title inverted"
@@ -187,7 +196,8 @@ module App =
                     // attribute "clazz" "title active inverted"
                     attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black" 
                 ] [
-                    div [ attributesSelect ] [text "Select"]
+                    div [ attributesSelect ] [text "Primary"]
+                    div [ attributesSelect ] [text "Overlay"]
                     div [ attributesEdit ] [text "Edit"]
                     div [ attributesAttr1 ] [
                         i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance);] []
@@ -213,6 +223,7 @@ module App =
                                             div [attribute "style" "display: flex; font-weight: bold"] 
                                                 [
                                                     div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
+                                                    div [attributesSelect] [ Html.SemUi.iconCheckBox (m.overlayImage |> AVal.map (fun overlayIdx -> overlayIdx = Some index)) (SetOverlayImage index)]
                                                     div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
                                                     div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
                                                     div [attributesAttr2] [ Incremental.text (img.time |> AVal.map string) ]
@@ -268,7 +279,7 @@ module App =
                 ]
 
                 div [] [
-                    div [] [showRelative2DImage selectedImage]
+                    div [] [showRelative2DImage primaryImage overlayImage]   
                     div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages
                     ]
@@ -280,7 +291,7 @@ module App =
             body [] [
 
                 div [] [
-                    showAbsolute2DAnd3DImage selectedImage 
+                    showAbsolute2DAnd3DImage primaryImage overlayImage   
                 ]
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
                     accordion "Texture Mapping" "file image outline" false (clazz "ui inverted segment") [ content ]

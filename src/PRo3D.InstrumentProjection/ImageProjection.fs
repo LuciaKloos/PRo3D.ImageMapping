@@ -177,24 +177,53 @@ module ImageProjectionTrafoSceneGraph =
             app.Child?Planet <- app.Planet
         
 
-    type ProjectedImageApplicator(child : ISg, viewProjection : string -> aval<Option<Trafo3d>>) =
+    type ProjectedImageApplicator(child : ISg, primaryViewProjection : string -> aval<Option<Trafo3d>>, overlayViewProjection : string -> aval<Option<Trafo3d>>) =
         inherit Sg.AbstractApplicator(child)
-        member x.ViewProjection = viewProjection
+
+        member x.PrimaryViewProjection = primaryViewProjection
+        member x.OverlayViewProjection = overlayViewProjection
 
     [<Rule>]
     type ProjectedImageSemantics() =
+        member private x.ComputeModelViewProj
+            (
+                viewProjection : string -> aval<Option<Trafo3d>>,
+                planet : string,
+                modelTrafo : aval<Trafo3d>
+            ) =
+        
+            let projectionTrafo =
+                viewProjection planet
+
+            let possiblyTrafo =
+                projectionTrafo
+                |> AVal.bind (function
+                    | None ->
+                        AVal.constant None
+
+                    | Some vp ->
+                        modelTrafo
+                        |> AVal.map (fun m ->
+                            Some (m * vp)
+                        )
+                )
+
+            possiblyTrafo
+            |> AVal.map (Option.defaultValue Trafo3d.Identity)
+
+
         member x.ProjectedImageModelViewProj(app : ProjectedImageApplicator, scope : Ag.Scope) =
             let planet : string = scope?Planet
-            let projectionTrafo = app.ViewProjection planet
             let modelTrafo = scope.ModelTrafo 
-            let possiblyTrafo = 
-                projectionTrafo |> AVal.bind (function
-                    | None -> AVal.constant None
-                    | Some vp -> 
-                        AVal.map (fun m -> m *  vp |> Some) modelTrafo
-                )
-            let trafo = possiblyTrafo |> AVal.map (Option.defaultValue Trafo3d.Identity)
-            app.Child?ProjectedImageModelViewProj <- trafo
+            
+            let primaryTrafo =
+                x.ComputeModelViewProj(app.PrimaryViewProjection, planet, modelTrafo)
+
+            let overlayTrafo =
+                x.ComputeModelViewProj(app.OverlayViewProjection, planet, modelTrafo)
+
+            app.Child?ProjectedImageModelViewProj <- primaryTrafo
+            app.Child?OverlayImageModelViewProj <- overlayTrafo
 
      
 module Sg = 
@@ -203,5 +232,21 @@ module Sg =
     let applyPlanet (planet : string) (sg : ISg) =
         PlanetApplicator(sg, planet) :> ISg
 
-    let applyProjectedImage (viewProjTrafo : string -> aval<Option<Trafo3d>>) (sg : ISg) =
-        ProjectedImageApplicator(sg, viewProjTrafo) :> ISg
+    let applyProjectedImages
+        (primaryViewProjection : string -> aval<Option<Trafo3d>>)
+        (overlayViewProjection : string -> aval<Option<Trafo3d>>)
+        (sg : ISg) =
+        ProjectedImageApplicator(sg, primaryViewProjection, overlayViewProjection) :> ISg
+
+    let applyProjectedImage
+        (viewProjection : string -> aval<Option<Trafo3d>>)
+        (sg : ISg) =
+
+        let noOverlayProjection (_planet : string) =
+            AVal.constant None
+
+        ProjectedImageApplicator(
+            sg,
+            viewProjection,
+            noOverlayProjection
+        ) :> ISg

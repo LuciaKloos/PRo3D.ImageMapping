@@ -72,6 +72,7 @@ type Model =
     {
         images          : IndexList<Image>
         selectedImage   : Option<Index>
+        overlayImage     : Option<Index>
         editImages      : Index list
         projectionOpacity : NumericInput
         boresightAdjustment : BoresightAdjustment
@@ -92,6 +93,7 @@ type ImageMessage =
 type Message = 
     | OrbitCameraMessage of OrbitMessage
     | SelectImage of Index
+    | SetOverlayImage of Index
     | EditImage of Index
     | LoadImagesDir of string
     | ImageMessage of Index * ImageMessage

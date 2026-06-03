@@ -44,6 +44,22 @@ module Shaders =
         member x.MaxValue : float = uniform?MaxValue
         member x.UseFalseColor : bool = uniform?UseFalseColor
         member x.DataType : int = uniform?DataType
+        member x.OverlayMax : V2d = uniform?OverlayMax
+        member x.OverlayMin : V2d = uniform?OverlayMin
+
+    let placeOverlayQuad (v : Vertex) = 
+        vertex {
+                //fullScreenQuad positions are expected in clip space [-1,1]
+                let uv = v.pos.XY * 0.5 + V2d(0.5, 0.5)
+
+                // OverlayMin/Max are normalized screen coordinates [0,1]
+                let p = uniform.OverlayMin + uv * (uniform.OverlayMax - uniform.OverlayMin)
+
+                // convert to clip space [-1,1]
+                let clip = p * 2.0 - V2d(1.0, 1.0)
+
+                return { v with pos = V4d(clip.X, clip.Y, v.pos.Z, v.pos.W) }
+        }
 
     let hshColors (v : Vertex)  = 
         fragment {
@@ -261,70 +277,132 @@ module Image =
             ]
         )
 
-    let createInstrumentScene (img : aval<Option<AdaptiveImage>>) =
+    let createInstrumentScene
+        (primaryImg : aval<Option<AdaptiveImage>>)
+        (overlayImg : aval<Option<AdaptiveImage>>) =
+
         let extract  (defaultValue : aval<'a>) (f : AdaptiveImage -> aval<'a>) (m : aval<Option<AdaptiveImage>>) =
             m |> AVal.bind (function
                 | None -> defaultValue 
                 | Some v -> f v
             )
 
-        let colormapTexture : aval<ITexture> =
-            img |> extract DefaultTextures.checkerboard (fun img -> 
-                img.colorMap
-                |> AVal.map (fun map ->
-                    let resourceName = ColorMap.getColorMapFileName(map)
-                    InstrumentImageVisualization.getColorMapTexture resourceName
-                )
-            )
+        let createInstrumentBaseQuad (img : aval<Option<AdaptiveImage>>) (quad : ISg<Message>) =
 
-        let imageTexture : aval<ITexture> =
-            img |> extract DefaultTextures.checkerboard (fun img -> 
-                (img.texture, img.selectedChannel) 
-                ||> AVal.map2 (fun (path : string) channel ->
+            let colormapTexture : aval<ITexture> =
+                img |> extract DefaultTextures.checkerboard (fun img -> 
+                    img.colorMap
+                    |> AVal.map (fun map ->
+                        let resourceName = ColorMap.getColorMapFileName(map)
+                        InstrumentImageVisualization.getColorMapTexture resourceName
+                    )
+                )
+
+            let imageTexture : aval<ITexture> =
+                img |> extract DefaultTextures.checkerboard (fun img -> 
+                    (img.texture, img.selectedChannel) 
+                    ||> AVal.map2 (fun (path : string) channel ->
                         match Path.GetExtension(path).ToLower() with
                         | ".exr" ->
-                            let stream = File.OpenRead path
-                            let exrTexture = TextureLoading.loadImageFromStream stream (ChannelReference.ChannelWithIndex channel.idx) (Some TextureLoading.TextureFormat.OpenEXR)
+                            use stream = File.OpenRead path
+                            let exrTexture =
+                                TextureLoading.loadImageFromStream
+                                    stream
+                                    (ChannelReference.ChannelWithIndex channel.idx)
+                                    (Some TextureLoading.TextureFormat.OpenEXR)
+
                             PixTexture2d(exrTexture, TextureParams.empty)
+
                         | ".tiff" | ".tif" -> 
-                            let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels path
                             match MultiBandReader.tryReadMultiBandTiff path false with
                             | Result.Ok img -> 
-                                let images = InstrumentImageTextures.instrumentImageToTexture true img 
+                                let images =
+                                    InstrumentImageTextures.instrumentImageToTexture true img 
+
                                 match Array.tryItem channel.idx images with
                                 | Some img -> 
                                     PixTexture2d(img.pi, TextureParams.empty)
-                                | _ -> 
-                                    Log.warn "channel of out of bounds"
+                                | None -> 
+                                    Log.warn "channel out of bounds"
                                     DefaultTextures.checkerboard.GetValue()
-                            | _ -> 
+
+                            | Result.Error _ -> 
                                 Log.warn "could not load texture"
                                 DefaultTextures.checkerboard.GetValue()
-                        | ".png" | _ -> whiteTex 
-                ) 
+
+                        | ".png" | _ ->
+                            whiteTex 
+                    ) 
+                )
+
+            let min =
+                img
+                |> extract (AVal.constant 0.0) (fun m ->
+                    m.inputMinValue.value |> AVal.map float
+                )
+
+            let max =
+                img
+                |> extract (AVal.constant 1.0) (fun m ->
+                    m.inputMaxValue.value |> AVal.map float
+                )
+
+            let falseColor =
+                img
+                |> extract (AVal.constant false) (fun m ->
+                    m.useFalseColor
+                )
+
+            let dataType =
+                img
+                |> extract (AVal.constant 2) (fun m ->
+                    m.dataType |> AVal.map int
+                )
+
+            quad
+            |> Sg.noEvents
+            |> Sg.texture "InstrumentImage" imageTexture
+            |> Sg.texture "ColormapTexture" colormapTexture
+            |> Sg.uniform "MinValue" min
+            |> Sg.uniform "MaxValue" max
+            |> Sg.uniform "UseFalseColor" falseColor
+            |> Sg.uniform "DataType" dataType
+
+        let primaryScene =
+            Sg.fullScreenQuad
+            |> createInstrumentBaseQuad primaryImg
+            |> Sg.shader {
+                do! Shaders.hshColors
+            }
+
+        let overlayScene =
+            overlayImg
+            |> AVal.map (function
+                | None ->
+                    Sg.empty
+
+                | Some _ ->
+                    Sg.fullScreenQuad
+                    |> createInstrumentBaseQuad overlayImg
+                    |> Sg.uniform "OverlayMin" (AVal.constant (V2d(0.4, 0.4)))
+                    |> Sg.uniform "OverlayMax" (AVal.constant (V2d(0.95, 0.95)))
+                    |> Sg.shader {
+                        do! Shaders.placeOverlayQuad
+                        do! Shaders.hshColors
+                    }
             )
+            |> Sg.dynamic
+            |> Sg.depthTest' DepthTest.None
 
-        let min = img |> extract (AVal.constant 0.0) (fun m -> m.inputMinValue.value |> AVal.map (fun v -> float v))
-        let max = img |> extract (AVal.constant 1.0) (fun m -> m.inputMaxValue.value |> AVal.map (fun v -> float v))
-        let falseColor = img |> extract (AVal.constant false) (fun m -> m.useFalseColor)
-        let dataType = img |> extract (AVal.constant 2) (fun m -> m.dataType |> AVal.map (fun dt -> int dt))
+        Sg.ofList [
+            primaryScene
+            overlayScene
+        ]
 
-        Sg.fullScreenQuad
-        |> Sg.noEvents
-        |> Sg.texture "InstrumentImage" imageTexture
-        |> Sg.texture "ColormapTexture" colormapTexture
-        |> Sg.uniform "MinValue" min
-        |> Sg.uniform "MaxValue" max
-        |> Sg.uniform "UseFalseColor" falseColor
-        |> Sg.uniform "DataType" dataType
-        |> Sg.shader {
-            do! (Shaders.hshColors)
-        }
-
-    let view2DAnd3DImageAbsolute (opacity : aval<float>) (boresightAdjustment : aval<Option<Trafo3d>>) (orbitState : AdaptiveOrbitState) (m : aval<Option<AdaptiveImage>>) =
+    let view2DAnd3DImageAbsolute (opacity : aval<float>) (boresightAdjustment : aval<Option<Trafo3d>>) (orbitState : AdaptiveOrbitState) (primaryImg : aval<Option<AdaptiveImage>>) (overlayImg : aval<Option<AdaptiveImage>>) =
 
         let instrumentVisualization =
-            createInstrumentScene m
+            createInstrumentScene primaryImg overlayImg
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum2D = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
@@ -337,6 +415,40 @@ module Image =
                 let supportBody = cval "SUN"
                 let referenceFrame = cval "ECLIPJ2000"
                 let referenceFrame = cval "IAU_MARS"
+
+                let currentProjectedImageFromImage (m : AdaptiveImage) =
+                    m.texture
+                    |> AVal.map (fun path ->
+                        if File.Exists path then
+                            Some (path, InstrumentMetadata.tryParseMetadataForImagePath path)
+                        else
+                            None
+                    )
+                let currentProjectedImageFromOptionalImage
+                    (img : aval<Option<AdaptiveImage>>) =
+    
+                    img
+                    |> AVal.bind (function
+                        | Some img ->
+                            currentProjectedImageFromImage img
+                        | None ->
+                            AVal.constant None
+                    )
+
+                let primaryProjectedImage = currentProjectedImageFromImage m
+                let overlayProjectedImage = currentProjectedImageFromOptionalImage overlayImg
+
+                let primaryProjectedTexture = Visualization.createProjectedTexture primaryProjectedImage m.selectedChannel
+                
+                let overlaySelectedChannel =
+                    overlayImg
+                    |> AVal.bind (function
+                        | Some img -> img.selectedChannel
+                        | None -> AVal.constant { idx = 0; name = None }
+                    )
+
+                let overlayProjectedTexture =
+                    Visualization.createProjectedTexture overlayProjectedImage overlaySelectedChannel
 
                 let currentProjectedImage = 
                     m.texture 
@@ -387,7 +499,8 @@ module Image =
                 let projection = projectionSetup |> AVal.map fst
                 let time = projectionSetup |> AVal.map snd
             
-                let projectImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage projection
+                let projectPrimaryImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage projection
+                let projectOverlayImage = Visualization.creatProjectionFunction observer time referenceFrame overlayProjectedImage projection
                 let projectedTexture = Visualization.createProjectedTexture currentProjectedImage m.selectedChannel
 
                 let projectionEnabled = 
@@ -398,7 +511,7 @@ module Image =
                     )
 
                 let scene = 
-                    Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectImage projectedTexture projectionEnabled
+                    Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectPrimaryImage projectedTexture projectionEnabled
                     |> Sg.noEvents
 
                 scene
@@ -415,7 +528,7 @@ module Image =
 
                         // use empty scene if no image is here
                         let scene = 
-                            m 
+                            primaryImg 
                             |> AVal.map (function | None -> Sg.empty | Some m -> visualization m)
                             |> Sg.dynamic
 
@@ -424,9 +537,9 @@ module Image =
                 ]
         )
 
-    let view2DRelative (img : aval<Option<AdaptiveImage>>) =
+    let view2DRelative (primaryImage : aval<Option<AdaptiveImage>>) (overlayImage : aval<Option<AdaptiveImage>>) =
 
-        let instrumentVisualization = createInstrumentScene img
+        let instrumentVisualization = createInstrumentScene primaryImage overlayImage
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
