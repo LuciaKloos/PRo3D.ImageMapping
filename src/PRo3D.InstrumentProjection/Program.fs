@@ -29,8 +29,7 @@ open Aardvark.GeoSpatial.Opc
 module Time =
 
     let toUtcFormat (d : DateTime) = 
-        d.ToUniversalTime()
-         .ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'Z'");
+        d.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'")
 
 type Font = GoogleFontProvider<"Roboto Mono">
           
@@ -262,7 +261,8 @@ module InstrumentProjectionViewer =
         let aspectScaling = aspect |> AVal.map (fun aspect -> Trafo3d.Scale(V3d(1.0, aspect, 1.0)))
 
         let info = 
-            let content = time |> AVal.map (fun t -> sprintf "%s" (CooTransformation.Time.toUtcFormat t))
+            // format time without converting to UTC (keep original local/represented time)
+            let content = time |> AVal.map (fun t -> sprintf "%s" (t.ToString("yyyy'-'MM'-'dd'T'HH':'mm':'ss'.'fff'")))
             Sg.text font C4b.Gray content 
             |> Sg.trafo (aspectScaling |> AVal.map (fun s -> Trafo3d.Scale(0.1) * s * Trafo3d.Translation(-0.95,-0.95,0.0)))
      

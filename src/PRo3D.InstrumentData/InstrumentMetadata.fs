@@ -120,10 +120,12 @@ module Tiff_Mbi_Json =
             None
 
 
+    // Parse DATE-OBS without forcing UTC assumption so the original
+    // representation (including any offset or local time) is preserved.
     let parseDate (s : JsonValue) : Option<DateTime> = 
         match s with
         | JsonValue.String s -> 
-            match DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.AssumeUniversal) with
+            match DateTime.TryParse(s, CultureInfo.InvariantCulture, DateTimeStyles.None) with
             | (true, v) -> Some v
             | _ -> None
         | _ -> 
