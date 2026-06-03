@@ -40,6 +40,32 @@ type CameraMode =
 
 module InstrumentProjectionViewer = 
 
+    let tryGetCommandLineArg (name: string) (argv : string[]) =
+        let equalsPrefix = name + "="
+        let rec loop i =
+            if i >= argv.Length then 
+                None
+            else
+                let arg = argv.[i]
+                if arg.Equals(name, StringComparison.OrdinalIgnoreCase) then                 
+                    if i + 1 < argv.Length then
+                        Some argv.[i + 1]
+                    else    
+                        failwithf "Missing value after command-line argument '%s'." name
+
+                elif arg.StartsWith(equalsPrefix, StringComparison.OrdinalIgnoreCase) then
+                    Some (arg.Substring(equalsPrefix.Length))
+                else
+                    loop (i + 1)
+        loop 0
+
+    let getSpiceFileName (argv : string[]) =
+        match tryGetCommandLineArg "--spice" argv with
+        | Some path when not (String.IsNullOrWhiteSpace path) -> 
+            Path.GetFullPath path
+        | _ ->
+            failwith "Missing SPICE meta-kernel path. Start the application with --spice \"path/to/spice/kernels/mk/hera_ops.tm\""
+         
     [<EntryPoint>]
     let main argv =
 
@@ -56,16 +82,24 @@ module InstrumentProjectionViewer =
             if r <> 0 then failwith "could not initialize CooTransformation lib."
             { new IDisposable with member x.Dispose() = CooTransformation.DeInit() }
 
-
-        let spiceFileName = Path.GetFullPath(Path.combine [ ".."; ".."; ".."; ".."; "./spice/kernels/mk/hera_ops.tm"])
-        System.Environment.CurrentDirectory <- Path.GetFullPath(Path.GetDirectoryName(spiceFileName))
-
+        let spiceFileName = getSpiceFileName argv
         if not (File.Exists spiceFileName) then
-            failwith "spice kernel does not exist."
+            failwithf "SPICE meta-kernel file does not exist: %s" spiceFileName
 
-        let r = CooTransformation.AddSpiceKernel(Path.GetFullPath(spiceFileName))
-        if r <> 0 then failwith "could not add spice kernel"
+        let spiceDirectory = 
+            let dir = Path.GetDirectoryName(spiceFileName)
+            if String.IsNullOrWhiteSpace dir then 
+                failwithf "Could not determine directory of SPICE meta-kernel file: %s" spiceFileName
+            Path.GetFullPath dir 
 
+        System.Environment.CurrentDirectory <- spiceDirectory
+
+        Log.line "Using SPICE meta-kernel: %s" spiceFileName
+        Log.line "SPICE working directory: %s" System.Environment.CurrentDirectory
+
+        let r = CooTransformation.AddSpiceKernel spiceFileName
+        if r <> 0 then 
+            failwithf "could not add SPICE meta-kernel: %s" spiceFileName
 
         let observer = cval "MARS" //"HERA_AFC-1" 
         let supportBody = cval "SUN"

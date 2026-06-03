@@ -15,7 +15,7 @@ module SPICE =
     open PRo3D.Extensions
     open PRo3D.Extensions.FSharp
 
-    let init() =
+    let init(spiceFileName : string) =
         let d = 
             let logPath = Path.Combine(".", "logs", "CooTrafo.Log")
             Log.line "log path for coo trafo: %s" logPath
@@ -24,14 +24,28 @@ module SPICE =
             { new IDisposable with member x.Dispose() = CooTransformation.DeInit() }
             
 
-        let spiceFileName = Path.GetFullPath(Path.combine [ ".."; ".."; ".."; ".."; "./spice/kernels/mk/hera_ops.tm"])
+        // let spiceFileName = Path.GetFullPath(Path.combine [ ".."; ".."; ".."; ".."; "./spice/kernels/mk/hera_ops.tm"])
+        let spiceFileName = Path.GetFullPath spiceFileName
         let oldDir = System.Environment.CurrentDirectory
-        System.Environment.CurrentDirectory <- Path.GetFullPath(Path.GetDirectoryName(spiceFileName))
 
         if not (File.Exists spiceFileName) then
-            failwith "spice kernel does not exist."
+            failwithf "spice meta-kernel does not exist: %s" spiceFileName
 
-        let r = CooTransformation.AddSpiceKernel(Path.GetFullPath(spiceFileName))
+        let spiceDirectory =
+            let dir = Path.GetDirectoryName spiceFileName
+
+            if String.IsNullOrWhiteSpace dir then
+                failwithf "could not determine spice directory for file: %s" spiceFileName
+
+            Path.GetFullPath dir
+
+        System.Environment.CurrentDirectory <- spiceDirectory
+
+        Log.line "using SPICE meta-kernel: %s" spiceFileName
+        Log.line "SPICE working directory: %s" Environment.CurrentDirectory
+
+
+        let r = CooTransformation.AddSpiceKernel spiceFileName
         if r <> 0 then failwith "could not add spice kernel"
 
         d
