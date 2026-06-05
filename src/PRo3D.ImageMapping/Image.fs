@@ -277,6 +277,9 @@ module Image =
             ]
         )
 
+    // creates and combines two scene graphs.
+    // primary image: uses a normal full-screen quad
+
     let createInstrumentScene
         (primaryImg : aval<Option<AdaptiveImage>>)
         (overlayImg : aval<Option<AdaptiveImage>>) =
@@ -379,7 +382,7 @@ module Image =
             overlayImg
             |> AVal.map (function
                 | None ->
-                    Sg.empty
+                    (Sg.empty : ISg<Message>)
 
                 | Some _ ->
                     Sg.fullScreenQuad
@@ -387,7 +390,7 @@ module Image =
                     |> Sg.uniform "OverlayMin" (AVal.constant (V2d(0.4, 0.4)))
                     |> Sg.uniform "OverlayMax" (AVal.constant (V2d(0.95, 0.95)))
                     |> Sg.shader {
-                        do! Shaders.placeOverlayQuad
+                        do! Shaders.placeOverlayQuad    // shrinks and moves the quad into a smaller screen position
                         do! Shaders.hshColors
                     }
             )
@@ -450,7 +453,7 @@ module Image =
                 let overlayProjectedTexture =
                     Visualization.createProjectedTexture overlayProjectedImage overlaySelectedChannel
 
-                let currentProjectedImage = 
+                let currentProjectedImage = // primary
                     m.texture 
                     |> AVal.map (fun path -> 
                         if File.Exists path then
@@ -496,12 +499,16 @@ module Image =
                             p, DateTime.Parse(defaultTime)
                     )
 
+                // todo seecond projection setup for overlay image?
+
                 let projection = projectionSetup |> AVal.map fst
                 let time = projectionSetup |> AVal.map snd
             
                 let projectPrimaryImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage projection
                 let projectOverlayImage = Visualization.creatProjectionFunction observer time referenceFrame overlayProjectedImage projection
-                let projectedTexture = Visualization.createProjectedTexture currentProjectedImage m.selectedChannel
+                let projectedPrimaryTexture = Visualization.createProjectedTexture currentProjectedImage m.selectedChannel
+                let projectedOverlayTexture = Visualization.createProjectedTexture overlayProjectedImage overlaySelectedChannel
+                    
 
                 let projectionEnabled = 
                     currentProjectedImage 
@@ -510,9 +517,16 @@ module Image =
                         | _ -> false
                     )
 
-                let scene = 
-                    Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectPrimaryImage projectedTexture projectionEnabled
+                let primaryImageSg = 
+                    Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectPrimaryImage projectedPrimaryTexture projectionEnabled
                     |> Sg.noEvents
+
+                let overlayImageSg = 
+                    Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectOverlayImage projectedOverlayTexture projectionEnabled
+                    |> Sg.noEvents
+
+                let scene =
+                    Sg.ofList [ primaryImageSg; overlayImageSg ]
 
                 scene
 
@@ -526,11 +540,19 @@ module Image =
                         // the 3D projection view
                         let rightControl = [style "position: fixed; right: 0; top: 0; width: 50%; height: 100%"; attribute "showLoader" "false"] |> AttributeMap.ofList
 
-                        // use empty scene if no image is here
-                        let scene = 
+                        let primaryImgSg = 
                             primaryImg 
                             |> AVal.map (function | None -> Sg.empty | Some m -> visualization m)
                             |> Sg.dynamic
+
+                        let overlayImgSg = 
+                            overlayImg
+                            |> AVal.map (function | None -> Sg.empty | Some m -> visualization m)
+                            |> Sg.dynamic
+
+                        // use empty scene if no image is here
+                        let scene = 
+                            Sg.ofList [ primaryImgSg; overlayImgSg ]
 
                         OrbitController.controlledControl orbitState OrbitCameraMessage frustum rightControl scene
                     ]
