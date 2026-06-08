@@ -81,6 +81,27 @@ module Shaders =
             return remapClampNormalize
         }
 
+    let hshColorsDebug (v : Vertex) =
+        fragment {
+            let hshValueX = instrumentSampler.Sample(v.tc).X 
+            let remappedClampedNormalizedXInt16 =
+                ((min uniform.MaxValue (max uniform.MinValue (hshValueX * 65000.0))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
+            let remappedClampedNormalizedXFloat =
+                (hshValueX - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
+            let remapClampNormalize =
+                if uniform.UseFalseColor then
+                    V4d(
+                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
+                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
+                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
+                        1.0
+                    )
+                else 
+                    colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
+            // return remapClampNormalize
+            let debugRed = V4d(1.0, 0.0, 0.0, 1.0)
+            return debugRed
+        }
 
 module Image =
 
@@ -441,7 +462,7 @@ module Image =
                 let primaryProjectedImage = currentProjectedImageFromImage m
                 let overlayProjectedImage = currentProjectedImageFromOptionalImage overlayImg
 
-                let primaryProjectedTexture = Visualization.createProjectedTexture primaryProjectedImage m.selectedChannel
+                //let primaryProjectedTexture = Visualization.createProjectedTexture primaryProjectedImage m.selectedChannel
                 
                 let overlaySelectedChannel =
                     overlayImg
@@ -450,8 +471,8 @@ module Image =
                         | None -> AVal.constant { idx = 0; name = None }
                     )
 
-                let overlayProjectedTexture =
-                    Visualization.createProjectedTexture overlayProjectedImage overlaySelectedChannel
+               // let overlayProjectedTexture =
+                //    Visualization.createProjectedTexture overlayProjectedImage overlaySelectedChannel
 
                 let currentProjectedImage = // primary
                     m.texture 
@@ -471,6 +492,7 @@ module Image =
                     }
 
                 let projectionSetup = 
+                    // instrument projection
                     let p = {
                         target = InstrumentImages.CameraFocus.FocusBody "MARS"
                         cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
@@ -483,6 +505,7 @@ module Image =
                     (currentProjectedImage, boresightAdjustment) ||> AVal.map2 (fun currentProjectedImage boresight -> 
                         match currentProjectedImage with
                         | Some (f, (Some mbi,_)) -> 
+                            // update using selected image metadata
                             let p = 
                                 { p with
                                     time = mbi.obs_date
@@ -499,8 +522,6 @@ module Image =
                             p, DateTime.Parse(defaultTime)
                     )
 
-                // todo seecond projection setup for overlay image?
-
                 let projection = projectionSetup |> AVal.map fst
                 let time = projectionSetup |> AVal.map snd
             
@@ -510,23 +531,35 @@ module Image =
                 let projectedOverlayTexture = Visualization.createProjectedTexture overlayProjectedImage overlaySelectedChannel
                     
 
-                let projectionEnabled = 
+                let primaryProjectionEnabled = 
                     currentProjectedImage 
                     |> AVal.map (function 
                         | Some (_, (Some _, _)) -> true
                         | _ -> false
                     )
 
-                let primaryImageSg = 
-                    Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectPrimaryImage projectedPrimaryTexture projectionEnabled
-                    |> Sg.noEvents
+                let overlayProjectionEnabled = 
+                    overlayProjectedImage 
+                    |> AVal.map (function 
+                        | Some (_, (Some _, _)) -> true
+                        | _ -> false
+                    )
 
-                let overlayImageSg = 
-                    Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectOverlayImage projectedOverlayTexture projectionEnabled
-                    |> Sg.noEvents
 
                 let scene =
-                    Sg.ofList [ primaryImageSg; overlayImageSg ]
+                    Visualization.createSceneGraph
+                        imageSettings
+                        referenceFrame
+                        supportBody
+                        observer
+                        time
+                        projectPrimaryImage
+                        projectOverlayImage
+                        projectedPrimaryTexture
+                        (Some projectedOverlayTexture)
+                        primaryProjectionEnabled
+                        overlayProjectionEnabled
+                    |> Sg.noEvents
 
                 scene
 

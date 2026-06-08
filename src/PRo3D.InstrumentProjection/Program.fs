@@ -225,6 +225,10 @@ module InstrumentProjectionViewer =
 
         let projectImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage (AVal.constant projection)
         let projectedTexture = Visualization.createProjectedTexture currentProjectedImage (AVal.constant { idx = 0; name = None})
+        let noOverlayProjection
+            (_ : string)
+            : aval<Option<Trafo3d>> =
+            AVal.constant None
 
         let opc =
             let molaOpcs =
@@ -248,7 +252,19 @@ module InstrumentProjectionViewer =
 
         let scene = 
             Sg.ofList [
-                Visualization.createSceneGraph imageSettings referenceFrame supportBody observer time projectImage projectedTexture (AVal.constant true) |> Sg.onOff showProxy
+                Visualization.createSceneGraph
+                    imageSettings
+                    referenceFrame
+                    supportBody
+                    observer
+                    time
+                    projectImage
+                    noOverlayProjection
+                    projectedTexture
+                    None
+                    (AVal.constant true)
+                    (AVal.constant false)
+                |> Sg.onOff showProxy
                 opc |> Sg.onOff (AVal.map not showProxy)
             ]
             |> Sg.viewTrafo (AVal.map CameraView.viewTrafo view)

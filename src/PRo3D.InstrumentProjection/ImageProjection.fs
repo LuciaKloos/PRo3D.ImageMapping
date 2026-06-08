@@ -20,6 +20,8 @@ module ImageProjection =
         type UniformScope with  
             member x.ProjectedImageModelViewProjValid : bool = uniform?ProjectedImageModelViewProjValid
             member x.ProjectedImageModelViewProj : M44d = uniform?ProjectedImageModelViewProj
+            member x.OverlayImageModelViewProjValid : bool = uniform?OverlayImageModelViewProjValid
+            member x.OverlayImageModelViewProj : M44d = uniform?OverlayImageModelViewProj
             member x.ProjectedImagesLocalTrafos : M44d[] = uniform?StorageBuffer?ProjectedImagesLocalTrafos
             member x.ProjectedImagesCount : int = uniform?ProjectedImagesLocalTrafosCount
             member x.ProjectedImageOpacity : float = uniform?ProjectedImageOpacity
@@ -27,6 +29,7 @@ module ImageProjection =
         type Vertex = {
             [<Position>]    pos     : V4d
             [<Semantic("ProjectedImagePos")>] projectedPos : V4d
+            [<Semantic("OverlayImagePos")>] overlayProjectedPos : V4d
             [<Color>] c: V4d
             [<Semantic("BodyLocalPos")>] localPos : V4d
             [<Semantic("LocalNormal")>] localNormalNumericallyUnstable : V3d
@@ -42,21 +45,39 @@ module ImageProjection =
                 borderColor C4f.Black
             }
 
+        let private overlayProjectedTexture =
+            sampler2d {
+                texture uniform?OverlayProjectedTexture
+                filter Filter.MinMagMipLinear
+                addressU WrapMode.Border
+                addressV WrapMode.Border
+                borderColor C4f.Black
+            }
 
         let stableImageProjectionTrafo (v : Vertex) =
             vertex {
-                return { v with projectedPos = uniform.ProjectedImageModelViewProj * v.pos; localPos = v.pos; }
+                return { 
+                    v with 
+                        projectedPos = 
+                            uniform.ProjectedImageModelViewProj * v.pos;
+
+                        overlayProjectedPos = 
+                            uniform.OverlayImageModelViewProj * v.pos;                        
+                        
+                        localPos = v.pos; }
             }
 
         let stableImageProjection (v : Vertex) = 
             fragment {
                 let p = v.projectedPos.XYZ / v.projectedPos.W
                 let tc = V3d(0.5, 0.5,0.5) + V3d(0.5, 0.5, 0.5) * p.XYZ
-                let inRange = Vec.allGreaterOrEqual tc V3d.OOO && Vec.allSmallerOrEqual tc.XYZ V3d.III
+                let inRange = Vec.allGreaterOrEqual tc V3d.OOO && Vec.allSmallerOrEqual tc.XYZ V3d.III  // clip against projection volume 
                 let borderWidth = 0.01 
 
                 let normal = uniform.ProjectedImageModelViewProj.TransformDir(v.localNormalNumericallyUnstable) |> Vec.normalize
-
+                
+                let primaryColor = V4d(v.c.XYZ)
+                let finalColor = primaryColor
                 let c = 
                     if uniform.ProjectedImageModelViewProjValid && inRange && normal.Z < 0.0 then
                         let AFC = V2d(1.0 - tc.Y, 1.0 - tc.X)
@@ -69,10 +90,58 @@ module ImageProjection =
                         let borderColor = V3d(0.0, 1.0, 0.0)
                         let blendedProjected = Fun.Lerp(uniform.ProjectedImageOpacity, v.c.XYZ, c.XYZ)
                         let borderImage = blendedProjected.XYZ * borderFactor + borderColor * (1.0 - borderFactor)
-                        V4d(borderImage.XYZ, 1.0) 
-                    else
-                        v.c
-                return { v with c = c }
+                        primaryColor = V4d(borderImage.XYZ, 1.0) 
+                    else if uniform.ProjectedImageModelViewProjValid &&
+                       inRange &&
+                       normal.Z > 0.65 then  // selects approximately one hemisphere relative to the projection camera --> becomes red
+
+                        let overlayP =
+                            v.overlayProjectedPos.XYZ /
+                            v.overlayProjectedPos.W
+
+                        let overlayTc =
+                            V3d(0.5, 0.5, 0.5) +
+                            V3d(0.5, 0.5, 0.5) * overlayP
+
+                        let overlayInRange =
+                            v.overlayProjectedPos.W > 0.0 &&
+                            Vec.allGreaterOrEqual overlayTc V3d.OOO &&
+                            Vec.allSmallerOrEqual overlayTc V3d.III
+
+                        let overlayNormal =
+                            uniform.OverlayImageModelViewProj
+                                .TransformDir(v.localNormalNumericallyUnstable)
+                            |> Vec.normalize
+
+                        finalColor =
+                            if uniform.OverlayImageModelViewProjValid &&
+                                overlayInRange &&
+                                overlayNormal.Z > 0.65 then
+
+                                let overlaySample =
+                                    overlayProjectedTexture
+                                        .Sample(V2d(overlayTc.X, overlayTc.Y))
+                                        .X
+                                    |> Shaders.remap
+
+                                let blendedOverlay =
+                                    Fun.Lerp(
+                                        uniform.ProjectedImageOpacity,
+                                        primaryColor.XYZ,
+                                        overlaySample.XYZ
+                                    )
+
+                                V4d(blendedOverlay, 1.0)
+                            else
+                                primaryColor
+                    else 
+                        finalColor = v.c
+                        
+                   
+                return {
+                    v with
+                        c = finalColor
+                }
             }
 
         [<ReflectedDefinition>]

@@ -34,6 +34,13 @@ type Channel = {
     name : Option<string>
 }
 
+type OverlayProjection =
+    {
+        projectImage : string -> aval<Option<Trafo3d>>
+        texture : aval<ITexture>
+        enabled : aval<bool>
+    }
+
 module Visualization =
 
     let createProjectedExrTexture (path : string) (channel : int) : aval<ITexture> = 
@@ -105,10 +112,21 @@ module Visualization =
 
         projectImage
 
-    let createSceneGraph (projectedImageProperties : VisualizationProperties) (referenceFrame : aval<string>) (supportBody : aval<string>)
-                         (observer : aval<string>) (time : aval<DateTime>) (projectImage : string -> aval<Option<Trafo3d>>) 
-                         (projectedTexture : aval<ITexture>) (projectionEnabled : aval<bool>) =
+   
 
+    let createSceneGraph (projectedImageProperties : VisualizationProperties) (referenceFrame : aval<string>) (supportBody : aval<string>)
+                         (observer : aval<string>) (time : aval<DateTime>) (projectPrimaryImage : string -> aval<Option<Trafo3d>>)
+                        (projectOverlayImage : string -> aval<Option<Trafo3d>>) (projectedPrimaryTexture : aval<ITexture>)
+                        (projectedOverlayTexture : Option<aval<ITexture>>) (primaryProjectionEnabled : aval<bool>) (overlayProjectionEnabled : aval<bool>) =
+
+        let overlayTexture =
+            projectedOverlayTexture
+            |> Option.defaultValue DefaultTextures.checkerboard
+
+        let effectiveOverlayProjectionEnabled =
+            match projectedOverlayTexture with
+            | Some _ -> overlayProjectionEnabled
+            | None -> AVal.constant false
 
         let marsProxy = 
             let marsTrafo = 
@@ -128,7 +146,7 @@ module Visualization =
 
             sphericalUnitBody 1.0
             |> Sg.diffuseTexture' marsTexture
-            |> Sg.applyProjectedImage projectImage
+            |> PRo3D.Core.Sg.applyProjectedImages projectPrimaryImage projectOverlayImage
             |> Sg.applyPlanet "mars"
             |> Sg.scale (3389.5 * 1000.0) // mars radius in km
             |> Sg.trafo marsTrafo
@@ -141,8 +159,10 @@ module Visualization =
                 do! DefaultSurfaces.stableHeadlight
                 do! ImageProjection.Shaders.stableImageProjection
             }
-            |> InstrumentImageVisualization.applyProperties { projectedImageProperties with instrumentImage = projectedTexture }
-            |> Sg.uniform' "ProjectedImageModelViewProjValid" projectionEnabled
-            |> Sg.texture "ProjectedTexture" projectedTexture
+            |> InstrumentImageVisualization.applyProperties { projectedImageProperties with instrumentImage = projectedPrimaryTexture }
+            |> Sg.uniform' "ProjectedImageModelViewProjValid" primaryProjectionEnabled
+            |> Sg.uniform' "OverlayImageModelViewProjValid" overlayProjectionEnabled
+            |> Sg.texture "ProjectedTexture" projectedPrimaryTexture
+            |> Sg.texture "OverlayProjectedTexture" overlayTexture
 
         marsProxy
