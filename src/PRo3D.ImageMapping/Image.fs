@@ -47,18 +47,54 @@ module Shaders =
         member x.OverlayMax : V2d = uniform?OverlayMax
         member x.OverlayMin : V2d = uniform?OverlayMin
 
-    let placeOverlayQuad (v : Vertex) = 
+    let placeAspectFittedQuad (v : Vertex) =
         vertex {
-                //fullScreenQuad positions are expected in clip space [-1,1]
-                let uv = v.pos.XY * 0.5 + V2d(0.5, 0.5)
+            let uv = v.pos.XY * 0.5 + V2d(0.5, 0.5)
 
-                // OverlayMin/Max are normalized screen coordinates [0,1]
-                let p = uniform.OverlayMin + uv * (uniform.OverlayMax - uniform.OverlayMin)
+            let viewportSize : V2i = uniform?ViewportSize
 
-                // convert to clip space [-1,1]
-                let clip = p * 2.0 - V2d(1.0, 1.0)
+            let viewport =
+                V2d(
+                    max 1.0 (float viewportSize.X),
+                    max 1.0 (float viewportSize.Y)
+                )
 
-                return { v with pos = V4d(clip.X, clip.Y, v.pos.Z, v.pos.W) }
+            let textureSize = instrumentSampler.Size
+            let imageWidth = max 1.0 (float textureSize.X)
+            let imageHeight = max 1.0 (float textureSize.Y)
+            let imageAspect = imageWidth / imageHeight
+
+            let regionMin = uniform.OverlayMin
+            let regionMax = uniform.OverlayMax
+            let regionSize = regionMax - regionMin
+            let regionPixelSize = regionSize * viewport
+
+            let regionAspect =
+                regionPixelSize.X / max 1.0 regionPixelSize.Y
+
+            let fittedPixelSize =
+                if imageAspect > regionAspect then
+                    V2d(
+                        regionPixelSize.X,
+                        regionPixelSize.X / imageAspect
+                    )
+                else
+                    V2d(
+                        regionPixelSize.Y * imageAspect,
+                        regionPixelSize.Y
+                    )
+
+            let fittedSize = fittedPixelSize / viewport
+            let regionCenter = (regionMin + regionMax) * 0.5
+            let fittedMin = regionCenter - fittedSize * 0.5
+            let p = fittedMin + uv * fittedSize
+
+            let clip = p * 2.0 - V2d(1.0, 1.0)
+
+            return {
+                v with
+                    pos = V4d(clip.X, clip.Y, v.pos.Z, v.pos.W)
+            }
         }
 
     let hshColors (v : Vertex)  = 
@@ -79,28 +115,6 @@ module Shaders =
                 else 
                     colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
             return remapClampNormalize
-        }
-
-    let hshColorsDebug (v : Vertex) =
-        fragment {
-            let hshValueX = instrumentSampler.Sample(v.tc).X 
-            let remappedClampedNormalizedXInt16 =
-                ((min uniform.MaxValue (max uniform.MinValue (hshValueX * 65000.0))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
-            let remappedClampedNormalizedXFloat =
-                (hshValueX - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
-            let remapClampNormalize =
-                if uniform.UseFalseColor then
-                    V4d(
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        1.0
-                    )
-                else 
-                    colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
-            // return remapClampNormalize
-            let debugRed = V4d(1.0, 0.0, 0.0, 1.0)
-            return debugRed
         }
 
 module Image =
@@ -302,6 +316,7 @@ module Image =
     // primary image: uses a normal full-screen quad
 
     let createInstrumentScene
+        (stacked2DLayout : bool)
         (primaryImg : aval<Option<AdaptiveImage>>)
         (overlayImg : aval<Option<AdaptiveImage>>) =
 
@@ -393,11 +408,23 @@ module Image =
             |> Sg.uniform "DataType" dataType
 
         let primaryScene =
-            Sg.fullScreenQuad
-            |> createInstrumentBaseQuad primaryImg
-            |> Sg.shader {
-                do! Shaders.hshColors
-            }
+            let scene =
+                Sg.fullScreenQuad
+                |> createInstrumentBaseQuad primaryImg
+
+            if stacked2DLayout then
+                scene
+                |> Sg.uniform "OverlayMin" (AVal.constant (V2d(0.0, 0.5)))
+                |> Sg.uniform "OverlayMax" (AVal.constant (V2d(1.0, 1.0)))
+                |> Sg.shader {
+                    do! Shaders.placeAspectFittedQuad
+                    do! Shaders.hshColors
+                }
+            else
+                scene
+                |> Sg.shader {
+                    do! Shaders.hshColors
+                }
 
         let overlayScene =
             overlayImg
@@ -406,12 +433,18 @@ module Image =
                     (Sg.empty : ISg<Message>)
 
                 | Some _ ->
+                    let overlayMin, overlayMax =
+                        if stacked2DLayout then
+                            V2d(0.0, 0.0), V2d(1.0, 0.45)
+                        else
+                            V2d(0.4, 0.4), V2d(0.95, 0.95)
+
                     Sg.fullScreenQuad
                     |> createInstrumentBaseQuad overlayImg
-                    |> Sg.uniform "OverlayMin" (AVal.constant (V2d(0.4, 0.4)))
-                    |> Sg.uniform "OverlayMax" (AVal.constant (V2d(0.95, 0.95)))
+                    |> Sg.uniform "OverlayMin" (AVal.constant overlayMin)
+                    |> Sg.uniform "OverlayMax" (AVal.constant overlayMax)
                     |> Sg.shader {
-                        do! Shaders.placeOverlayQuad    // shrinks and moves the quad into a smaller screen position
+                        do! Shaders.placeAspectFittedQuad
                         do! Shaders.hshColors
                     }
             )
@@ -426,7 +459,7 @@ module Image =
     let view2DAnd3DImageAbsolute (opacity : aval<float>) (boresightAdjustment : aval<Option<Trafo3d>>) (orbitState : AdaptiveOrbitState) (primaryImg : aval<Option<AdaptiveImage>>) (overlayImg : aval<Option<AdaptiveImage>>) =
 
         let instrumentVisualization =
-            createInstrumentScene primaryImg overlayImg
+            createInstrumentScene true primaryImg overlayImg
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum2D = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
@@ -462,17 +495,12 @@ module Image =
                 let primaryProjectedImage = currentProjectedImageFromImage m
                 let overlayProjectedImage = currentProjectedImageFromOptionalImage overlayImg
 
-                //let primaryProjectedTexture = Visualization.createProjectedTexture primaryProjectedImage m.selectedChannel
-                
                 let overlaySelectedChannel =
                     overlayImg
                     |> AVal.bind (function
                         | Some img -> img.selectedChannel
                         | None -> AVal.constant { idx = 0; name = None }
                     )
-
-               // let overlayProjectedTexture =
-                //    Visualization.createProjectedTexture overlayProjectedImage overlaySelectedChannel
 
                 let currentProjectedImage = // primary
                     m.texture 
@@ -594,7 +622,7 @@ module Image =
 
     let view2DRelative (primaryImage : aval<Option<AdaptiveImage>>) (overlayImage : aval<Option<AdaptiveImage>>) =
 
-        let instrumentVisualization = createInstrumentScene primaryImage overlayImage
+        let instrumentVisualization = createInstrumentScene false primaryImage overlayImage
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))

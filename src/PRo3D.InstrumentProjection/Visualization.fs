@@ -24,7 +24,6 @@ open PRo3D.Core.InstrumentMetadata
 open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentData
 open PRo3D.InstrumentVisualization
-//open PRo3D.ImageMapping.Model
 
 
 type Self = Self
@@ -123,7 +122,7 @@ module Visualization =
             projectedOverlayTexture
             |> Option.defaultValue DefaultTextures.checkerboard
 
-        let effectiveOverlayProjectionEnabled =
+        let effectiveOverlayProjectionEnabled =                        
             match projectedOverlayTexture with
             | Some _ -> overlayProjectionEnabled
             | None -> AVal.constant false
@@ -157,7 +156,7 @@ module Visualization =
                 do! DefaultSurfaces.stableTrafo
                 do! DefaultSurfaces.diffuseTexture
                 do! DefaultSurfaces.stableHeadlight
-                do! ImageProjection.Shaders.stableImageProjection
+                do! ImageProjection.Shaders.stableImageProjection                                              
             }
             |> InstrumentImageVisualization.applyProperties { projectedImageProperties with instrumentImage = projectedPrimaryTexture }
             |> Sg.uniform' "ProjectedImageModelViewProjValid" primaryProjectionEnabled
