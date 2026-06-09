@@ -160,7 +160,7 @@ module Visualization =
             }
             |> InstrumentImageVisualization.applyProperties { projectedImageProperties with instrumentImage = projectedPrimaryTexture }
             |> Sg.uniform' "ProjectedImageModelViewProjValid" primaryProjectionEnabled
-            |> Sg.uniform' "OverlayImageModelViewProjValid" overlayProjectionEnabled
+            |> Sg.uniform' "OverlayImageModelViewProjValid" effectiveOverlayProjectionEnabled
             |> Sg.texture "ProjectedTexture" projectedPrimaryTexture
             |> Sg.texture "OverlayProjectedTexture" overlayTexture
 

@@ -599,23 +599,31 @@ module Image =
                         renderControl (AVal.constant (Camera.create cameraView frustum2D)) leftControl instrumentVisualization
                     
                         // the 3D projection view
-                        let rightControl = [style "position: fixed; right: 0; top: 0; width: 50%; height: 100%"; attribute "showLoader" "false"] |> AttributeMap.ofList
+                        let rightControl =
+                            [
+                                style "position: fixed; right: 0; top: 0; width: 50%; height: 100%"
+                                attribute "showLoader" "false"
+                            ]
+                            |> AttributeMap.ofList
 
-                        let primaryImgSg = 
-                            primaryImg 
-                            |> AVal.map (function | None -> Sg.empty | Some m -> visualization m)
+                        let primaryImgSg =
+                            primaryImg
+                            |> AVal.map (function
+                                | None -> Sg.empty
+                                | Some m -> visualization m
+                            )
                             |> Sg.dynamic
 
-                        let overlayImgSg = 
-                            overlayImg
-                            |> AVal.map (function | None -> Sg.empty | Some m -> visualization m)
-                            |> Sg.dynamic
+                        // Render exactly one sphere.
+                        // visualization already receives overlayImg and maps it onto that sphere.
+                        let scene = primaryImgSg
 
-                        // use empty scene if no image is here
-                        let scene = 
-                            Sg.ofList [ primaryImgSg; overlayImgSg ]
-
-                        OrbitController.controlledControl orbitState OrbitCameraMessage frustum rightControl scene
+                        OrbitController.controlledControl
+                            orbitState
+                            OrbitCameraMessage
+                            frustum
+                            rightControl
+                            scene
                     ]
                 ]
         )

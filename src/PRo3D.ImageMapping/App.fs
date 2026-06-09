@@ -55,10 +55,16 @@ module App =
             let secondIndex = indices |> List.tryItem 1
 
             { m with images = images'; selectedImage = firstIndex; overlayImage = secondIndex }
-        | SelectImage idx -> 
+        | SelectImage idx ->
             { m with selectedImage = Some idx }
-        | SetOverlayImage idx -> 
-            { m with overlayImage = Some idx }
+
+        | SetOverlayImage idx ->
+            let overlayImage =
+                match m.overlayImage with
+                | Some currentIdx when currentIdx = idx -> None
+                | _ -> Some idx
+
+            { m with overlayImage = overlayImage }
         | EditImage idx ->
             let editImages' =
                 if List.contains idx m.editImages then
@@ -223,7 +229,16 @@ module App =
                                             div [attribute "style" "display: flex; font-weight: bold"] 
                                                 [
                                                     div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
-                                                    div [attributesSelect] [ Html.SemUi.iconCheckBox (m.overlayImage |> AVal.map (fun overlayIdx -> overlayIdx = Some index)) (SetOverlayImage index)]
+                                                    div [
+                                                        attributesSelect
+                                                        onClick (fun _ -> SetOverlayImage index)
+                                                    ] [
+                                                        div [style "pointer-events: none;"] [
+                                                            Html.SemUi.iconCheckBox
+                                                                (m.overlayImage |> AVal.map (fun overlayIdx -> overlayIdx = Some index))
+                                                                Nop
+                                                        ]
+                                                    ]
                                                     div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
                                                     div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
                                                     div [attributesAttr2] [ Incremental.text (img.time |> AVal.map string) ]

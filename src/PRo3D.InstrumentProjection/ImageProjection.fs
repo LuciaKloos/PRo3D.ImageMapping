@@ -91,7 +91,7 @@ module ImageProjection =
                         let borderImage = blendedProjected.XYZ * borderFactor + borderColor * (1.0 - borderFactor)
                         V4d(borderImage.XYZ, 1.0) 
 
-                    else if uniform.ProjectedImageModelViewProjValid && inRange && normal.Z > 0.0 then
+                    else if uniform.OverlayImageModelViewProjValid && inRange && normal.Z > 0.0 then
                         let AFC = V2d(1.0 - tc.Y, 1.0 - tc.X)
                         let HSH = V2d(1.0 - tc.Y, 1.0 - tc.X)
                         let AFC2 = V2d(tc.X, tc.Y)  // directly maps projected X and Y to texture U and V: no axis flipping
