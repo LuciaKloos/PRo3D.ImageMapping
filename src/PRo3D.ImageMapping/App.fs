@@ -36,25 +36,27 @@ module App =
         | SetRoll r -> { m with boresightAdjustment = { m.boresightAdjustment with roll = Numeric.update m.boresightAdjustment.roll r } }
         | SetPitch r -> { m with boresightAdjustment = { m.boresightAdjustment with pitch = Numeric.update m.boresightAdjustment.pitch r } }
         | SetYaw r -> { m with boresightAdjustment = { m.boresightAdjustment with yaw = Numeric.update m.boresightAdjustment.yaw r } }
-        | LoadImagesDir directory -> 
-            let imageExts = [".tif";".tiff";".jpg";".exr"]
-            let images' = 
-                Directory.EnumerateFiles(directory) 
-                |> Seq.filter (fun p -> 
-                    let e = Path.GetExtension p
-                    List.contains e imageExts 
-                )
-                |> Seq.map (fun path -> 
-                    Image.loadFile(path)
-                ) |> IndexList.ofSeq
-            let indices = 
-                images' 
-                |> IndexList.mapi (fun i _ -> i)
-                |> IndexList.toList
-            let firstIndex = indices |> List.tryHead
-            let secondIndex = indices |> List.tryItem 1
+        | LoadMultispectralImage path ->
 
-            { m with images = images'; selectedImage = firstIndex; overlayImage = secondIndex }
+            let bands =
+                Image.loadBands path
+                |> IndexList.ofList
+
+            let indices =
+                bands
+                |> IndexList.mapi (fun index _ -> index)
+                |> IndexList.toList
+
+            let firstBand = indices |> List.tryHead
+            let secondBand = indices |> List.tryItem 1
+
+            {
+                m with
+                    images = bands
+                    selectedImage = firstBand
+                    overlayImage = secondBand
+                    editImages = []
+            }
         | SelectImage idx ->
             { m with selectedImage = Some idx }
 
@@ -152,7 +154,7 @@ module App =
             } |> AttributeMap.ofAMap
 
         let jsImportDialog =
-            "top.aardvark.dialog.showOpenDialog({tile: 'Select directory', filters: [{ name: 'directories'}], properties: ['openDirectory']}).then(result => {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);});"
+            "top.aardvark.dialog.showOpenDialog({title: 'Select multispectral image', filters: [{name: 'Multispectral TIFF', extensions: ['tif', 'tiff']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open multispectral image dialog:', error);});"
 
         let selectedAdaptiveImage (selected : aval<Option<Index>>) =
             adaptive {
@@ -224,8 +226,29 @@ module App =
                                     m.images 
                                     |> AList.mapi (fun index img ->
                                         // let distanceToPlanet = CooTransformation.getRelState "HERA" "SUN" "MARS"  
+
                                         div [attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"] [
-                                            div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"] [ Incremental.text (img.texture |> AVal.map (fun t -> Path.GetFileName(t))) ]
+                                            div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"]
+                                                [
+                                                    Incremental.text (
+                                                        (img.texture, img.selectedChannel)
+                                                        ||> AVal.map2 (fun path channel ->
+                                                            let bandNumber = channel.idx + 1
+
+                                                            match channel.name with
+                                                            | Some wavelength ->
+                                                                sprintf "%s — Band %d (%s)"
+                                                                    (Path.GetFileName path)
+                                                                    bandNumber
+                                                                    wavelength
+
+                                                            | None ->
+                                                                sprintf "%s — Band %d"
+                                                                    (Path.GetFileName path)
+                                                                    bandNumber
+                                                        )
+                                                    )
+                                                ]
                                             div [attribute "style" "display: flex; font-weight: bold"] 
                                                 [
                                                     div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
@@ -272,9 +295,9 @@ module App =
                         div [] [text "Data:"]
                         button [clazz "ui button tiny";
                                 style "margin-left: auto;"
-                                Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadImagesDir (chosen) );
+                                Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadMultispectralImage (chosen) );
                                 clientEvent "onclick" (jsImportDialog) ] [
-                                text "Import Directory"
+                                text "Import Multispectral Image"
                         ]
                     ]
                     div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [

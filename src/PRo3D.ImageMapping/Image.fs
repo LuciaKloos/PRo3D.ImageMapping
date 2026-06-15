@@ -18,6 +18,7 @@ open PRo3D.InstrumentVisualization
 open PRo3D.Core
 open PRo3D.SPICE
 
+open System.Text.Json
 
 module Shaders = 
     open FShade
@@ -151,6 +152,182 @@ module Image =
         distance = 0;
         time = new DateTime();
     }
+
+    
+    let private tryReadWavelengthsFromJson (jsonPath : string) =
+        try
+            use document =
+                JsonDocument.Parse(File.ReadAllText jsonPath)
+
+            let mutable wavelengthsElement =
+                Unchecked.defaultof<JsonElement>
+
+            if
+                document.RootElement.TryGetProperty(
+                    "wavelengths",
+                    &wavelengthsElement
+                )
+                && wavelengthsElement.ValueKind = JsonValueKind.Array
+            then
+                wavelengthsElement.EnumerateArray()
+                |> Seq.map (fun value -> value.GetDouble())
+                |> Seq.toList
+                |> Some
+            else
+                None
+        with error ->
+            Log.warn "Could not read wavelengths from %s: %s"
+                jsonPath
+                error.Message
+
+            None
+
+    let loadBands (texturePath : string) : list<Image> =
+
+        let fullPath = Path.GetFullPath texturePath
+
+        let tiffMbiJson, tiffJson =
+            InstrumentMetadata.tryParseMetadataForImagePath fullPath
+
+        let channelCount =
+            match tiffJson with
+            | Some metadata -> max 1 metadata.channels
+            | None -> 1
+
+        let wavelengths =
+            let jsonPath = Path.ChangeExtension(texturePath, ".json")
+
+            if File.Exists jsonPath then
+                tryReadWavelengthsFromJson jsonPath
+                |> Option.defaultValue []
+            else
+                []
+
+        let dataType =
+            match tiffJson with
+            | Some metadata ->
+                match metadata.data_type.ToLowerInvariant() with
+                | "uint16" -> DataType.UInt16
+                | "uint32" -> DataType.UInt32
+                | "float"  -> DataType.Float
+                | _        -> DataType.UInt16
+            | None ->
+                DataType.UInt16
+
+        let rawMinValues =
+            match tiffJson with
+            | Some metadata ->
+                metadata.image_statistics
+                |> Array.map (fun statistics -> statistics.minimum)
+                |> Array.toList
+            | None ->
+                []
+
+        let rawMaxValues =
+            match tiffJson with
+            | Some metadata ->
+                metadata.image_statistics
+                |> Array.map (fun statistics -> statistics.maximum)
+                |> Array.toList
+            | None ->
+                []
+
+        // Ensure that these lists always contain one value per channel.
+        // ResetCustomMinMax indexes them using selectedChannel.idx.
+        let defaultMinValues =
+            [
+                for channelIndex in 0 .. channelCount - 1 do
+                    yield
+                        rawMinValues
+                        |> List.tryItem channelIndex
+                        |> Option.defaultValue 0.0
+            ]
+
+        let defaultMaxValues =
+            [
+                for channelIndex in 0 .. channelCount - 1 do
+                    yield
+                        rawMaxValues
+                        |> List.tryItem channelIndex
+                        |> Option.defaultValue 1.0
+            ]
+
+        let distance =
+            match tiffMbiJson with
+            | Some metadata -> metadata.targetPos.Length
+            | None -> 0.0
+
+        let time =
+            match tiffMbiJson with
+            | Some metadata -> metadata.obs_date
+            | None -> DateTime.MinValue
+
+        [
+            for channelIndex in 0 .. channelCount - 1 do
+
+                let minimum = defaultMinValues[channelIndex]
+                let maximum = defaultMaxValues[channelIndex]
+
+                let wavelengthName =
+                    wavelengths
+                    |> List.tryItem channelIndex
+                    |> Option.map (fun wavelength ->
+                        sprintf "%.0f nm" wavelength
+                    )
+
+                let channel =
+                    {
+                        idx = channelIndex
+                        name = wavelengthName
+                    }
+
+                let sliderMinimum, sliderMaximum =
+                    match dataType with
+                    | DataType.Float ->
+                        minimum, maximum
+
+                    | DataType.UInt16 ->
+                        0.0, 65535.0
+
+                    | DataType.UInt32 ->
+                        0.0, float UInt32.MaxValue
+
+                let inputMinimum =
+                    {
+                        minValue with
+                            value = minimum
+                            min = sliderMinimum
+                            max = sliderMaximum
+                    }
+
+                let inputMaximum =
+                    {
+                        maxValue with
+                            value = maximum
+                            min = sliderMinimum
+                            max = sliderMaximum
+                    }
+
+                yield
+                    {
+                        initial with
+                            texture = fullPath
+                            selectedChannel = channel
+
+                            // This band entry represents exactly one channel.
+                            channelOptions = [channel]
+
+                            defaultMinValues = defaultMinValues
+                            defaultMaxValues = defaultMaxValues
+
+                            inputMinValue = inputMinimum
+                            inputMaxValue = inputMaximum
+
+                            dataType = dataType
+                            distance = distance
+                            time = time
+                    }
+        ]
 
     let loadFile (texturePath : string) =
         // this could be a fallback
@@ -466,130 +643,143 @@ module Image =
         let farPlaneMars = 30101626.50 * 1000.0
         let frustum = Frustum.perspective 80.0 10.0 farPlaneMars 1.0 |> AVal.constant
 
-        let visualization =
-            fun (m : AdaptiveImage) ->
-                let observer = cval "MARS" //"HERA_AFC-1" 
-                let supportBody = cval "SUN"
-                let referenceFrame = cval "ECLIPJ2000"
-                let referenceFrame = cval "IAU_MARS"
+        let visualization (primary : AdaptiveImage) =
+            let observer = cval "MARS" //"HERA_AFC-1" 
+            let supportBody = cval "SUN"
+            let referenceFrame = cval "ECLIPJ2000"
+            let referenceFrame = cval "IAU_MARS"
 
-                let currentProjectedImageFromImage (m : AdaptiveImage) =
-                    m.texture
-                    |> AVal.map (fun path ->
-                        if File.Exists path then
-                            Some (path, InstrumentMetadata.tryParseMetadataForImagePath path)
-                        else
-                            None
-                    )
-                let currentProjectedImageFromOptionalImage
-                    (img : aval<Option<AdaptiveImage>>) =
-    
-                    img
-                    |> AVal.bind (function
-                        | Some img ->
-                            currentProjectedImageFromImage img
-                        | None ->
-                            AVal.constant None
-                    )
+            let currentProjectedImageFromImage (m : AdaptiveImage) =
+                m.texture
+                |> AVal.map (fun path ->
+                    if File.Exists path then
+                        Some (
+                            path,
+                            InstrumentMetadata.tryParseMetadataForImagePath path
+                        )
+                    else
+                        None
+                )
 
-                let primaryProjectedImage = currentProjectedImageFromImage m
-                let overlayProjectedImage = currentProjectedImageFromOptionalImage overlayImg
+            let currentProjectedImageFromOptionalImage
+                (img : aval<Option<AdaptiveImage>>) =
 
-                let overlaySelectedChannel =
-                    overlayImg
-                    |> AVal.bind (function
-                        | Some img -> img.selectedChannel
-                        | None -> AVal.constant { idx = 0; name = None }
-                    )
+                img
+                |> AVal.bind (function
+                    | Some img ->
+                        currentProjectedImageFromImage img
+                    | None ->
+                        AVal.constant None
+                )
 
-                let currentProjectedImage = // primary
-                    m.texture 
-                    |> AVal.map (fun path -> 
-                        if File.Exists path then
-                            Some (path, InstrumentMetadata.tryParseMetadataForImagePath path)
-                        else
-                            None
-                    )
+            let selectedChannelFromOptionalImage
+                (img : aval<Option<AdaptiveImage>>) =
 
-                let imageSettings = 
-                    { 
-                        VisualizationProperties.empty with 
-                            visualizationRange = (m.inputMinValue.value, m.inputMaxValue.value) ||> AVal.map2 (fun min max -> Range1d(min,max))
-                            colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
-                            projectionOpacity = opacity
-                    }
+                img
+                |> AVal.bind (function
+                    | Some img ->
+                        img.selectedChannel
+                    | None ->
+                        AVal.constant { idx = 0; name = None }
+                )
 
-                let projectionSetup = 
-                    // instrument projection
-                    let p = {
-                        target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                        cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                        instrumentReferenceFrame = "HERA_AFC-1"
-                        instrumentName = "HERA_AFC-1"
-                        supportBody = "SUN"
-                        time = DateTime.Now
-                        boresightAdjustment = None
-                    }
-                    (currentProjectedImage, boresightAdjustment) ||> AVal.map2 (fun currentProjectedImage boresight -> 
-                        match currentProjectedImage with
-                        | Some (f, (Some mbi,_)) -> 
-                            // update using selected image metadata
-                            let p = 
-                                { p with
-                                    time = mbi.obs_date
-                                    instrumentName = 
-                                        match InstrumentProjection.instrument2SpiceName mbi.instrument with
-                                        | None -> failwith "no spice name for the given instrument."
-                                        | Some i -> i
-                                    instrumentReferenceFrame = "J2000"
-                                    boresightAdjustment = boresight
-                                }
-                            p, mbi.obs_date
-                        | _ -> 
-                            let defaultTime = "2025-03-12 11:50:30.000Z"
-                            p, DateTime.Parse(defaultTime)
-                    )
+            let primaryProjectedImage =
+                currentProjectedImageFromImage primary
 
-                let projection = projectionSetup |> AVal.map fst
-                let time = projectionSetup |> AVal.map snd
+            let overlayProjectedImage =
+                currentProjectedImageFromOptionalImage overlayImg
+
+            let primarySelectedChannel =
+                primary.selectedChannel
+
+            let overlaySelectedChannel =
+                selectedChannelFromOptionalImage overlayImg
+
+            let primaryMin =
+                primary.inputMinValue.value
+
+            let primaryMax =
+                primary.inputMaxValue.value
+
+            let imageSettings = 
+                { 
+                    VisualizationProperties.empty with 
+                        visualizationRange = (primaryMin, primaryMax) ||> AVal.map2 (fun min max -> Range1d(min,max))
+                        colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
+                        projectionOpacity = opacity
+                }
+
+            let projectionSetup = 
+                // instrument projection
+                let p = {
+                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                    instrumentReferenceFrame = "HERA_AFC-1"
+                    instrumentName = "HERA_AFC-1"
+                    supportBody = "SUN"
+                    time = DateTime.Now
+                    boresightAdjustment = None
+                }
+                (primaryProjectedImage, boresightAdjustment) ||> AVal.map2 (fun currentProjectedImage boresight -> 
+                    match currentProjectedImage with
+                    | Some (f, (Some mbi,_)) -> 
+                        // update using selected image metadata
+                        let p = 
+                            { p with
+                                time = mbi.obs_date
+                                instrumentName = 
+                                    match InstrumentProjection.instrument2SpiceName mbi.instrument with
+                                    | None -> failwith "no spice name for the given instrument."
+                                    | Some i -> i
+                                instrumentReferenceFrame = "J2000"
+                                boresightAdjustment = boresight
+                            }
+                        p, mbi.obs_date
+                    | _ -> 
+                        let defaultTime = "2025-03-12 11:50:30.000Z"
+                        p, DateTime.Parse(defaultTime)
+                )
+
+            let projection = projectionSetup |> AVal.map fst
+            let time = projectionSetup |> AVal.map snd
             
-                let projectPrimaryImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage projection
-                let projectOverlayImage = Visualization.creatProjectionFunction observer time referenceFrame overlayProjectedImage projection
-                let projectedPrimaryTexture = Visualization.createProjectedTexture currentProjectedImage m.selectedChannel
-                let projectedOverlayTexture = Visualization.createProjectedTexture overlayProjectedImage overlaySelectedChannel
+            let projectPrimaryImage = Visualization.creatProjectionFunction observer time referenceFrame primaryProjectedImage projection
+            let projectOverlayImage = Visualization.creatProjectionFunction observer time referenceFrame overlayProjectedImage projection
+            let projectedPrimaryTexture = Visualization.createProjectedTexture primaryProjectedImage primarySelectedChannel
+            let projectedOverlayTexture = Visualization.createProjectedTexture overlayProjectedImage overlaySelectedChannel
                     
 
-                let primaryProjectionEnabled = 
-                    currentProjectedImage 
-                    |> AVal.map (function 
-                        | Some (_, (Some _, _)) -> true
-                        | _ -> false
-                    )
+            let primaryProjectionEnabled = 
+                primaryProjectedImage 
+                |> AVal.map (function 
+                    | Some (_, (Some _, _)) -> true
+                    | _ -> false
+                )
 
-                let overlayProjectionEnabled = 
-                    overlayProjectedImage 
-                    |> AVal.map (function 
-                        | Some (_, (Some _, _)) -> true
-                        | _ -> false
-                    )
+            let overlayProjectionEnabled = 
+                overlayProjectedImage 
+                |> AVal.map (function 
+                    | Some (_, (Some _, _)) -> true
+                    | _ -> false
+                )
 
 
-                let scene =
-                    Visualization.createSceneGraph
-                        imageSettings
-                        referenceFrame
-                        supportBody
-                        observer
-                        time
-                        projectPrimaryImage
-                        projectOverlayImage
-                        projectedPrimaryTexture
-                        (Some projectedOverlayTexture)
-                        primaryProjectionEnabled
-                        overlayProjectionEnabled
-                    |> Sg.noEvents
+            let scene =
+                Visualization.createSceneGraph
+                    imageSettings
+                    referenceFrame
+                    supportBody
+                    observer
+                    time
+                    projectPrimaryImage
+                    projectOverlayImage
+                    projectedPrimaryTexture
+                    (Some projectedOverlayTexture)
+                    primaryProjectionEnabled
+                    overlayProjectionEnabled
+                |> Sg.noEvents
 
-                scene
+            scene
 
         require Html.semui (
                 div [] [
@@ -605,18 +795,17 @@ module Image =
                                 attribute "showLoader" "false"
                             ]
                             |> AttributeMap.ofList
-
-                        let primaryImgSg =
+                        
+                        // Render exactly one sphere.
+                        // visualization already receives overlayImg and maps it onto that sphere.
+                        
+                        let scene =
                             primaryImg
                             |> AVal.map (function
                                 | None -> Sg.empty
-                                | Some m -> visualization m
+                                | Some primary -> visualization primary
                             )
                             |> Sg.dynamic
-
-                        // Render exactly one sphere.
-                        // visualization already receives overlayImg and maps it onto that sphere.
-                        let scene = primaryImgSg
 
                         OrbitController.controlledControl
                             orbitState

@@ -95,7 +95,7 @@ type Message =
     | SelectImage of Index
     | SetOverlayImage of Index
     | EditImage of Index
-    | LoadImagesDir of string
+    | LoadMultispectralImage of string
     | ImageMessage of Index * ImageMessage
     | SortEntriesByDistance
     | SortEntriesByDate
