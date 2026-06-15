@@ -20,34 +20,78 @@ module ImageProjection =
         type UniformScope with  
             member x.ProjectedImageModelViewProjValid : bool = uniform?ProjectedImageModelViewProjValid
             member x.ProjectedImageModelViewProj : M44d = uniform?ProjectedImageModelViewProj
-            member x.OverlayImageModelViewProjValid : bool = uniform?OverlayImageModelViewProjValid
-            member x.OverlayImageModelViewProj : M44d = uniform?OverlayImageModelViewProj
             member x.ProjectedImagesLocalTrafos : M44d[] = uniform?StorageBuffer?ProjectedImagesLocalTrafos
             member x.ProjectedImagesCount : int = uniform?ProjectedImagesLocalTrafosCount
             member x.ProjectedImageOpacity : float = uniform?ProjectedImageOpacity
+            member x.RedMinValue : float = uniform?RedMinValue
+            member x.RedMaxValue : float = uniform?RedMaxValue
+            member x.GreenMinValue : float = uniform?GreenMinValue
+            member x.GreenMaxValue : float = uniform?GreenMaxValue
+            member x.BlueMinValue : float = uniform?BlueMinValue
+            member x.BlueMaxValue : float = uniform?BlueMaxValue
+            member x.RgbDataType : int = uniform?RgbDataType
+            member x.RgbProjectionDebug : bool = uniform?RgbProjectionDebug
+
 
         type Vertex = {
             [<Position>]    pos     : V4d
             [<Semantic("ProjectedImagePos")>] projectedPos : V4d
-            [<Semantic("OverlayImagePos")>] overlayProjectedPos : V4d
             [<Color>] c: V4d
             [<Semantic("BodyLocalPos")>] localPos : V4d
             [<Semantic("LocalNormal")>] localNormalNumericallyUnstable : V3d
             [<Normal>] n : V3d
         }
-
-        let private projectedTexture =
+         
+        let private projectedRedTexture =
             sampler2d {
-                texture uniform?ProjectedTexture
+                texture uniform?ProjectedRedTexture
                 filter Filter.MinMagMipLinear
                 addressU WrapMode.Border
                 addressV WrapMode.Border
                 borderColor C4f.Black
             }
 
-        let private overlayProjectedTexture =
+        let private projectedGreenTexture =
             sampler2d {
-                texture uniform?OverlayProjectedTexture
+                texture uniform?ProjectedGreenTexture
+                filter Filter.MinMagMipLinear
+                addressU WrapMode.Border
+                addressV WrapMode.Border
+                borderColor C4f.Black
+            }
+
+        let private projectedBlueTexture =
+            sampler2d {
+                texture uniform?ProjectedBlueTexture
+                filter Filter.MinMagMipLinear
+                addressU WrapMode.Border
+                addressV WrapMode.Border
+                borderColor C4f.Black
+            }
+
+        [<ReflectedDefinition>]
+        let normalizeRgbBand
+            (sampledValue : float)
+            (minValue : float)
+            (maxValue : float)
+            (dataType : int) =
+
+            let rawValue =
+                if dataType = 2 then
+                    sampledValue
+                elif dataType = 1 then
+                    sampledValue * 65535.0
+                else
+                    sampledValue * 4294967295.0
+
+            let valueRange =
+                max 0.0000001 (maxValue - minValue)
+
+            clamp 0.0 1.0 ((rawValue - minValue) / valueRange)
+
+        let private projectedTexture =
+            sampler2d {
+                texture uniform?ProjectedTexture
                 filter Filter.MinMagMipLinear
                 addressU WrapMode.Border
                 addressV WrapMode.Border
@@ -60,10 +104,7 @@ module ImageProjection =
                     v with 
                         projectedPos = 
                             uniform.ProjectedImageModelViewProj * v.pos;
-
-                        overlayProjectedPos = 
-                            uniform.OverlayImageModelViewProj * v.pos;                        
-                        
+ 
                         localPos = v.pos; }
             }
 
@@ -91,21 +132,140 @@ module ImageProjection =
                         let borderImage = blendedProjected.XYZ * borderFactor + borderColor * (1.0 - borderFactor)
                         V4d(borderImage.XYZ, 1.0) 
 
-                    else if uniform.OverlayImageModelViewProjValid && inRange && normal.Z > 0.0 then
-                        let AFC = V2d(1.0 - tc.Y, 1.0 - tc.X)
-                        let HSH = V2d(1.0 - tc.Y, 1.0 - tc.X)
-                        let AFC2 = V2d(tc.X, tc.Y)  // directly maps projected X and Y to texture U and V: no axis flipping
-                        let c = overlayProjectedTexture.Sample(AFC2).X |> Shaders.remap    // only takes red channel of the texture, which is sufficient for grayscale images and allows to use single channel textures for better memory efficiency
-                        let xBorder = (smoothstep 0.0 borderWidth tc.X) * smoothstep 1.0 (1.0 - borderWidth) tc.X 
-                        let yBorder = (smoothstep 0.0 borderWidth tc.Y) * smoothstep 1.0 (1.0 - borderWidth) tc.Y
-                        let borderFactor = xBorder * yBorder
-                        let borderColor = V3d(0.0, 1.0, 0.0)
-                        let blendedProjected = Fun.Lerp(uniform.ProjectedImageOpacity, v.c.XYZ, c.XYZ)
-                        let borderImage = blendedProjected.XYZ * borderFactor + borderColor * (1.0 - borderFactor)
-                        V4d(borderImage.XYZ, 1.0) 
+                    
                     else
                         v.c
                 return { v with c = c }
+            }
+
+
+        /// Projects three selected spectral bands onto the sphere.
+        /// When RgbProjectionDebug is true, the projected footprint is split into:
+        /// top-left = red only, top-right = green only,
+        /// bottom-left = blue only, bottom-right = final RGB composite.
+        let stableImageProjectionDebug (v : Vertex) =
+            fragment {
+                let p =
+                    v.projectedPos.XYZ / v.projectedPos.W
+
+                let tc =
+                    V3d(0.5, 0.5, 0.5) +
+                    V3d(0.5, 0.5, 0.5) * p.XYZ
+
+                let inRange =
+                    Vec.allGreaterOrEqual tc V3d.OOO &&
+                    Vec.allSmallerOrEqual tc V3d.III
+
+                let normal =
+                    uniform.ProjectedImageModelViewProj.TransformDir(
+                        v.localNormalNumericallyUnstable
+                    )
+                    |> Vec.normalize
+
+                let color =
+                    if uniform.ProjectedImageModelViewProjValid &&
+                       inRange &&
+                       normal.Z < 0.0 then
+
+                        let projectedTc =
+                            V2d(tc.X, tc.Y)
+
+                        let isLeft =
+                            projectedTc.X < 0.5
+
+                        let isBottom =
+                            projectedTc.Y < 0.5
+
+                        // In diagnostic mode each quadrant displays the full image.
+                        let sampledTc =
+                            if uniform.RgbProjectionDebug then
+                                let tcX = if isLeft then projectedTc.X * 2.0 else (projectedTc.X - 0.5) * 2.0
+                                let tcY = if isBottom then projectedTc.Y * 2.0 else (projectedTc.Y - 0.5) * 2.0
+                                V2d(
+                                    tcX,
+                                    tcY
+                                )
+                            else
+                                projectedTc
+
+                        let r =
+                            normalizeRgbBand
+                                (projectedRedTexture.Sample(sampledTc).X)
+                                uniform.RedMinValue
+                                uniform.RedMaxValue
+                                uniform.RgbDataType
+
+                        let g =
+                            normalizeRgbBand
+                                (projectedGreenTexture.Sample(sampledTc).X)
+                                uniform.GreenMinValue
+                                uniform.GreenMaxValue
+                                uniform.RgbDataType
+
+                        let b =
+                            normalizeRgbBand
+                                (projectedBlueTexture.Sample(sampledTc).X)
+                                uniform.BlueMinValue
+                                uniform.BlueMaxValue
+                                uniform.RgbDataType
+
+                        let rgb =
+                            V3d(r, g, b)
+
+                        let diagnosticColor =
+                            if isLeft && not isBottom then
+                                V3d(r, 0.0, 0.0)
+                            elif not isLeft && not isBottom then
+                                V3d(0.0, g, 0.0)
+                            elif isLeft && isBottom then
+                                V3d(0.0, 0.0, b)
+                            else
+                                rgb
+
+                        let onSeparator =
+                            uniform.RgbProjectionDebug &&
+                            (abs(projectedTc.X - 0.5) < 0.004 ||
+                             abs(projectedTc.Y - 0.5) < 0.004)
+
+                        let projectedColor =
+                            if onSeparator then
+                                V3d.III
+                            elif uniform.RgbProjectionDebug then
+                                diagnosticColor
+                            else
+                                rgb
+
+                        let borderWidth = 0.01
+                        let xBorder =
+                            smoothstep 0.0 borderWidth tc.X *
+                            smoothstep 1.0 (1.0 - borderWidth) tc.X
+
+                        let yBorder =
+                            smoothstep 0.0 borderWidth tc.Y *
+                            smoothstep 1.0 (1.0 - borderWidth) tc.Y
+
+                        let borderFactor =
+                            xBorder * yBorder
+
+                        let borderColor =
+                            V3d(0.0, 1.0, 0.0)
+
+                        let blendedProjected =
+                            Fun.Lerp(
+                                uniform.ProjectedImageOpacity,
+                                v.c.XYZ,
+                                projectedColor
+                            )
+
+                        let borderedColor =
+                            blendedProjected * borderFactor +
+                            borderColor * (1.0 - borderFactor)
+
+                        V4d(borderedColor, 1.0)
+                    else
+                        v.c
+
+                return { v with c = color }
             }
 
         [<ReflectedDefinition>]

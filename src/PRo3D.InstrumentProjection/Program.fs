@@ -225,10 +225,24 @@ module InstrumentProjectionViewer =
 
         let projectImage = Visualization.creatProjectionFunction observer time referenceFrame currentProjectedImage (AVal.constant projection)
         let projectedTexture = Visualization.createProjectedTexture currentProjectedImage (AVal.constant { idx = 0; name = None})
-        let noOverlayProjection
-            (_ : string)
-            : aval<Option<Trafo3d>> =
-            AVal.constant None
+
+        // The standalone InstrumentProjection viewer still uses one band.
+        // Repeat it across R, G, and B to preserve a grayscale result.
+        let projectedMin =
+            minMax
+            |> AVal.map (fun range -> range.Min)
+
+        let projectedMax =
+            minMax
+            |> AVal.map (fun range -> range.Max)
+
+        // UInt16 = 1 in the RGB normalization shader.
+        let projectedDataType =
+            AVal.constant 1
+
+        // Keep the 2x2 RGB diagnostic disabled in this legacy viewer.
+        let rgbProjectionDebug =
+            AVal.constant false
 
         let opc =
             let molaOpcs =
@@ -259,11 +273,32 @@ module InstrumentProjectionViewer =
                     observer
                     time
                     projectImage
-                    noOverlayProjection
+
+                    // R, G, B textures
                     projectedTexture
-                    None
+                    projectedTexture
+                    projectedTexture
+
+                    // R range
+                    projectedMin
+                    projectedMax
+
+                    // G range
+                    projectedMin
+                    projectedMax
+
+                    // B range
+                    projectedMin
+                    projectedMax
+
+                    // Texture data type
+                    projectedDataType
+
+                    // RGB diagnostic disabled here
+                    rgbProjectionDebug
+
+                    // Projection enabled
                     (AVal.constant true)
-                    (AVal.constant false)
                 |> Sg.onOff showProxy
                 opc |> Sg.onOff (AVal.map not showProxy)
             ]

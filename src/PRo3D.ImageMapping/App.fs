@@ -16,10 +16,34 @@ module App =
 
     let borderColor = "rgba(255,255,255,.1)"
 
+    let initialRgbComposite =
+        {
+            redBand = None
+            greenBand = None
+            blueBand = None
+        }
+
+    let updateRgbBand
+        (channel : RgbChannel)
+        (band : Option<Index>)
+        (composite : RgbComposite) =
+
+        match channel with
+        | Red ->
+            { composite with redBand = band }
+
+        | Green ->
+            { composite with greenBand = band }
+
+        | Blue ->
+            { composite with blueBand = band }
+
     let initial : Model = {
         images = IndexList.Empty;
         selectedImage = None;
-        overlayImage = None;
+
+        rgbComposite = initialRgbComposite
+
         editImages = List.Empty;
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
@@ -47,26 +71,27 @@ module App =
                 |> IndexList.mapi (fun index _ -> index)
                 |> IndexList.toList
 
-            let firstBand = indices |> List.tryHead
-            let secondBand = indices |> List.tryItem 1
-
+            let bandAt index =
+                indices 
+                |> List.tryItem index
+                    
             {
                 m with
                     images = bands
-                    selectedImage = firstBand
-                    overlayImage = secondBand
+
+                    selectedImage = bandAt 0
+                    rgbComposite =
+                        {
+                            redBand = bandAt 0
+                            greenBand = bandAt 1
+                            blueBand = bandAt 2
+                        }
+
+
                     editImages = []
             }
         | SelectImage idx ->
             { m with selectedImage = Some idx }
-
-        | SetOverlayImage idx ->
-            let overlayImage =
-                match m.overlayImage with
-                | Some currentIdx when currentIdx = idx -> None
-                | _ -> Some idx
-
-            { m with overlayImage = overlayImage }
         | EditImage idx ->
             let editImages' =
                 if List.contains idx m.editImages then
@@ -82,6 +107,14 @@ module App =
                         img
                 )
             { m with images = images' }
+
+        | SetRgbBand (channel, index) ->
+            { m with rgbComposite = updateRgbBand channel (Some index) m.rgbComposite }
+
+        | ClearRgbBand channel ->
+            { m with rgbComposite = updateRgbBand channel None m.rgbComposite }
+        | ResetRgbComposite ->
+            { m with rgbComposite = initialRgbComposite }
         | SortEntriesByDistance ->
             let images' = 
                 m.images
@@ -144,8 +177,8 @@ module App =
     let view 
         (m : AdaptiveModel)
         (showDOM : AdaptiveImage -> DomNode<ImageMessage>) 
-        (showRelative2DImage : aval<Option<AdaptiveImage>> -> aval<Option<AdaptiveImage>> -> DomNode<Message>)
-        (showAbsolute2DAnd3DImage : aval<Option<AdaptiveImage>> -> aval<Option<AdaptiveImage>> -> DomNode<Message>) =
+        (showRelative2DImage : aval<Option<AdaptiveImage>> -> aval<Option<AdaptiveImage>> -> aval<Option<AdaptiveImage>> -> DomNode<Message>)
+        (showAbsolute2DAnd3DImage : aval<Option<AdaptiveImage>> -> aval<Option<AdaptiveImage>> -> aval<Option<AdaptiveImage>> -> DomNode<Message>) =
     
         let listAttributes =
             amap {
@@ -169,11 +202,14 @@ module App =
                     return None
             }
 
-        let primaryImage =
-            selectedAdaptiveImage m.selectedImage
+        let redImage =
+            selectedAdaptiveImage m.rgbComposite.redBand
 
-        let overlayImage =
-            selectedAdaptiveImage m.overlayImage
+        let greenImage =
+            selectedAdaptiveImage m.rgbComposite.greenBand
+
+        let blueImage =
+            selectedAdaptiveImage m.rgbComposite.blueBand
 
         let accordion text' icon active styling content' =
                 let title = if active then "title active inverted" else "title inverted"
@@ -204,8 +240,9 @@ module App =
                     // attribute "clazz" "title active inverted"
                     attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black" 
                 ] [
-                    div [ attributesSelect ] [text "Primary"]
-                    div [ attributesSelect ] [text "Overlay"]
+                    div [attributesSelect] [text "R"]
+                    div [attributesSelect] [text "G"]
+                    div [attributesSelect] [text "B"]
                     div [ attributesEdit ] [text "Edit"]
                     div [ attributesAttr1 ] [
                         i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance);] []
@@ -251,16 +288,37 @@ module App =
                                                 ]
                                             div [attribute "style" "display: flex; font-weight: bold"] 
                                                 [
-                                                    div [attributesSelect] [ Html.SemUi.iconCheckBox (m.selectedImage |> AVal.map (fun selIdx -> selIdx = Some index)) (SelectImage index)]
-                                                    div [
-                                                        attributesSelect
-                                                        onClick (fun _ -> SetOverlayImage index)
-                                                    ] [
-                                                        div [style "pointer-events: none;"] [
-                                                            Html.SemUi.iconCheckBox
-                                                                (m.overlayImage |> AVal.map (fun overlayIdx -> overlayIdx = Some index))
-                                                                Nop
-                                                        ]
+                                                    div [attributesSelect] [
+                                                        Html.SemUi.iconCheckBox
+                                                            (
+                                                                m.rgbComposite.redBand
+                                                                |> AVal.map (fun selected ->
+                                                                    selected = Some index
+                                                                )
+                                                            )
+                                                            (SetRgbBand (Red, index))
+                                                    ]
+
+                                                    div [attributesSelect] [
+                                                        Html.SemUi.iconCheckBox
+                                                            (
+                                                                m.rgbComposite.greenBand
+                                                                |> AVal.map (fun selected ->
+                                                                    selected = Some index
+                                                                )
+                                                            )
+                                                            (SetRgbBand (Green, index))
+                                                    ]
+
+                                                    div [attributesSelect] [
+                                                        Html.SemUi.iconCheckBox
+                                                            (
+                                                                m.rgbComposite.blueBand
+                                                                |> AVal.map (fun selected ->
+                                                                    selected = Some index
+                                                                )
+                                                            )
+                                                            (SetRgbBand (Blue, index))
                                                     ]
                                                     div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
                                                     div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
@@ -317,7 +375,7 @@ module App =
                 ]
 
                 div [] [
-                    div [] [showRelative2DImage primaryImage overlayImage]   
+                    div [] [showRelative2DImage redImage greenImage blueImage]   
                     div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages
                     ]
@@ -329,7 +387,7 @@ module App =
             body [] [
 
                 div [] [
-                    showAbsolute2DAnd3DImage primaryImage overlayImage   
+                    showAbsolute2DAnd3DImage redImage greenImage blueImage   
                 ]
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
                     accordion "Texture Mapping" "file image outline" false (clazz "ui inverted segment") [ content ]

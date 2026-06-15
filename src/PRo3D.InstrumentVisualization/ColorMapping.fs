@@ -56,7 +56,7 @@ module InstrumentImageVisualization =
         |> Sg.uniform "MaxValue" (p.visualizationRange |> AVal.map _.Max)
         |> Sg.uniform "UseFalseColor" (p.colorMapping |> AVal.map Option.isSome)
         |> Sg.texture "InstrumentImage" p.instrumentImage
-        |> Sg.uniform "DataType" (p.dataType |> AVal.map int)
+        |> Sg.uniform "RgbDataType" (p.dataType |> AVal.map int)
         |> Sg.uniform "ProjectedImageOpacity" p.projectionOpacity
         |> Sg.texture "ColormapTexture" (
             p.colorMapping |> AVal.bind (function

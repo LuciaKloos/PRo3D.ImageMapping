@@ -33,13 +33,6 @@ type Channel = {
     name : Option<string>
 }
 
-type OverlayProjection =
-    {
-        projectImage : string -> aval<Option<Trafo3d>>
-        texture : aval<ITexture>
-        enabled : aval<bool>
-    }
-
 module Visualization =
 
     let createProjectedExrTexture (path : string) (channel : int) : aval<ITexture> = 
@@ -113,41 +106,61 @@ module Visualization =
 
    
 
-    let createSceneGraph (projectedImageProperties : VisualizationProperties) (referenceFrame : aval<string>) (supportBody : aval<string>)
-                         (observer : aval<string>) (time : aval<DateTime>) (projectPrimaryImage : string -> aval<Option<Trafo3d>>)
-                        (projectOverlayImage : string -> aval<Option<Trafo3d>>) (projectedPrimaryTexture : aval<ITexture>)
-                        (projectedOverlayTexture : Option<aval<ITexture>>) (primaryProjectionEnabled : aval<bool>) (overlayProjectionEnabled : aval<bool>) =
+    let createSceneGraph
+        (projectedImageProperties : VisualizationProperties)
+        (referenceFrame : aval<string>)
+        (supportBody : aval<string>)
+        (observer : aval<string>)
+        (time : aval<DateTime>)
+        (projectPrimaryImage : string -> aval<Option<Trafo3d>>)
+        (projectedRedTexture : aval<ITexture>)
+        (projectedGreenTexture : aval<ITexture>)
+        (projectedBlueTexture : aval<ITexture>)
+        (redMin : aval<float>)
+        (redMax : aval<float>)
+        (greenMin : aval<float>)
+        (greenMax : aval<float>)
+        (blueMin : aval<float>)
+        (blueMax : aval<float>)
+        (rgbDataType : aval<int>)
+        (rgbProjectionDebug : aval<bool>)
+        (primaryProjectionEnabled : aval<bool>) =
 
-        let overlayTexture =
-            projectedOverlayTexture
-            |> Option.defaultValue DefaultTextures.checkerboard
-
-        let effectiveOverlayProjectionEnabled =                        
-            match projectedOverlayTexture with
-            | Some _ -> overlayProjectionEnabled
-            | None -> AVal.constant false
-
-        let marsProxy = 
-            let marsTrafo = 
-                Rendering.fullTrafo referenceFrame supportBody "MARS" (Some "IAU_MARS") observer time
+        let marsProxy =
+            let marsTrafo =
+                Rendering.fullTrafo
+                    referenceFrame
+                    supportBody
+                    "MARS"
+                    (Some "IAU_MARS")
+                    observer
+                    time
                 |> AVal.map (Option.defaultValue Trafo3d.Identity)
 
-            let marsTexture = 
-                let getImageStream () = 
-                    typeof<Self>.Assembly.GetManifestResourceStream("PRo3D.InstrumentProjection.resources.marswikiAnnotated.jpg")
+            let marsTexture =
+                let getImageStream () =
+                    typeof<Self>.Assembly.GetManifestResourceStream(
+                        "PRo3D.InstrumentProjection.resources.marswikiAnnotated.jpg"
+                    )
+
                 StreamTexture(getImageStream)
 
-            let sphericalUnitBody (scale : float) = 
-                PolyMeshPrimitives.Sphere(30, 1.0, C4b.White, DefaultSemantic.DiffuseColorCoordinates, DefaultSemantic.DiffuseColorUTangents, DefaultSemantic.DiffuseColorVTangents)
-                                    .GetIndexedGeometry()
-
+            let sphericalUnitBody (scale : float) =
+                PolyMeshPrimitives.Sphere(
+                    30,
+                    1.0,
+                    C4b.White,
+                    DefaultSemantic.DiffuseColorCoordinates,
+                    DefaultSemantic.DiffuseColorUTangents,
+                    DefaultSemantic.DiffuseColorVTangents
+                ).GetIndexedGeometry()
                 |> Sg.ofIndexedGeometry
 
             sphericalUnitBody 1.0
             |> Sg.diffuseTexture' marsTexture
-            |> PRo3D.Core.Sg.applyProjectedImages projectPrimaryImage projectOverlayImage
+            |> PRo3D.Core.Sg.applyProjectedImage projectPrimaryImage
             |> Sg.applyPlanet "mars"
-            |> Sg.scale (3389.5 * 1000.0) // mars radius in km
+            |> Sg.scale (3389.5 * 1000.0)
             |> Sg.trafo marsTrafo
             |> Sg.shader {
                 do! Shaders.genAndFlipTextureCoord
@@ -156,12 +169,32 @@ module Visualization =
                 do! DefaultSurfaces.stableTrafo
                 do! DefaultSurfaces.diffuseTexture
                 do! DefaultSurfaces.stableHeadlight
-                do! ImageProjection.Shaders.stableImageProjection                                              
+                do! ImageProjection.Shaders.stableImageProjection
             }
-            |> InstrumentImageVisualization.applyProperties { projectedImageProperties with instrumentImage = projectedPrimaryTexture }
-            |> Sg.uniform' "ProjectedImageModelViewProjValid" primaryProjectionEnabled
-            |> Sg.uniform' "OverlayImageModelViewProjValid" effectiveOverlayProjectionEnabled
-            |> Sg.texture "ProjectedTexture" projectedPrimaryTexture
-            |> Sg.texture "OverlayProjectedTexture" overlayTexture
+            // applyProperties provides ProjectedImageOpacity.
+            |> InstrumentImageVisualization.applyProperties {
+                projectedImageProperties with
+                    instrumentImage = projectedRedTexture
+            }
+            |> Sg.uniform'
+                "ProjectedImageModelViewProjValid"
+                primaryProjectionEnabled
+            |> Sg.texture
+                "ProjectedRedTexture"
+                projectedRedTexture
+            |> Sg.texture
+                "ProjectedGreenTexture"
+                projectedGreenTexture
+            |> Sg.texture
+                "ProjectedBlueTexture"
+                projectedBlueTexture
+            |> Sg.uniform "RedMinValue" redMin
+            |> Sg.uniform "RedMaxValue" redMax
+            |> Sg.uniform "GreenMinValue" greenMin
+            |> Sg.uniform "GreenMaxValue" greenMax
+            |> Sg.uniform "BlueMinValue" blueMin
+            |> Sg.uniform "BlueMaxValue" blueMax
+            |> Sg.uniform "RgbDataType" rgbDataType
+            |> Sg.uniform "RgbProjectionDebug" rgbProjectionDebug
 
         marsProxy
