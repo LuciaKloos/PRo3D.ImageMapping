@@ -266,40 +266,18 @@ module InstrumentProjectionViewer =
 
         let scene = 
             Sg.ofList [
-                Visualization.createSceneGraph
+                (Visualization.createSceneGraph
                     imageSettings
                     referenceFrame
                     supportBody
                     observer
                     time
                     projectImage
-
-                    // R, G, B textures
                     projectedTexture
-                    projectedTexture
-                    projectedTexture
-
-                    // R range
-                    projectedMin
-                    projectedMax
-
-                    // G range
-                    projectedMin
-                    projectedMax
-
-                    // B range
-                    projectedMin
-                    projectedMax
-
-                    // Texture data type
-                    projectedDataType
-
-                    // RGB diagnostic disabled here
-                    rgbProjectionDebug
 
                     // Projection enabled
                     (AVal.constant true)
-                |> Sg.onOff showProxy
+                |> Sg.onOff showProxy);
                 opc |> Sg.onOff (AVal.map not showProxy)
             ]
             |> Sg.viewTrafo (AVal.map CameraView.viewTrafo view)

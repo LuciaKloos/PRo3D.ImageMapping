@@ -104,6 +104,73 @@ module Visualization =
 
         projectImage
 
+    let createRgbSceneGraph
+        (projectedImageProperties : VisualizationProperties)
+        (referenceFrame : aval<string>)
+        (supportBody : aval<string>)
+        (observer : aval<string>)
+        (time : aval<DateTime>)
+        (projectPrimaryImage : string -> aval<Option<Trafo3d>>)
+        (projectedTexture : aval<ITexture>)
+        (primaryProjectionEnabled : aval<bool>) =
+
+        let marsProxy =
+            let marsTrafo =
+                Rendering.fullTrafo
+                    referenceFrame
+                    supportBody
+                    "MARS"
+                    (Some "IAU_MARS")
+                    observer
+                    time
+                |> AVal.map (Option.defaultValue Trafo3d.Identity)
+
+            let marsTexture =
+                let getImageStream () =
+                    typeof<Self>.Assembly.GetManifestResourceStream(
+                        "PRo3D.InstrumentProjection.resources.marswikiAnnotated.jpg"
+                    )
+
+                StreamTexture(getImageStream)
+
+            let sphericalUnitBody (scale : float) =
+                PolyMeshPrimitives.Sphere(
+                    30,
+                    1.0,
+                    C4b.White,
+                    DefaultSemantic.DiffuseColorCoordinates,
+                    DefaultSemantic.DiffuseColorUTangents,
+                    DefaultSemantic.DiffuseColorVTangents
+                ).GetIndexedGeometry()
+                |> Sg.ofIndexedGeometry
+
+            sphericalUnitBody 1.0
+            |> Sg.diffuseTexture' marsTexture
+            |> PRo3D.Core.Sg.applyProjectedImage projectPrimaryImage
+            |> Sg.applyPlanet "mars"
+            |> Sg.scale (3389.5 * 1000.0)
+            |> Sg.trafo marsTrafo
+            |> Sg.shader {
+                do! Shaders.genAndFlipTextureCoord
+                do! ImageProjection.Shaders.useVertexNormals
+                do! ImageProjection.Shaders.stableImageProjectionTrafo
+                do! DefaultSurfaces.stableTrafo
+                do! DefaultSurfaces.diffuseTexture
+                do! DefaultSurfaces.stableHeadlight
+                do! ImageProjection.Shaders.stableColorImageProjection
+            }
+            |> InstrumentImageVisualization.applyProperties {
+                projectedImageProperties with
+                    instrumentImage = projectedTexture
+            }
+            |> Sg.texture
+                "ProjectedTexture"
+                projectedTexture
+            |> Sg.uniform'
+                "ProjectedImageModelViewProjValid"
+                primaryProjectionEnabled
+
+        marsProxy
    
 
     let createSceneGraph
@@ -113,17 +180,7 @@ module Visualization =
         (observer : aval<string>)
         (time : aval<DateTime>)
         (projectPrimaryImage : string -> aval<Option<Trafo3d>>)
-        (projectedRedTexture : aval<ITexture>)
-        (projectedGreenTexture : aval<ITexture>)
-        (projectedBlueTexture : aval<ITexture>)
-        (redMin : aval<float>)
-        (redMax : aval<float>)
-        (greenMin : aval<float>)
-        (greenMax : aval<float>)
-        (blueMin : aval<float>)
-        (blueMax : aval<float>)
-        (rgbDataType : aval<int>)
-        (rgbProjectionDebug : aval<bool>)
+        (projectedTexture : aval<ITexture>)
         (primaryProjectionEnabled : aval<bool>) =
 
         let marsProxy =
@@ -174,27 +231,10 @@ module Visualization =
             // applyProperties provides ProjectedImageOpacity.
             |> InstrumentImageVisualization.applyProperties {
                 projectedImageProperties with
-                    instrumentImage = projectedRedTexture
+                    instrumentImage = projectedTexture
             }
             |> Sg.uniform'
                 "ProjectedImageModelViewProjValid"
                 primaryProjectionEnabled
-            |> Sg.texture
-                "ProjectedRedTexture"
-                projectedRedTexture
-            |> Sg.texture
-                "ProjectedGreenTexture"
-                projectedGreenTexture
-            |> Sg.texture
-                "ProjectedBlueTexture"
-                projectedBlueTexture
-            |> Sg.uniform "RedMinValue" redMin
-            |> Sg.uniform "RedMaxValue" redMax
-            |> Sg.uniform "GreenMinValue" greenMin
-            |> Sg.uniform "GreenMaxValue" greenMax
-            |> Sg.uniform "BlueMinValue" blueMin
-            |> Sg.uniform "BlueMaxValue" blueMax
-            |> Sg.uniform "RgbDataType" rgbDataType
-            |> Sg.uniform "RgbProjectionDebug" rgbProjectionDebug
 
         marsProxy

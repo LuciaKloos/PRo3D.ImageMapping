@@ -4,6 +4,7 @@ open System
 open Aardvark.Base
 open Aardvark.UI
 open Aardvark.UI.Primitives
+open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
 open PRo3D.Extensions.FSharp
@@ -16,34 +17,10 @@ module App =
 
     let borderColor = "rgba(255,255,255,.1)"
 
-    let initialRgbComposite =
-        {
-            redBand = None
-            greenBand = None
-            blueBand = None
-        }
-
-    let updateRgbBand
-        (channel : RgbChannel)
-        (band : Option<Index>)
-        (composite : RgbComposite) =
-
-        match channel with
-        | Red ->
-            { composite with redBand = band }
-
-        | Green ->
-            { composite with greenBand = band }
-
-        | Blue ->
-            { composite with blueBand = band }
-
     let initial : Model = {
         images = IndexList.Empty;
         selectedImage = None;
-
-        rgbComposite = initialRgbComposite
-
+        sourceImagePath = None;
         editImages = List.Empty;
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
@@ -61,9 +38,12 @@ module App =
         | SetPitch r -> { m with boresightAdjustment = { m.boresightAdjustment with pitch = Numeric.update m.boresightAdjustment.pitch r } }
         | SetYaw r -> { m with boresightAdjustment = { m.boresightAdjustment with yaw = Numeric.update m.boresightAdjustment.yaw r } }
         | LoadMultispectralImage path ->
+        
+            let fullPath =
+                Path.GetFullPath path
 
             let bands =
-                Image.loadBands path
+                Image.loadBands fullPath
                 |> IndexList.ofList
 
             let indices =
@@ -71,23 +51,15 @@ module App =
                 |> IndexList.mapi (fun index _ -> index)
                 |> IndexList.toList
 
-            let bandAt index =
-                indices 
-                |> List.tryItem index
-                    
+            let firstBand =
+                indices
+                |> List.tryHead
+
             {
                 m with
                     images = bands
-
-                    selectedImage = bandAt 0
-                    rgbComposite =
-                        {
-                            redBand = bandAt 0
-                            greenBand = bandAt 1
-                            blueBand = bandAt 2
-                        }
-
-
+                    selectedImage = firstBand
+                    sourceImagePath = Some fullPath
                     editImages = []
             }
         | SelectImage idx ->
@@ -107,14 +79,6 @@ module App =
                         img
                 )
             { m with images = images' }
-
-        | SetRgbBand (channel, index) ->
-            { m with rgbComposite = updateRgbBand channel (Some index) m.rgbComposite }
-
-        | ClearRgbBand channel ->
-            { m with rgbComposite = updateRgbBand channel None m.rgbComposite }
-        | ResetRgbComposite ->
-            { m with rgbComposite = initialRgbComposite }
         | SortEntriesByDistance ->
             let images' = 
                 m.images
@@ -174,12 +138,13 @@ module App =
                 editImages = editImages'}
 
 
-    let view 
-        (m : AdaptiveModel)
-        (showDOM : AdaptiveImage -> DomNode<ImageMessage>) 
-        (showRelative2DImage : aval<Option<AdaptiveImage>> -> aval<Option<AdaptiveImage>> -> aval<Option<AdaptiveImage>> -> DomNode<Message>)
-        (showAbsolute2DAnd3DImage : aval<Option<AdaptiveImage>> -> aval<Option<AdaptiveImage>> -> aval<Option<AdaptiveImage>> -> DomNode<Message>) =
     
+    let view (m : AdaptiveModel) (showDOM : AdaptiveImage -> DomNode<ImageMessage>) (showRelative2DImage : aval<ITexture> -> DomNode<Message>) (showAbsolute2DAnd3DImage : aval<Option<string>> -> aval<ITexture> -> DomNode<Message>) =
+
+        let rgbTexture =
+            Image.createRgbCompositeTexture
+                m.sourceImagePath
+
         let listAttributes =
             amap {
                 yield clazz "ui divided list inverted segment"
@@ -202,15 +167,7 @@ module App =
                     return None
             }
 
-        let redImage =
-            selectedAdaptiveImage m.rgbComposite.redBand
-
-        let greenImage =
-            selectedAdaptiveImage m.rgbComposite.greenBand
-
-        let blueImage =
-            selectedAdaptiveImage m.rgbComposite.blueBand
-
+       
         let accordion text' icon active styling content' =
                 let title = if active then "title active inverted" else "title inverted"
                 let content = if active then "content active" else "content"
@@ -288,38 +245,38 @@ module App =
                                                 ]
                                             div [attribute "style" "display: flex; font-weight: bold"] 
                                                 [
-                                                    div [attributesSelect] [
-                                                        Html.SemUi.iconCheckBox
-                                                            (
-                                                                m.rgbComposite.redBand
-                                                                |> AVal.map (fun selected ->
-                                                                    selected = Some index
-                                                                )
-                                                            )
-                                                            (SetRgbBand (Red, index))
-                                                    ]
+                                                    //div [attributesSelect] [
+                                                    //    Html.SemUi.iconCheckBox
+                                                    //        (
+                                                    //            m.rgbComposite.redBand
+                                                    //            |> AVal.map (fun selected ->
+                                                    //                selected = Some index
+                                                    //            )
+                                                    //        )
+                                                    //        (SetRgbBand (Red, index))
+                                                    //]
 
-                                                    div [attributesSelect] [
-                                                        Html.SemUi.iconCheckBox
-                                                            (
-                                                                m.rgbComposite.greenBand
-                                                                |> AVal.map (fun selected ->
-                                                                    selected = Some index
-                                                                )
-                                                            )
-                                                            (SetRgbBand (Green, index))
-                                                    ]
+                                                    //div [attributesSelect] [
+                                                    //    Html.SemUi.iconCheckBox
+                                                    //        (
+                                                    //            m.rgbComposite.greenBand
+                                                    //            |> AVal.map (fun selected ->
+                                                    //                selected = Some index
+                                                    //            )
+                                                    //        )
+                                                    //        (SetRgbBand (Green, index))
+                                                    //]
 
-                                                    div [attributesSelect] [
-                                                        Html.SemUi.iconCheckBox
-                                                            (
-                                                                m.rgbComposite.blueBand
-                                                                |> AVal.map (fun selected ->
-                                                                    selected = Some index
-                                                                )
-                                                            )
-                                                            (SetRgbBand (Blue, index))
-                                                    ]
+                                                    //div [attributesSelect] [
+                                                    //    Html.SemUi.iconCheckBox
+                                                    //        (
+                                                    //            m.rgbComposite.blueBand
+                                                    //            |> AVal.map (fun selected ->
+                                                    //                selected = Some index
+                                                    //            )
+                                                    //        )
+                                                    //        (SetRgbBand (Blue, index))
+                                                    //]
                                                     div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
                                                     div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
                                                     div [attributesAttr2] [ Incremental.text (img.time |> AVal.map string) ]
@@ -375,7 +332,7 @@ module App =
                 ]
 
                 div [] [
-                    div [] [showRelative2DImage redImage greenImage blueImage]   
+                    div [] [showRelative2DImage rgbTexture]   
                     div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages
                     ]
@@ -387,7 +344,7 @@ module App =
             body [] [
 
                 div [] [
-                    showAbsolute2DAnd3DImage redImage greenImage blueImage   
+                    showAbsolute2DAnd3DImage m.sourceImagePath rgbTexture   
                 ]
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
                     accordion "Texture Mapping" "file image outline" false (clazz "ui inverted segment") [ content ]

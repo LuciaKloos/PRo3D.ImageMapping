@@ -59,19 +59,6 @@ type BoresightAdjustment =
 
     }
 
-[<ModelType>]
-type RgbComposite =
-    {
-        redBand   : Option<Index>
-        greenBand : Option<Index>
-        blueBand  : Option<Index>
-    }
-
-type RgbChannel =
-    | Red
-    | Green
-    | Blue
-
 module BoresightAdjustment =
     let identity =
         {
@@ -85,9 +72,7 @@ type Model =
     {
         images          : IndexList<Image>
         selectedImage   : Option<Index>
-
-        rgbComposite   : RgbComposite
-
+        sourceImagePath   : Option<string>
         editImages      : Index list
         projectionOpacity : NumericInput
         boresightAdjustment : BoresightAdjustment
@@ -111,9 +96,6 @@ type Message =
     | EditImage of Index
     | LoadMultispectralImage of string
     | ImageMessage of Index * ImageMessage
-    | SetRgbBand of RgbChannel * Index
-    | ClearRgbBand of RgbChannel
-    | ResetRgbComposite
     | SortEntriesByDistance
     | SortEntriesByDate
     | SetProjectionOpacity of Numeric.Action

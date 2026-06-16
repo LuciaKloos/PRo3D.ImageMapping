@@ -40,28 +40,12 @@ module Shaders =
             addressV WrapMode.Wrap
         }
 
-    let redBandSampler =
+    let rgbCompositeSampler =
         sampler2d {
-            texture uniform?RedBandImage
+            texture uniform?RgbCompositeTexture
             filter Filter.MinMagMipLinear
-            addressU WrapMode.Wrap
-            addressV WrapMode.Wrap
-        }
-
-    let greenBandSampler =
-        sampler2d {
-            texture uniform?GreenBandImage
-            filter Filter.MinMagMipLinear
-            addressU WrapMode.Wrap
-            addressV WrapMode.Wrap
-        }
-
-    let blueBandSampler =
-        sampler2d {
-            texture uniform?BlueBandImage
-            filter Filter.MinMagMipLinear
-            addressU WrapMode.Wrap
-            addressV WrapMode.Wrap
+            addressU WrapMode.Clamp
+            addressV WrapMode.Clamp
         }
 
     type UniformScope with
@@ -71,73 +55,6 @@ module Shaders =
         member x.DataType : int = uniform?DataType
         member x.OverlayMax : V2d = uniform?OverlayMax
         member x.OverlayMin : V2d = uniform?OverlayMin
-
-        member x.RedMinValue : float = uniform?RedMinValue
-        member x.RedMaxValue : float = uniform?RedMaxValue
-
-        member x.GreenMinValue : float = uniform?GreenMinValue
-        member x.GreenMaxValue : float = uniform?GreenMaxValue
-
-        member x.BlueMinValue : float = uniform?BlueMinValue
-        member x.BlueMaxValue : float = uniform?BlueMaxValue
-
-        member x.RgbDataType : int = uniform?RgbDataType
-
-    [<ReflectedDefinition>]
-    let normalizeBand
-        (sampledValue  : float)
-        (minimum : float)
-        (maximum : float)
-        (dataType : int) =
-
-        let rawValue =
-            if dataType = int DataType.Float then
-                sampledValue 
-            elif dataType = int DataType.UInt16 then
-                sampledValue  * 65535.0
-            else
-                sampledValue  * 4294967295.0
-
-        let range =
-            max 0.0000001 (maximum - minimum)
-
-        clamp 0.0 1.0 ((rawValue - minimum) / range)
-
-    let rgbComposite (v : Vertex) =
-        fragment {
-            let redSample =
-                redBandSampler.Sample(v.tc).X
-
-            let greenSample =
-                greenBandSampler.Sample(v.tc).X
-
-            let blueSample =
-                blueBandSampler.Sample(v.tc).X
-
-            let r =
-                normalizeBand
-                    redSample
-                    uniform.RedMinValue
-                    uniform.RedMaxValue
-                    uniform.RgbDataType
-
-            let g =
-                normalizeBand
-                    greenSample
-                    uniform.GreenMinValue
-                    uniform.GreenMaxValue
-                    uniform.RgbDataType
-
-            let b =
-                normalizeBand
-                    blueSample
-                    uniform.BlueMinValue
-                    uniform.BlueMaxValue
-                    uniform.RgbDataType
-
-            return V4d(r, g, b, 1.0)
-        }
-
 
     let hshColors (v : Vertex)  = 
         fragment {
@@ -157,6 +74,11 @@ module Shaders =
                 else 
                     colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
             return remapClampNormalize
+        }
+
+    let displayRgbComposite (v : Vertex) =
+        fragment {
+            return rgbCompositeSampler.Sample(v.tc)
         }
 
 module Image =
@@ -194,7 +116,247 @@ module Image =
         time = new DateTime();
     }
 
-    
+    let private getBandAsFloat
+        (bandIndex : int)
+        (image : TiffReadResult)
+        : float[] =
+
+        if bandIndex < 0 || bandIndex >= image.bands then
+            invalidArg
+                "bandIndex"
+                (sprintf
+                    "Band %d is outside the available range 0..%d"
+                    bandIndex
+                    (image.bands - 1)
+                )
+
+        match image.buffers with
+        | PixelBuffers.Float32Bands bands ->
+            bands.[bandIndex]
+            |> Array.map float
+
+        | PixelBuffers.UInt16Bands bands ->
+            bands.[bandIndex]
+            |> Array.map float
+
+        | PixelBuffers.Int16Bands bands ->
+            bands.[bandIndex]
+            |> Array.map float
+
+        | PixelBuffers.UInt32Bands bands ->
+            bands.[bandIndex]
+            |> Array.map float
+
+        | PixelBuffers.Int32Bands bands ->
+            bands.[bandIndex]
+            |> Array.map float
+
+    let private percentile
+        (fraction : float)
+        (sortedValues : float[]) =
+
+        if sortedValues.Length = 0 then
+            0.0
+        else
+            let index =
+                fraction * float (sortedValues.Length - 1)
+                |> Math.Round
+                |> int
+                |> max 0
+                |> min (sortedValues.Length - 1)
+
+            sortedValues.[index]
+
+
+    let private getDisplayRange (values : float[]) =
+
+        let finiteValues =
+            values
+            |> Array.filter (fun value ->
+                Double.IsFinite value &&
+                value > 0.0
+            )
+            |> Array.sort
+
+        if finiteValues.Length = 0 then
+            0.0, 1.0
+        else
+            // means: the darkest x% of the pixels becomes black, the brightest y% becomes white. 
+            let minimum =
+                percentile 0.05 finiteValues
+
+            let maximum =
+                percentile 0.999 finiteValues
+
+            if maximum <= minimum then
+                minimum, minimum + 1.0
+            else
+                minimum, maximum
+
+    // important, otherwise black
+    let private valueToByte
+        (minimum : float)
+        (maximum : float)
+        (value : float) =
+
+        if not (Double.IsFinite value) || maximum <= minimum then
+            0uy
+        else
+            let normalized = 
+                (value - minimum) / (maximum - minimum)
+                |> max 0.0
+                |> min 1.0
+
+            // Makes dark scientific values more visible.
+            let gammaCorrected = 
+                Math.Pow(normalized, 1.0 / 2.2)
+
+            gammaCorrected * 255.0
+            |> Math.Round
+            |> byte
+
+
+    let private createRgbCompositePixImage
+        (path : string)
+        : Result<PixImage<byte>, string> =
+
+        try
+            match MultiBandReader.tryReadMultiBandTiff path false with
+            | Result.Error error ->
+                Result.Error error
+
+            | Result.Ok image ->
+
+                if image.bands < 3 then
+                    Result.Error (
+                        sprintf
+                            "RGB composite requires at least 3 bands, but %s has %d."
+                            path
+                            image.bands
+                    )
+                else
+                    // these are example bands using almost the complete wavelength range of the image
+                    // -> more false color image
+
+                    let redBandIndex = 24
+                    let greenBandIndex = 12
+                    let blueBandIndex = 0
+
+                    let redBand =
+                        getBandAsFloat redBandIndex image
+
+                    let greenBand =
+                        getBandAsFloat greenBandIndex image
+
+                    let blueBand =
+                        getBandAsFloat blueBandIndex image
+
+                    let redMin, redMax =
+                        getDisplayRange redBand
+
+                    let greenMin, greenMax =
+                        getDisplayRange greenBand
+
+                    let blueMin, blueMax =
+                        getDisplayRange blueBand
+
+                    Log.line
+                        "RGB ranges: R=(%f, %f), G=(%f, %f), B=(%f, %f)"
+                        redMin redMax
+                        greenMin greenMax
+                        blueMin blueMax
+
+                    let rgbImage =
+                        PixImage<byte>(
+                            Col.Format.RGBA,
+                            V2i(image.width, image.height)
+                        )
+
+                    rgbImage
+                        .GetMatrix<C4b>()
+                        .SetByCoord(fun (position : V2l) ->
+
+                            let x =
+                                int position.X
+
+                            let y =
+                                int position.Y
+
+                            let index =
+                                y * image.width + x
+
+                            let r =
+                                valueToByte redMin redMax redBand.[index]
+
+                            let g =
+                                valueToByte greenMin greenMax greenBand.[index]
+
+                            let b =
+                                valueToByte blueMin blueMax blueBand.[index]
+                                
+                            let rawR = redBand.[index]
+                            let rawG = greenBand.[index]
+                            let rawB = blueBand.[index]
+
+                            let signal =
+                                max rawR (max rawG rawB)
+
+                            let foregroundThreshold = 0.001
+
+                            let alpha =
+                                if signal < foregroundThreshold then
+                                    0uy
+                                else
+                                    255uy
+
+                            C4b(r, g, b, alpha)
+
+                        )
+                    |> ignore
+
+                    Result.Ok rgbImage
+
+        with error ->
+            Result.Error error.Message
+
+    let private loadRgbCompositeTexture
+        (path : string)
+        : ITexture =
+
+        match createRgbCompositePixImage path with
+        | Result.Ok image ->
+            PixTexture2d(
+                PixImageMipMap [|
+                    image :> PixImage
+                |],
+                false
+            ) :> ITexture
+
+        | Result.Error error ->
+            Log.warn
+                "Could not create RGB composite for %s: %s"
+                path
+                error
+
+            DefaultTextures.checkerboard.GetValue()
+
+    let createRgbCompositeTexture
+        (path : aval<Option<string>>)
+        : aval<ITexture> =
+
+        path
+        |> AVal.map (function
+            | Some filePath when File.Exists filePath ->
+                loadRgbCompositeTexture filePath
+
+            | Some filePath ->
+                Log.warn "RGB source file does not exist: %s" filePath
+                DefaultTextures.checkerboard.GetValue()
+
+            | None ->
+                DefaultTextures.checkerboard.GetValue()
+        )
+
     let private tryReadWavelengthsFromJson (jsonPath : string) =
         try
             use document =
@@ -222,6 +384,18 @@ module Image =
                 error.Message
 
             None
+
+    let createInstrumentScene
+        (rgbTexture : aval<ITexture>) =
+
+        Sg.fullScreenQuad
+        |> Sg.noEvents
+        |> Sg.texture
+            "RgbCompositeTexture"
+            rgbTexture
+        |> Sg.shader {
+            do! Shaders.displayRgbComposite
+        }
 
     let loadBands (texturePath : string) : list<Image> =
 
@@ -530,432 +704,151 @@ module Image =
             ]
         )
 
-    let private textureFromBand
-        (img : aval<Option<AdaptiveImage>>)
-        : aval<ITexture> =
-
-        img
-        |> AVal.bind (function
-            | None ->
-                DefaultTextures.checkerboard
-
-            | Some img ->
-                (img.texture, img.selectedChannel)
-                ||> AVal.map2 (fun path channel ->
-                    match Path.GetExtension(path).ToLowerInvariant() with
-                    | ".tif"
-                    | ".tiff" ->
-                        match MultiBandReader.tryReadMultiBandTiff path false with
-                        | Result.Ok multiBandImage ->
-                            let textures =
-                                InstrumentImageTextures.instrumentImageToTexture
-                                    true
-                                    multiBandImage
-
-                            match Array.tryItem channel.idx textures with
-                            | Some texture ->
-                                PixTexture2d(
-                                    texture.pi,
-                                    TextureParams.empty
-                                ) :> ITexture
-
-                            | None ->
-                                Log.warn
-                                    "RGB channel %d is out of bounds for %s"
-                                    channel.idx
-                                    path
-
-                                DefaultTextures.checkerboard.GetValue()
-
-                        | Result.Error error ->
-                            Log.warn
-                                "Could not read multispectral TIFF %s: %A"
-                                path
-                                error
-
-                            DefaultTextures.checkerboard.GetValue()
-
-                    | ".exr" ->
-                        use stream = File.OpenRead path
-
-                        let texture =
-                            TextureLoading.loadImageFromStream
-                                stream
-                                (ChannelReference.ChannelWithIndex channel.idx)
-                                (Some TextureLoading.TextureFormat.OpenEXR)
-
-                        PixTexture2d(
-                            texture,
-                            TextureParams.empty
-                        ) :> ITexture
-
-                    | extension ->
-                        Log.warn "Unsupported image extension: %s" extension
-                        DefaultTextures.checkerboard.GetValue()
-                )
-        )
-
-    let createInstrumentScene
-        (redImg : aval<Option<AdaptiveImage>>)
-        (greenImg : aval<Option<AdaptiveImage>>)
-        (blueImg : aval<Option<AdaptiveImage>>) =
-
-        let extract
-            (defaultValue : aval<'a>)
-            (getter : AdaptiveImage -> aval<'a>)
-            (img : aval<Option<AdaptiveImage>>) =
-
-            img
-            |> AVal.bind (function
-                | Some value -> getter value
-                | None -> defaultValue
-            )
-
-        let createBandTexture
-            (img : aval<Option<AdaptiveImage>>)
-            : aval<ITexture> =
-
-            img
-            |> extract DefaultTextures.checkerboard (fun image ->
-                (image.texture, image.selectedChannel)
-                ||> AVal.map2 (fun path channel ->
-                    match Path.GetExtension(path).ToLowerInvariant() with
-                    | ".exr" ->
-                        use stream = File.OpenRead path
-
-                        let texture =
-                            TextureLoading.loadImageFromStream
-                                stream
-                                (ChannelReference.ChannelWithIndex channel.idx)
-                                (Some TextureLoading.TextureFormat.OpenEXR)
-
-                        PixTexture2d(
-                            texture,
-                            TextureParams.empty
-                        ) :> ITexture
-
-                    | ".tif"
-                    | ".tiff" ->
-                        match MultiBandReader.tryReadMultiBandTiff path false with
-                        | Result.Ok multiBandImage ->
-                            let textures =
-                                InstrumentImageTextures.instrumentImageToTexture
-                                    true
-                                    multiBandImage
-
-                            match Array.tryItem channel.idx textures with
-                            | Some texture ->
-                                PixTexture2d(
-                                    texture.pi,
-                                    TextureParams.empty
-                                ) :> ITexture
-
-                            | None ->
-                                Log.warn
-                                    "Channel %d is out of bounds for %s"
-                                    channel.idx
-                                    path
-
-                                DefaultTextures.checkerboard.GetValue()
-
-                        | Result.Error error ->
-                            Log.warn
-                                "Could not load TIFF %s: %A"
-                                path
-                                error
-
-                            DefaultTextures.checkerboard.GetValue()
-
-                    | extension ->
-                        Log.warn "Unsupported extension: %s" extension
-                        DefaultTextures.checkerboard.GetValue()
-                )
-            )
-
-        let bandMin img =
-            img
-            |> extract
-                (AVal.constant 0.0)
-                (fun band ->
-                    band.inputMinValue.value
-                    |> AVal.map float
-                )
-
-        let bandMax img =
-            img
-            |> extract
-                (AVal.constant 1.0)
-                (fun band ->
-                    band.inputMaxValue.value
-                    |> AVal.map float
-                )
-
-        let bandDataType img =
-            img
-            |> extract
-                (AVal.constant (int DataType.Float))
-                (fun band ->
-                    band.dataType
-                    |> AVal.map int
-                )
-
-        let redTexture =
-            createBandTexture redImg
-
-        let greenTexture =
-            createBandTexture greenImg
-
-        let blueTexture =
-            createBandTexture blueImg
-
-        let rgbScene =
-            Sg.fullScreenQuad
-            |> Sg.noEvents
-
-            // InstrumentImage is temporarily bound because
-            // placeAspectFittedQuad uses instrumentSampler.Size.
-            |> Sg.texture "InstrumentImage" redTexture
-
-            |> Sg.texture "RedBandImage" redTexture
-            |> Sg.texture "GreenBandImage" greenTexture
-            |> Sg.texture "BlueBandImage" blueTexture
-
-            |> Sg.uniform "RedMinValue" (bandMin redImg)
-            |> Sg.uniform "RedMaxValue" (bandMax redImg)
-
-            |> Sg.uniform "GreenMinValue" (bandMin greenImg)
-            |> Sg.uniform "GreenMaxValue" (bandMax greenImg)
-
-            |> Sg.uniform "BlueMinValue" (bandMin blueImg)
-            |> Sg.uniform "BlueMaxValue" (bandMax blueImg)
-
-            |> Sg.uniform "RgbDataType" (bandDataType redImg)
-
-            // The RGB image occupies the complete render-control region.
-            |> Sg.uniform "OverlayMin" (AVal.constant V2d.OO)
-            |> Sg.uniform "OverlayMax" (AVal.constant V2d.II)
-
-            |> Sg.shader {
-                do! Shaders.rgbComposite
-            }
-
-        rgbScene
-
-    let view2DAnd3DImageAbsolute (opacity : aval<float>) (boresightAdjustment : aval<Option<Trafo3d>>) (orbitState : AdaptiveOrbitState) (redImage : aval<Option<AdaptiveImage>>) (greenImage : aval<Option<AdaptiveImage>>) (blueImage : aval<Option<AdaptiveImage>>) =
+    let view2DAnd3DImageAbsolute
+        (opacity : aval<float>)
+        (boresightAdjustment : aval<Option<Trafo3d>>)
+        (orbitState : AdaptiveOrbitState)
+        (sourceImagePath : aval<Option<string>>)
+        (rgbTexture : aval<ITexture>) =
 
         let instrumentVisualization =
-            createInstrumentScene redImage greenImage blueImage
+            createInstrumentScene rgbTexture
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum2D = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
         let farPlaneMars = 30101626.50 * 1000.0
         let frustum = Frustum.perspective 80.0 10.0 farPlaneMars 1.0 |> AVal.constant
 
-        let visualization (red : AdaptiveImage) =
-            let observer = cval "MARS" //"HERA_AFC-1" 
-            let supportBody = cval "SUN"
-            let referenceFrame = cval "ECLIPJ2000"
-            let referenceFrame = cval "IAU_MARS"
+        let observer = cval "MARS" //"HERA_AFC-1" 
+        let supportBody = cval "SUN"
+        let referenceFrame = cval "ECLIPJ2000"
+        let referenceFrame = cval "IAU_MARS"
 
-            let currentProjectedImageFromImage (m : AdaptiveImage) =
-                m.texture
-                |> AVal.map (fun path ->
-                    if File.Exists path then
-                        Some (
-                            path,
-                            InstrumentMetadata.tryParseMetadataForImagePath path
-                        )
-                    else
-                        None
-                )
+        let currentProjectedImageFromImage (m : AdaptiveImage) =
+            m.texture
+            |> AVal.map (fun path ->
+                if File.Exists path then
+                    Some (
+                        path,
+                        InstrumentMetadata.tryParseMetadataForImagePath path
+                    )
+                else
+                    None
+            )
 
-            let currentProjectedImageFromOptionalImage
-                (img : aval<Option<AdaptiveImage>>) =
+        let currentProjectedImageFromOptionalImage
+            (img : aval<Option<AdaptiveImage>>) =
 
-                img
-                |> AVal.bind (function
-                    | Some img ->
-                        currentProjectedImageFromImage img
-                    | None ->
-                        AVal.constant None
-                )
+            img
+            |> AVal.bind (function
+                | Some img ->
+                    currentProjectedImageFromImage img
+                | None ->
+                    AVal.constant None
+            )
 
-            let selectedChannelFromOptionalImage
-                (img : aval<Option<AdaptiveImage>>) =
+        let selectedChannelFromOptionalImage
+            (img : aval<Option<AdaptiveImage>>) =
 
-                img
-                |> AVal.bind (function
-                    | Some img ->
-                        img.selectedChannel
-                    | None ->
-                        AVal.constant { idx = 0; name = None }
-                )
+            img
+            |> AVal.bind (function
+                | Some img ->
+                    img.selectedChannel
+                | None ->
+                    AVal.constant { idx = 0; name = None }
+            )
 
-            let extractBandValue
-                (defaultValue : float)
-                (getter : AdaptiveImage -> aval<float>)
-                (image : aval<Option<AdaptiveImage>>) =
+        let extractBandValue
+            (defaultValue : float)
+            (getter : AdaptiveImage -> aval<float>)
+            (image : aval<Option<AdaptiveImage>>) =
 
-                image
-                |> AVal.bind (function
-                    | Some selected ->
-                        getter selected
-                    | None ->
-                        AVal.constant defaultValue
-                )
+            image
+            |> AVal.bind (function
+                | Some selected ->
+                    getter selected
+                | None ->
+                    AVal.constant defaultValue
+            )
 
-            let redProjectedImage =
-                currentProjectedImageFromImage red
+        let currentProjectedImage =
+            sourceImagePath
+            |> AVal.map (function
+                | Some path when File.Exists path ->
+                    Some (
+                        path,
+                        InstrumentMetadata.tryParseMetadataForImagePath path
+                    )
 
-            let greenProjectedImage =
-                currentProjectedImageFromOptionalImage greenImage
-
-            let blueProjectedImage =
-                currentProjectedImageFromOptionalImage blueImage
-
-            let redSelectedChannel =
-                red.selectedChannel
-
-            let greenSelectedChannel =
-                selectedChannelFromOptionalImage greenImage
-
-            let blueSelectedChannel =
-                selectedChannelFromOptionalImage blueImage
-
-            let redMin =
-                red.inputMinValue.value
-                |> AVal.map float
-
-            let redMax =
-                red.inputMaxValue.value
-                |> AVal.map float
-
-            let greenMin =
-                greenImage
-                |> extractBandValue 0.0 (fun image ->
-                    image.inputMinValue.value
-                    |> AVal.map float
-                )
-
-            let greenMax =
-                greenImage
-                |> extractBandValue 1.0 (fun image ->
-                    image.inputMaxValue.value
-                    |> AVal.map float
-                )
-
-            let blueMin =
-                blueImage
-                |> extractBandValue 0.0 (fun image ->
-                    image.inputMinValue.value
-                    |> AVal.map float
-                )
-
-            let blueMax =
-                blueImage
-                |> extractBandValue 1.0 (fun image ->
-                    image.inputMaxValue.value
-                    |> AVal.map float
-                )
-
-            let rgbDataType =
-                red.dataType
-                |> AVal.map int
-
-
-            let imageSettings = 
-                { 
-                    VisualizationProperties.empty with 
-                        visualizationRange = (redMin, redMax) ||> AVal.map2 (fun min max -> Range1d(min,max))
-                        colorMapping = InstrumentImageVisualization.getColorMapTexture "magma.png" |> Some |> AVal.constant
-                        projectionOpacity = opacity
-                }
-
-            let projectionSetup = 
-                // instrument projection
-                let p = {
-                    target = InstrumentImages.CameraFocus.FocusBody "MARS"
-                    cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
-                    instrumentReferenceFrame = "HERA_AFC-1"
-                    instrumentName = "HERA_AFC-1"
-                    supportBody = "SUN"
-                    time = DateTime.Now
-                    boresightAdjustment = None
-                }
-                (redProjectedImage, boresightAdjustment) ||> AVal.map2 (fun currentProjectedImage boresight -> 
-                    match currentProjectedImage with
-                    | Some (f, (Some mbi,_)) -> 
-                        // update using selected image metadata
-                        let p = 
-                            { p with
-                                time = mbi.obs_date
-                                instrumentName = 
-                                    match InstrumentProjection.instrument2SpiceName mbi.instrument with
-                                    | None -> failwith "no spice name for the given instrument."
-                                    | Some i -> i
-                                instrumentReferenceFrame = "J2000"
-                                boresightAdjustment = boresight
-                            }
-                        p, mbi.obs_date
-                    | _ -> 
-                        let defaultTime = "2025-03-12 11:50:30.000Z"
-                        p, DateTime.Parse(defaultTime)
-                )
-
-            let projection = projectionSetup |> AVal.map fst
-            let time = projectionSetup |> AVal.map snd
+                | _ ->
+                    None
+            )
             
-            let projectPrimaryImage =
-                Visualization.creatProjectionFunction
-                    observer
-                    time
-                    referenceFrame
-                    redProjectedImage
-                    projection
 
-            let projectedRedTexture =
-                Visualization.createProjectedTexture
-                    redProjectedImage
-                    redSelectedChannel
+        let imageSettings =
+            {
+                VisualizationProperties.empty with
+                    projectionOpacity = opacity
+            }
 
-            let projectedGreenTexture =
-                Visualization.createProjectedTexture
-                    greenProjectedImage
-                    greenSelectedChannel
+        let projectionSetup = 
+            // instrument projection
+            let p = {
+                target = InstrumentImages.CameraFocus.FocusBody "MARS"
+                cameraSource =  InstrumentImages.CameraSource.InBody "HERA"
+                instrumentReferenceFrame = "HERA_AFC-1"
+                instrumentName = "HERA_AFC-1"
+                supportBody = "SUN"
+                time = DateTime.Now
+                boresightAdjustment = None
+            }
+            (currentProjectedImage, boresightAdjustment) ||> AVal.map2 (fun currentProjectedImage boresight -> 
+                match currentProjectedImage with
+                | Some (f, (Some mbi,_)) -> 
+                    // update using selected image metadata
+                    let p = 
+                        { p with
+                            time = mbi.obs_date
+                            instrumentName = 
+                                match InstrumentProjection.instrument2SpiceName mbi.instrument with
+                                | None -> failwith "no spice name for the given instrument."
+                                | Some i -> i
+                            instrumentReferenceFrame = "J2000"
+                            boresightAdjustment = boresight
+                        }
+                    p, mbi.obs_date
+                | _ -> 
+                    let defaultTime = "2025-03-12 11:50:30.000Z"
+                    p, DateTime.Parse(defaultTime)
+            )
 
-            let projectedBlueTexture =
-                Visualization.createProjectedTexture
-                    blueProjectedImage
-                    blueSelectedChannel      
+        let projection = projectionSetup |> AVal.map fst
+        let time = projectionSetup |> AVal.map snd
+            
+        let projectPrimaryImage =
+            Visualization.creatProjectionFunction
+                observer
+                time
+                referenceFrame
+                currentProjectedImage
+                projection
 
-            let primaryProjectionEnabled = 
-                redProjectedImage 
-                |> AVal.map (function 
-                    | Some (_, (Some _, _)) -> true
-                    | _ -> false
-                )
+        let primaryProjectionEnabled =
+            currentProjectedImage
+            |> AVal.map (function
+                | Some (_, (Some _, _)) -> true
+                | _ -> false
+            )
 
-            let rgbProjectionDebug =
-                AVal.constant true
-
-            Visualization.createSceneGraph
+        let scene =
+            Visualization.createRgbSceneGraph
                 imageSettings
                 referenceFrame
                 supportBody
                 observer
                 time
                 projectPrimaryImage
-                projectedRedTexture
-                projectedGreenTexture
-                projectedBlueTexture
-                redMin
-                redMax
-                greenMin
-                greenMax
-                blueMin
-                blueMax
-                rgbDataType
-                rgbProjectionDebug
+                rgbTexture
                 primaryProjectionEnabled
             |> Sg.noEvents
 
@@ -976,17 +869,6 @@ module Image =
                             ]
                             |> AttributeMap.ofList
                         
-                        // Render exactly one sphere.
-                        // visualization already receives overlayImg and maps it onto that sphere.
-                        
-                        let scene =
-                            redImage
-                            |> AVal.map (function
-                                | None -> Sg.empty
-                                | Some primary -> visualization primary
-                            )
-                            |> Sg.dynamic
-
                         OrbitController.controlledControl
                             orbitState
                             OrbitCameraMessage
@@ -997,9 +879,8 @@ module Image =
                 ]
         )
 
-    let view2DRelative (redImage : aval<Option<AdaptiveImage>>) (greenImage : aval<Option<AdaptiveImage>>) (blueImage : aval<Option<AdaptiveImage>>) =
-
-        let instrumentVisualization = createInstrumentScene redImage greenImage blueImage
+    let view2DRelative (rgbTexture : aval<ITexture>) =
+        let instrumentVisualization = createInstrumentScene rgbTexture
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
