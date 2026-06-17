@@ -168,20 +168,24 @@ module Image =
             sortedValues.[index]
 
 
-    let private getDisplayRange (values : float[]) =
+    /// Calculates one common display range from all RGB bands.
+    let private getSharedDisplayRange (bands : float[][]) =
 
         let finiteValues =
-            values
-            |> Array.filter (fun value ->
-                Double.IsFinite value &&
-                value > 0.0
+            bands
+            |> Array.collect (fun values ->
+                values
+                |> Array.filter (fun value ->
+                    Double.IsFinite value &&
+                    value > 0.0
+                )
             )
-            |> Array.sort
+
+        Array.sortInPlace finiteValues
 
         if finiteValues.Length = 0 then
             0.0, 1.0
         else
-            // means: the darkest x% of the pixels becomes black, the brightest y% becomes white. 
             let minimum =
                 percentile 0.05 finiteValues
 
@@ -193,6 +197,7 @@ module Image =
             else
                 minimum, maximum
 
+    
     // important, otherwise black
     let private valueToByte
         (minimum : float)
@@ -207,15 +212,18 @@ module Image =
                 |> max 0.0
                 |> min 1.0
 
-            // Makes dark scientific values more visible.
+            // Brightens darker values. Makes dark scientific values more visible.
             let gammaCorrected = 
-                Math.Pow(normalized, 1.0 / 2.2)
+                Math.Pow(normalized, 2.0 / 1.0) // 1/2.2 is less then one, -> raises dark and mid-range values
 
+            // produces one byte of each of RGB
             gammaCorrected * 255.0
             |> Math.Round
             |> byte
 
 
+    // constructs four-channel byte image. The original TIFF values may be UInt16, UInt32, Float32, and so forth. 
+    // The final RGB image is always an 8-bit-per-channel RGBA image.
     let private createRgbCompositePixImage
         (path : string)
         : Result<PixImage<byte>, string> =
@@ -227,10 +235,10 @@ module Image =
 
             | Result.Ok image ->
 
-                if image.bands < 3 then
+                if image.bands < 24 then
                     Result.Error (
                         sprintf
-                            "RGB composite requires at least 3 bands, but %s has %d."
+                            "RGB composite requires at least 24 bands, but %s has %d."
                             path
                             image.bands
                     )
@@ -242,6 +250,8 @@ module Image =
                     let greenBandIndex = 12
                     let blueBandIndex = 0
 
+                    // convert each band to float[] indexing assumption: index = y * width + x
+                    // each array contains one value per pixel
                     let redBand =
                         getBandAsFloat redBandIndex image
 
@@ -251,20 +261,16 @@ module Image =
                     let blueBand =
                         getBandAsFloat blueBandIndex image
 
-                    let redMin, redMax =
-                        getDisplayRange redBand
-
-                    let greenMin, greenMax =
-                        getDisplayRange greenBand
-
-                    let blueMin, blueMax =
-                        getDisplayRange blueBand
+                    let sharedMin, sharedMax =
+                        getSharedDisplayRange [|
+                            redBand
+                            greenBand
+                            blueBand
+                        |]
 
                     Log.line
-                        "RGB ranges: R=(%f, %f), G=(%f, %f), B=(%f, %f)"
-                        redMin redMax
-                        greenMin greenMax
-                        blueMin blueMax
+                        "Shared RGB range: (%f, %f)"
+                        sharedMin sharedMax
 
                     let rgbImage =
                         PixImage<byte>(
@@ -286,13 +292,13 @@ module Image =
                                 y * image.width + x
 
                             let r =
-                                valueToByte redMin redMax redBand.[index]
+                                valueToByte sharedMin sharedMax redBand.[index]
 
                             let g =
-                                valueToByte greenMin greenMax greenBand.[index]
+                                valueToByte sharedMin sharedMax greenBand.[index]
 
                             let b =
-                                valueToByte blueMin blueMax blueBand.[index]
+                                valueToByte sharedMin sharedMax blueBand.[index]
                                 
                             let rawR = redBand.[index]
                             let rawG = greenBand.[index]
