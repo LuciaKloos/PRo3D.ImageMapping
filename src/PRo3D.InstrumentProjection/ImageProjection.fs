@@ -138,11 +138,26 @@ module ImageProjection =
                         let borderColor =
                             V3d(0.0, 1.0, 0.0)
 
+                        //let blendedProjected =
+                        //    Fun.Lerp(
+                        //        uniform.ProjectedImageOpacity,
+                        //        v.c.XYZ,
+                        //        sampledColor
+                        //    )
+                        let sampled =
+                            projectedTexture.Sample(projectedTc)
+
+                        let effectiveOpacity =
+                            uniform.ProjectedImageOpacity *
+                            sampled.W
+                            |> max 0.0
+                            |> min 1.0
+
                         let blendedProjected =
                             Fun.Lerp(
-                                uniform.ProjectedImageOpacity,
+                                effectiveOpacity,
                                 v.c.XYZ,
-                                sampledColor
+                                sampled.XYZ
                             )
 
                         let finalColor =

@@ -197,7 +197,36 @@ module Image =
             else
                 minimum, maximum
 
-    
+    let private getSymmetricDisplayLimit
+        (validForeground : bool[])
+        (values : float[]) =
+
+        if validForeground.Length <> values.Length then
+            invalidArg
+                "validForeground"
+                "Foreground mask and value array must have the same length."
+
+        let absoluteValues =
+            values
+            |> Array.mapi (fun index value ->
+                if
+                    validForeground.[index] &&
+                    Double.IsFinite value
+                then
+                    Some(abs value)
+                else
+                    None
+            )
+            |> Array.choose id
+
+        Array.sortInPlace absoluteValues
+
+        if absoluteValues.Length = 0 then
+            1.0
+        else
+            percentile 0.98 absoluteValues
+            |> max 1e-12
+
     // important, otherwise black
     let private valueToByte
         (minimum : float)
@@ -214,13 +243,123 @@ module Image =
 
             // Brightens darker values. Makes dark scientific values more visible.
             let gammaCorrected = 
-                Math.Pow(normalized, 2.0 / 1.0) // 1/2.2 is less then one, -> raises dark and mid-range values
+                Math.Pow(normalized, 0.1 / 2.0) // 1/2.2 is less then one, -> raises dark and mid-range values
 
             // produces one byte of each of RGB
             gammaCorrected * 255.0
             |> Math.Round
             |> byte
 
+    let private safeBandRatio
+        (minimumSignal : float)
+        (numerator : float[])
+        (denominator : float[]) =
+
+        Array.map2
+            (fun n d ->
+                if
+                    Double.IsFinite n &&
+                    Double.IsFinite d &&
+                    n > minimumSignal &&
+                    d > minimumSignal
+                then
+                    n / d
+                else
+                    Double.NaN
+            )
+            numerator
+            denominator
+
+    let private safeLogRatio
+        (minimumSignal : float)
+        (numerator : float[])
+        (denominator : float[]) =
+
+        if numerator.Length <> denominator.Length then
+            invalidArg
+                "denominator"
+                "Ratio bands must contain the same number of pixels."
+
+        Array.map2
+            (fun numeratorValue denominatorValue ->
+                if
+                    Double.IsFinite numeratorValue &&
+                    Double.IsFinite denominatorValue &&
+                    numeratorValue > minimumSignal &&
+                    denominatorValue > minimumSignal
+                then
+                    Math.Log(numeratorValue / denominatorValue)
+                else
+                    Double.NaN
+            )
+            numerator
+            denominator
+
+    let private signedValueToByte
+        (limit : float)
+        (value : float) =
+
+        if not (Double.IsFinite value) || limit <= 0.0 then
+            0uy
+        else
+            let scaled =
+                value / limit
+                |> max -1.0
+                |> min 1.0
+
+            let normalized =
+                0.5 + 0.5 * scaled
+
+            normalized * 255.0
+            |> Math.Round
+            |> byte
+
+    let private getBackgroundThreshold
+        (width : int)
+        (height : int)
+        (borderWidth : int)
+        (band : float[]) =
+
+        let backgroundValues =
+            band
+            |> Array.mapi (fun index value ->
+                let x = index % width
+                let y = index / width
+
+                let isBorder =
+                    x < borderWidth ||
+                    x >= width - borderWidth ||
+                    y < borderWidth ||
+                    y >= height - borderWidth
+
+                if isBorder && Double.IsFinite value then
+                    Some value
+                else
+                    None
+            )
+            |> Array.choose id
+
+        Array.sortInPlace backgroundValues
+
+        if backgroundValues.Length = 0 then
+            0.0
+        else
+            let median =
+                percentile 0.5 backgroundValues
+
+            let deviations =
+                backgroundValues
+                |> Array.map (fun value ->
+                    abs (value - median)
+                )
+
+            Array.sortInPlace deviations
+
+            let mad =
+                percentile 0.5 deviations
+
+            // 1.4826 converts MAD to a robust standard-deviation estimate.
+            median + 6.0 * 1.4826 * mad
 
     // constructs four-channel byte image. The original TIFF values may be UInt16, UInt32, Float32, and so forth. 
     // The final RGB image is always an 8-bit-per-channel RGBA image.
@@ -246,81 +385,305 @@ module Image =
                     // these are example bands using almost the complete wavelength range of the image
                     // -> more false color image
 
-                    let redBandIndex = 24
-                    let greenBandIndex = 12
-                    let blueBandIndex = 0
+                    // Zero-based indices:
+                    //
+                    // R = 952 nm / 830 nm
+                    // G = 830 nm / 713 nm
+                    // B = 713 nm / 661 nm
 
-                    // convert each band to float[] indexing assumption: index = y * width + x
-                    // each array contains one value per pixel
-                    let redBand =
-                        getBandAsFloat redBandIndex image
+                    let redNumeratorIndex = 24
+                    let redDenominatorIndex = 13
 
-                    let greenBand =
-                        getBandAsFloat greenBandIndex image
+                    let greenNumeratorIndex = 13
+                    let greenDenominatorIndex = 4
 
-                    let blueBand =
-                        getBandAsFloat blueBandIndex image
+                    let blueNumeratorIndex = 4
+                    let blueDenominatorIndex = 0
 
-                    let sharedMin, sharedMax =
-                        getSharedDisplayRange [|
-                            redBand
-                            greenBand
-                            blueBand
-                        |]
+                    let requiredBandCount =
+                        [
+                            redNumeratorIndex
+                            redDenominatorIndex
+                            greenNumeratorIndex
+                            greenDenominatorIndex
+                            blueNumeratorIndex
+                            blueDenominatorIndex
+                        ]
+                        |> List.max
+                        |> fun maximumIndex -> maximumIndex + 1
 
-                    Log.line
-                        "Shared RGB range: (%f, %f)"
-                        sharedMin sharedMax
-
-                    let rgbImage =
-                        PixImage<byte>(
-                            Col.Format.RGBA,
-                            V2i(image.width, image.height)
+                    if image.bands < requiredBandCount then
+                        Result.Error(
+                            sprintf
+                                "Ratio composite requires at least %d bands, but %s has %d."
+                                requiredBandCount
+                                path
+                                image.bands
                         )
+                    else
 
-                    rgbImage
-                        .GetMatrix<C4b>()
-                        .SetByCoord(fun (position : V2l) ->
+                        // convert each band to float[] indexing assumption: index = y * width + x
+                        // each array contains one value per pixel
+                        let redNumerator =
+                            getBandAsFloat redNumeratorIndex image
 
-                            let x =
-                                int position.X
+                        let redDenominator =
+                            getBandAsFloat redDenominatorIndex image
 
-                            let y =
-                                int position.Y
+                        let greenNumerator =
+                            getBandAsFloat greenNumeratorIndex image
 
-                            let index =
-                                y * image.width + x
+                        let greenDenominator =
+                            getBandAsFloat greenDenominatorIndex image
 
-                            let r =
-                                valueToByte sharedMin sharedMax redBand.[index]
+                        let blueNumerator =
+                            getBandAsFloat blueNumeratorIndex image
 
-                            let g =
-                                valueToByte sharedMin sharedMax greenBand.[index]
+                        let blueDenominator =
+                            getBandAsFloat blueDenominatorIndex image
 
-                            let b =
-                                valueToByte sharedMin sharedMax blueBand.[index]
+                        let borderWidth = 20
+
+                        let redNumeratorThreshold =
+                            getBackgroundThreshold
+                                image.width image.height borderWidth
+                                redNumerator
+
+                        let redDenominatorThreshold =
+                            getBackgroundThreshold
+                                image.width image.height borderWidth
+                                redDenominator
+
+                        let greenNumeratorThreshold =
+                            getBackgroundThreshold
+                                image.width image.height borderWidth
+                                greenNumerator
+
+                        let greenDenominatorThreshold =
+                            getBackgroundThreshold
+                                image.width image.height borderWidth
+                                greenDenominator
+
+                        let blueNumeratorThreshold =
+                            getBackgroundThreshold
+                                image.width image.height borderWidth
+                                blueNumerator
+
+                        let blueDenominatorThreshold =
+                            getBackgroundThreshold
+                                image.width image.height borderWidth
+                                blueDenominator
+
+                        let isAboveThreshold value threshold =
+                            Double.IsFinite value &&
+                            value > threshold
+
+                        let initialForeground =
+                            Array.init redNumerator.Length (fun index ->
+                                isAboveThreshold
+                                    redNumerator.[index]
+                                    redNumeratorThreshold &&
+
+                                isAboveThreshold
+                                    redDenominator.[index]
+                                    redDenominatorThreshold &&
+
+                                isAboveThreshold
+                                    greenNumerator.[index]
+                                    greenNumeratorThreshold &&
+
+                                isAboveThreshold
+                                    greenDenominator.[index]
+                                    greenDenominatorThreshold &&
+
+                                isAboveThreshold
+                                    blueNumerator.[index]
+                                    blueNumeratorThreshold &&
+
+                                isAboveThreshold
+                                    blueDenominator.[index]
+                                    blueDenominatorThreshold
+                            )
+
+                        let minimumSignal = 1e-3
+
+                        let isValidSignal value =
+                            Double.IsFinite value &&
+                            value > minimumSignal
+
+                        let validForeground =
+                            Array.init redNumerator.Length (fun index ->
+                                isValidSignal redNumerator.[index] &&
+                                isValidSignal redDenominator.[index] &&
+                                isValidSignal greenNumerator.[index] &&
+                                isValidSignal greenDenominator.[index] &&
+                                isValidSignal blueNumerator.[index] &&
+                                isValidSignal blueDenominator.[index]
+                            )
+                        let validCount =
+                            validForeground
+                            |> Array.sumBy (fun valid ->
+                                if valid then 1 else 0
+                            )
+
+                        Log.line
+                            "Valid foreground pixels: %d / %d"
+                            validCount
+                            validForeground.Length
+
+                        let redRatio =
+                            safeLogRatio
+                                minimumSignal
+                                redNumerator
+                                redDenominator
+
+                        let greenRatio =
+                            safeLogRatio
+                                minimumSignal
+                                greenNumerator
+                                greenDenominator
+
+                        let blueRatio =
+                            safeLogRatio
+                                minimumSignal
+                                blueNumerator
+                                blueDenominator
+
+                        let redLimit =
+                            getSymmetricDisplayLimit
+                                validForeground
+                                redRatio
+
+                        let greenLimit =
+                            getSymmetricDisplayLimit
+                                validForeground
+                                greenRatio
+
+                        let blueLimit =
+                            getSymmetricDisplayLimit
+                                validForeground
+                                blueRatio
+
+
+                        //let sharedMin, sharedMax =
+                        //    getSharedDisplayRange [|
+                        //        redNumerator
+                        //        redDenominator
+                        //        greenNumerator
+                        //        greenDenominator
+                        //        blueNumerator
+                        //        blueDenominator
+                        //    |]
+                        //let sharedMin, sharedMax =
+                        //    getSharedDisplayRange [|
+                        //        redRatio
+                        //        greenRatio
+                        //        blueRatio
+                        //    |]
+
+                        let redMin, redMax =
+                            getSharedDisplayRange [| redRatio |]
+
+                        let greenMin, greenMax =
+                            getSharedDisplayRange [| greenRatio |]
+
+                        let blueMin, blueMax =
+                            getSharedDisplayRange [| blueRatio |]
+
+                        //Log.line
+                        //    "Shared RGB range: (%f, %f)"
+                        //    sharedMin sharedMax
+
+                        let rgbImage =
+                            PixImage<byte>(
+                                Col.Format.RGBA,
+                                V2i(image.width, image.height)
+                            )
+
+                        rgbImage
+                            .GetMatrix<C4b>()
+                            .SetByCoord(fun (position : V2l) ->
+
+                                let x =
+                                    int position.X
+
+                                let y =
+                                    int position.Y
+
+                                let index =
+                                    y * image.width + x
+
+                                //let r =
+                                //    valueToByte sharedMin sharedMax redRatio.[index]
+
+                                //let g =
+                                //    valueToByte sharedMin sharedMax greenRatio.[index]
+
+                                //let b =
+                                //    valueToByte sharedMin sharedMax blueRatio.[index]        
+                                let r =
+                                    signedValueToByte redLimit redRatio.[index]
+
+                                let g =
+                                    signedValueToByte greenLimit greenRatio.[index]
+
+                                let b =
+                                    signedValueToByte blueLimit blueRatio.[index]
                                 
-                            let rawR = redBand.[index]
-                            let rawG = greenBand.[index]
-                            let rawB = blueBand.[index]
+                                //let rawR1 = redBand1.[index]
+                                //let rawR2 = redBand2.[index]
+                                //let rawG1 = greenBand1.[index]
+                                //let rawG2 = greenBand2.[index]
+                                //let rawB1 = blueBand1.[index]
+                                //let rawB2 = blueBand2.[index]
 
-                            let signal =
-                                max rawR (max rawG rawB)
+                                //let signal1 =
+                                //    max rawR1 (max rawG1 rawB1)
+                                //let signal2 =
+                                //    max rawR2 (max rawG2 rawB2)
+                                //let signal =
+                                //    max signal1 signal2
 
-                            let foregroundThreshold = 0.001
+                                //let foregroundThreshold = 0.001
 
-                            let alpha =
-                                if signal < foregroundThreshold then
-                                    0uy
+                                //let alpha =
+                                //    if signal < foregroundThreshold then
+                                //        0uy
+                                //    else
+                                //        255uy
+
+                                let isValidSignal value =
+                                    Double.IsFinite value &&
+                                    value > minimumSignal
+
+                                let validPixel =
+                                    isValidSignal redNumerator.[index] &&
+                                    isValidSignal redDenominator.[index] &&
+                                    isValidSignal greenNumerator.[index] &&
+                                    isValidSignal greenDenominator.[index] &&
+                                    isValidSignal blueNumerator.[index] &&
+                                    isValidSignal blueDenominator.[index]
+
+                                let alpha =
+                                    if validForeground.[index] then 255uy else 0uy
+
+                                let maskValue =
+                                    if validForeground.[index] then
+                                        255uy
+                                    else
+                                        0uy
+
+                                //C4b(maskValue, maskValue, maskValue, 255uy)
+                                //C4b(r, g, b, alpha)
+                                if validForeground.[index] then
+                                    C4b(r, g, b, 255uy)
                                 else
-                                    255uy
+                                    C4b(0uy, 0uy, 0uy, 0uy)
 
-                            C4b(r, g, b, alpha)
+                            )
+                        |> ignore
 
-                        )
-                    |> ignore
-
-                    Result.Ok rgbImage
+                        Result.Ok rgbImage
 
         with error ->
             Result.Error error.Message
