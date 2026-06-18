@@ -26,46 +26,84 @@ type RgbChannel =
     | Green
     | Blue
 
+type RgbBandRole =
+    | Numerator
+    | Denominator
+
 [<ModelType>]
 type RgbComposite =
     {
-        redBand     : Option<int>
-        greenBand   : Option<int>
-        blueBand    : Option<int>
+        redNumeratorBand     : Option<int>
+        greenNumeratorBand   : Option<int>
+        blueNumeratorBand    : Option<int>
+        redDenominatorBand     : Option<int>
+        greenDenominatorBand   : Option<int>
+        blueDenominatorBand    : Option<int>
     }
 
 module RgbComposite = 
     let empty = 
         {
-            redBand = None
-            greenBand = None
-            blueBand = None
+            redNumeratorBand = None
+            greenNumeratorBand = None
+            blueNumeratorBand = None
+            redDenominatorBand = None
+            greenDenominatorBand = None
+            blueDenominatorBand = None
         }
+
+    let private firstBand bandCount =
+        if bandCount > 0 then Some 0 else None
+
+    let private preferredBand preferredIndex fallbackIndex bandCount =
+        if bandCount > preferredIndex then
+            Some preferredIndex
+        elif bandCount > fallbackIndex then
+            Some fallbackIndex
+        else
+            firstBand bandCount
 
     let fromBandCount bandCount =
+        let denominator = firstBand bandCount
+
         {
-            redBand =
-                if bandCount > 0 then Some 0 else None
+            // These defaults avoid R = band0 / band0 when possible.
+            // The user can overwrite all six choices in the UI.
+            redNumeratorBand =
+                preferredBand 1 0 bandCount
+            redDenominatorBand =
+                denominator
 
-            greenBand =
-                if bandCount > 1 then Some 1
-                elif bandCount > 0 then Some 0
-                else None
+            greenNumeratorBand =
+                preferredBand 2 1 bandCount
+            greenDenominatorBand =
+                denominator
 
-            blueBand =
-                if bandCount > 2 then Some 2
-                elif bandCount > 0 then Some 1
-                else None
+            blueNumeratorBand =
+                preferredBand 3 2 bandCount
+            blueDenominatorBand =
+                denominator
         }
 
-    let set channel bandIndex composite =
-        match channel with
-        | RgbChannel.Red ->
-            { composite with redBand = Some bandIndex }
-        | RgbChannel.Green ->
-            { composite with greenBand = Some bandIndex }
-        | RgbChannel.Blue ->
-            { composite with blueBand = Some bandIndex}
+    let set channel role bandIndex composite =
+        match channel, role with
+        | RgbChannel.Red, RgbBandRole.Numerator ->
+            { composite with redNumeratorBand = Some bandIndex }
+
+        | RgbChannel.Red, RgbBandRole.Denominator ->
+            { composite with redDenominatorBand = Some bandIndex }
+
+        | RgbChannel.Green, RgbBandRole.Numerator ->
+            { composite with greenNumeratorBand = Some bandIndex }
+
+        | RgbChannel.Green, RgbBandRole.Denominator ->
+            { composite with greenDenominatorBand = Some bandIndex }
+
+        | RgbChannel.Blue, RgbBandRole.Numerator ->
+            { composite with blueNumeratorBand = Some bandIndex }
+
+        | RgbChannel.Blue, RgbBandRole.Denominator ->
+            { composite with blueDenominatorBand = Some bandIndex }
 
 
 module ColorMap =
@@ -150,5 +188,5 @@ type Message =
     | SetRoll of Numeric.Action
     | SetYaw of Numeric.Action
     | SetPitch of Numeric.Action
-    | SetRgbBand of RgbChannel * Index
+    | SetRgbBand of RgbChannel * RgbBandRole * Index
     | Nop

@@ -365,9 +365,12 @@ module Image =
     // The final RGB image is always an 8-bit-per-channel RGBA image.
     let private createRgbCompositePixImage
         (path : string)
-        (redIndex : int)
-        (greenIndex : int)
-        (blueIndex : int)
+        (redNumeratorIndex : int)
+        (redDenominatorIndex : int)
+        (greenNumeratorIndex : int)
+        (greenDenominatorIndex : int)
+        (blueNumeratorIndex : int)
+        (blueDenominatorIndex : int)
         : Result<PixImage<byte>, string> =
 
         try
@@ -377,7 +380,15 @@ module Image =
 
             | Result.Ok image ->
 
-                let selectedIndices = [ redIndex; greenIndex; blueIndex ]
+                let selectedIndices =
+                    [
+                        redNumeratorIndex
+                        redDenominatorIndex
+                        greenNumeratorIndex
+                        greenDenominatorIndex
+                        blueNumeratorIndex
+                        blueDenominatorIndex
+                    ]
 
                 let invalidIndex =
                     selectedIndices
@@ -396,31 +407,36 @@ module Image =
 
                 | None ->
                     let redNumerator =
-                        getBandAsFloat redIndex image
+                        getBandAsFloat redNumeratorIndex image
+
+                    let redDenominator =
+                        getBandAsFloat redDenominatorIndex image
 
                     let greenNumerator =
-                        getBandAsFloat greenIndex image
+                        getBandAsFloat greenNumeratorIndex image
+
+                    let greenDenominator =
+                        getBandAsFloat greenDenominatorIndex image
 
                     let blueNumerator =
-                        getBandAsFloat blueIndex image
+                        getBandAsFloat blueNumeratorIndex image
 
-                    let denominatorIndex =
-                        0
+                    let blueDenominator =
+                        getBandAsFloat blueDenominatorIndex image
+
 
                     let minimumSignal =
                         1e-3
 
-                    let denominator =
-                        getBandAsFloat denominatorIndex image
-
+                   
                     let redBand =
-                        safeLogRatio minimumSignal redNumerator denominator
+                        safeLogRatio minimumSignal redNumerator redDenominator
 
                     let greenBand =
-                        safeLogRatio minimumSignal greenNumerator denominator
+                        safeLogRatio minimumSignal greenNumerator greenDenominator
 
                     let blueBand =
-                        safeLogRatio minimumSignal blueNumerator denominator
+                        safeLogRatio minimumSignal blueNumerator blueDenominator
 
 
                     let isValidSignal value =
@@ -599,12 +615,24 @@ module Image =
 
     let private loadRgbCompositeTexture
         (path : string)
-        (redIndex : int)
-        (greenIndex : int)
-        (blueIndex : int)
+        (redNumeratorIndex : int)
+        (redDenominatorIndex : int)
+        (greenNumeratorIndex : int)
+        (greenDenominatorIndex : int)
+        (blueNumeratorIndex : int)
+        (blueDenominatorIndex : int)
         : ITexture =
 
-        match createRgbCompositePixImage path redIndex greenIndex blueIndex with
+        match 
+             createRgbCompositePixImage
+                path
+                redNumeratorIndex
+                redDenominatorIndex
+                greenNumeratorIndex
+                greenDenominatorIndex
+                blueNumeratorIndex
+                blueDenominatorIndex
+        with
         | Result.Ok image ->
             PixTexture2d(
                 PixImageMipMap [|
@@ -623,9 +651,12 @@ module Image =
 
     let createRgbCompositeTexture
         (path : aval<Option<string>>)
-        (redBand : aval<Option<int>>)
-        (greenBand : aval<Option<int>>)
-        (blueBand : aval<Option<int>>)
+        (redNumeratorBand : aval<Option<int>>)
+        (redDenominatorBand : aval<Option<int>>)
+        (greenNumeratorBand : aval<Option<int>>)
+        (greenDenominatorBand : aval<Option<int>>)
+        (blueNumeratorBand : aval<Option<int>>)
+        (blueDenominatorBand : aval<Option<int>>)
         : aval<ITexture> =
 
         AVal.custom (fun token ->
@@ -633,20 +664,51 @@ module Image =
             let pathValue =
                 path.GetValue token
 
-            let redValue =
-                redBand.GetValue token
+            let redNumeratorValue =
+                redNumeratorBand.GetValue token
 
-            let greenValue =
-                greenBand.GetValue token
+            let redDenominatorValue =
+                redDenominatorBand.GetValue token
 
-            let blueValue =
-                blueBand.GetValue token
+            let greenNumeratorValue =
+                greenNumeratorBand.GetValue token
 
-            match pathValue, redValue, greenValue, blueValue with
-            | Some filePath, Some r, Some g, Some b when File.Exists filePath ->
-                loadRgbCompositeTexture filePath r g b
+            let greenDenominatorValue =
+                greenDenominatorBand.GetValue token
 
-            | Some filePath, _, _, _ when not (File.Exists filePath) ->
+            let blueNumeratorValue =
+                blueNumeratorBand.GetValue token
+
+            let blueDenominatorValue =
+                blueDenominatorBand.GetValue token
+
+            match
+                pathValue,
+                redNumeratorValue,
+                redDenominatorValue,
+                greenNumeratorValue,
+                greenDenominatorValue,
+                blueNumeratorValue,
+                blueDenominatorValue
+            with
+            | Some filePath,
+              Some redNumerator,
+              Some redDenominator,
+              Some greenNumerator,
+              Some greenDenominator,
+              Some blueNumerator,
+              Some blueDenominator when File.Exists filePath ->
+
+                loadRgbCompositeTexture
+                    filePath
+                    redNumerator
+                    redDenominator
+                    greenNumerator
+                    greenDenominator
+                    blueNumerator
+                    blueDenominator
+
+            | Some filePath, _, _, _, _, _, _ when not (File.Exists filePath) ->
                 Log.warn "RGB source file does not exist: %s" filePath
                 DefaultTextures.checkerboard.GetValue()
 
