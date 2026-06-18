@@ -21,6 +21,53 @@ type DataType =
     | UInt16 = 1
     | Float = 2
 
+type RgbChannel =
+    | Red
+    | Green
+    | Blue
+
+[<ModelType>]
+type RgbComposite =
+    {
+        redBand     : Option<int>
+        greenBand   : Option<int>
+        blueBand    : Option<int>
+    }
+
+module RgbComposite = 
+    let empty = 
+        {
+            redBand = None
+            greenBand = None
+            blueBand = None
+        }
+
+    let fromBandCount bandCount =
+        {
+            redBand =
+                if bandCount > 0 then Some 0 else None
+
+            greenBand =
+                if bandCount > 1 then Some 1
+                elif bandCount > 0 then Some 0
+                else None
+
+            blueBand =
+                if bandCount > 2 then Some 2
+                elif bandCount > 0 then Some 1
+                else None
+        }
+
+    let set channel bandIndex composite =
+        match channel with
+        | RgbChannel.Red ->
+            { composite with redBand = Some bandIndex }
+        | RgbChannel.Green ->
+            { composite with greenBand = Some bandIndex }
+        | RgbChannel.Blue ->
+            { composite with blueBand = Some bandIndex}
+
+
 module ColorMap =
     let getColorMapFileName (map: ColorMap) =
         match map with
@@ -77,6 +124,7 @@ type Model =
         projectionOpacity : NumericInput
         boresightAdjustment : BoresightAdjustment
         cameraState     : OrbitState
+        rgbComposite    : RgbComposite
     }
 
 type ImageMessage =
@@ -102,4 +150,5 @@ type Message =
     | SetRoll of Numeric.Action
     | SetYaw of Numeric.Action
     | SetPitch of Numeric.Action
+    | SetRgbBand of RgbChannel * Index
     | Nop

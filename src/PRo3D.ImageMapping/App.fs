@@ -25,6 +25,7 @@ module App =
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))  
+        rgbComposite = RgbComposite.empty
     }
 
     let update (m : Model) (msg : Message) = 
@@ -55,12 +56,18 @@ module App =
                 indices
                 |> List.tryHead
 
+            let bandCount = 
+                bands 
+                |> IndexList.toList
+                |> List.length
+
             {
                 m with
                     images = bands
                     selectedImage = firstBand
                     sourceImagePath = Some fullPath
                     editImages = []
+                    rgbComposite = RgbComposite.fromBandCount bandCount
             }
         | SelectImage idx ->
             { m with selectedImage = Some idx }
@@ -136,6 +143,26 @@ module App =
                 images = images' |> IndexList.map (fun (idx, img) -> img);
                 selectedImage = newSelectedIdx;
                 editImages = editImages'}
+        | SetRgbBand (rgbChannel, rowIndex) ->
+
+            let selectedBandIndex =
+                m.images
+                |> IndexList.mapi (fun index img -> index, img)
+                |> IndexList.toList
+                |> List.tryFind (fun (index, _) -> index = rowIndex)
+                |> Option.map (fun (_, img) -> img.selectedChannel.idx)
+
+            match selectedBandIndex with
+            | Some bandIndex ->
+                {
+                    m with
+                        rgbComposite =
+                            m.rgbComposite
+                            |> RgbComposite.set rgbChannel bandIndex
+                }
+
+            | None ->
+                m
 
 
     
@@ -144,6 +171,9 @@ module App =
         let rgbTexture =
             Image.createRgbCompositeTexture
                 m.sourceImagePath
+                m.rgbComposite.redBand
+                m.rgbComposite.greenBand
+                m.rgbComposite.blueBand
 
         let listAttributes =
             amap {
@@ -245,38 +275,42 @@ module App =
                                                 ]
                                             div [attribute "style" "display: flex; font-weight: bold"] 
                                                 [
-                                                    //div [attributesSelect] [
-                                                    //    Html.SemUi.iconCheckBox
-                                                    //        (
-                                                    //            m.rgbComposite.redBand
-                                                    //            |> AVal.map (fun selected ->
-                                                    //                selected = Some index
-                                                    //            )
-                                                    //        )
-                                                    //        (SetRgbBand (Red, index))
-                                                    //]
+                                                    let selectedBandIndex =
+                                                        img.selectedChannel
+                                                        |> AVal.map (fun channel -> channel.idx)
 
-                                                    //div [attributesSelect] [
-                                                    //    Html.SemUi.iconCheckBox
-                                                    //        (
-                                                    //            m.rgbComposite.greenBand
-                                                    //            |> AVal.map (fun selected ->
-                                                    //                selected = Some index
-                                                    //            )
-                                                    //        )
-                                                    //        (SetRgbBand (Green, index))
-                                                    //]
+                                                    div [attributesSelect] [
+                                                        Html.SemUi.iconCheckBox
+                                                            (
+                                                                (m.rgbComposite.redBand, selectedBandIndex)
+                                                                ||> AVal.map2 (fun selected bandIndex ->
+                                                                    selected = Some bandIndex
+                                                                )
+                                                            )
+                                                            (SetRgbBand (RgbChannel.Red, index))
+                                                    ]
 
-                                                    //div [attributesSelect] [
-                                                    //    Html.SemUi.iconCheckBox
-                                                    //        (
-                                                    //            m.rgbComposite.blueBand
-                                                    //            |> AVal.map (fun selected ->
-                                                    //                selected = Some index
-                                                    //            )
-                                                    //        )
-                                                    //        (SetRgbBand (Blue, index))
-                                                    //]
+                                                    div [attributesSelect] [
+                                                        Html.SemUi.iconCheckBox
+                                                            (
+                                                                (m.rgbComposite.greenBand, selectedBandIndex)
+                                                                ||> AVal.map2 (fun selected bandIndex ->
+                                                                    selected = Some bandIndex
+                                                                )
+                                                            )
+                                                            (SetRgbBand (RgbChannel.Green, index))
+                                                    ]
+
+                                                    div [attributesSelect] [
+                                                        Html.SemUi.iconCheckBox
+                                                            (
+                                                                (m.rgbComposite.blueBand, selectedBandIndex)
+                                                                ||> AVal.map2 (fun selected bandIndex ->
+                                                                    selected = Some bandIndex
+                                                                )
+                                                            )
+                                                            (SetRgbBand (RgbChannel.Blue, index))
+                                                    ]
                                                     div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
                                                     div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
                                                     div [attributesAttr2] [ Incremental.text (img.time |> AVal.map string) ]
