@@ -10,9 +10,7 @@ open PRo3D.ImageMapping.Model
 
 open System.IO
 
-open Aardvark.GeoSpatial.Opc
 open Aardvark.PixImage.LibTiff
-open PRo3D.InstrumentData
 open PRo3D.InstrumentProjection
 open PRo3D.InstrumentVisualization
 open PRo3D.Core
@@ -76,6 +74,7 @@ module Shaders =
             return remapClampNormalize
         }
 
+    // only displays the finished RGB texture. Only samples at current texture coordinate
     let displayRgbComposite (v : Vertex) =
         fragment {
             return rgbCompositeSampler.Sample(v.tc)
@@ -120,16 +119,7 @@ module Image =
         (bandIndex : int)
         (image : TiffReadResult)
         : float[] =
-
-        if bandIndex < 0 || bandIndex >= image.bands then
-            invalidArg
-                "bandIndex"
-                (sprintf
-                    "Band %d is outside the available range 0..%d"
-                    bandIndex
-                    (image.bands - 1)
-                )
-
+   
         match image.buffers with
         | PixelBuffers.Float32Bands bands ->
             bands.[bandIndex]
@@ -167,7 +157,6 @@ module Image =
 
             sortedValues.[index]
 
-
     /// Calculates one common display range from all RGB bands.
     let private getSharedDisplayRange (bands : float[][]) =
 
@@ -197,36 +186,6 @@ module Image =
             else
                 minimum, maximum
 
-    let private getSymmetricDisplayLimit
-        (validForeground : bool[])
-        (values : float[]) =
-
-        if validForeground.Length <> values.Length then
-            invalidArg
-                "validForeground"
-                "Foreground mask and value array must have the same length."
-
-        let absoluteValues =
-            values
-            |> Array.mapi (fun index value ->
-                if
-                    validForeground.[index] &&
-                    Double.IsFinite value
-                then
-                    Some(abs value)
-                else
-                    None
-            )
-            |> Array.choose id
-
-        Array.sortInPlace absoluteValues
-
-        if absoluteValues.Length = 0 then
-            1.0
-        else
-            percentile 0.98 absoluteValues
-            |> max 1e-12
-
     // important, otherwise black
     let private valueToByte
         (minimum : float)
@@ -236,40 +195,26 @@ module Image =
         if not (Double.IsFinite value) || maximum <= minimum then
             0uy
         else
+            // normalizes & clamps the result
             let normalized = 
                 (value - minimum) / (maximum - minimum)
                 |> max 0.0
                 |> min 1.0
 
             // Brightens darker values. Makes dark scientific values more visible.
+            // todo make this interactive
             let gammaCorrected = 
-                Math.Pow(normalized, 0.1 / 2.0) // 1/2.2 is less then one, -> raises dark and mid-range values
+                Math.Pow(normalized, 1.75 / 2.0) // gamma < 1 -> brightens; gamma > 1 -> darkens
 
             // produces one byte of each of RGB
             gammaCorrected * 255.0
             |> Math.Round
             |> byte
 
-    let private safeBandRatio
-        (minimumSignal : float)
-        (numerator : float[])
-        (denominator : float[]) =
-
-        Array.map2
-            (fun n d ->
-                if
-                    Double.IsFinite n &&
-                    Double.IsFinite d &&
-                    n > minimumSignal &&
-                    d > minimumSignal
-                then
-                    n / d
-                else
-                    Double.NaN
-            )
-            numerator
-            denominator
-
+    // means: numerator > denominator  -> positive value
+    //        numerator = denominator  -> 0
+    //        numerator < denominator  -> negative value
+    // log ratio makes reciprocal ratios symmetric: log(2 / 1) =  0.693     log(1 / 2) = -0.693
     let private safeLogRatio
         (minimumSignal : float)
         (numerator : float[])
@@ -295,72 +240,6 @@ module Image =
             numerator
             denominator
 
-    let private signedValueToByte
-        (limit : float)
-        (value : float) =
-
-        if not (Double.IsFinite value) || limit <= 0.0 then
-            0uy
-        else
-            let scaled =
-                value / limit
-                |> max -1.0
-                |> min 1.0
-
-            let normalized =
-                0.5 + 0.5 * scaled
-
-            normalized * 255.0
-            |> Math.Round
-            |> byte
-
-    let private getBackgroundThreshold
-        (width : int)
-        (height : int)
-        (borderWidth : int)
-        (band : float[]) =
-
-        let backgroundValues =
-            band
-            |> Array.mapi (fun index value ->
-                let x = index % width
-                let y = index / width
-
-                let isBorder =
-                    x < borderWidth ||
-                    x >= width - borderWidth ||
-                    y < borderWidth ||
-                    y >= height - borderWidth
-
-                if isBorder && Double.IsFinite value then
-                    Some value
-                else
-                    None
-            )
-            |> Array.choose id
-
-        Array.sortInPlace backgroundValues
-
-        if backgroundValues.Length = 0 then
-            0.0
-        else
-            let median =
-                percentile 0.5 backgroundValues
-
-            let deviations =
-                backgroundValues
-                |> Array.map (fun value ->
-                    abs (value - median)
-                )
-
-            Array.sortInPlace deviations
-
-            let mad =
-                percentile 0.5 deviations
-
-            // 1.4826 converts MAD to a robust standard-deviation estimate.
-            median + 6.0 * 1.4826 * mad
-
     // constructs four-channel byte image. The original TIFF values may be UInt16, UInt32, Float32, and so forth. 
     // The final RGB image is always an 8-bit-per-channel RGBA image.
     let private createRgbCompositePixImage
@@ -373,6 +252,7 @@ module Image =
         (blueDenominatorIndex : int)
         : Result<PixImage<byte>, string> =
 
+        // try to load TIFF file
         try
             match MultiBandReader.tryReadMultiBandTiff path false with
             | Result.Error error ->
@@ -390,6 +270,7 @@ module Image =
                         blueDenominatorIndex
                     ]
 
+                // checks if any index is outside the available band range
                 let invalidIndex =
                     selectedIndices
                     |> List.tryFind (fun index ->
@@ -406,6 +287,7 @@ module Image =
                     )
 
                 | None ->
+                    // converts different possible TIFF data types into float[]
                     let redNumerator =
                         getBandAsFloat redNumeratorIndex image
 
@@ -424,11 +306,30 @@ module Image =
                     let blueDenominator =
                         getBandAsFloat blueDenominatorIndex image
 
-
+                    // pixel values below this are considered too weak/noisy for a safe ratio
+                    // important, because ratios become unstable when the denominator is very small
                     let minimumSignal =
                         1e-3
 
-                   
+                    // Foreground detection must be based on the original selected bands,
+                    // not on the computed log-ratio values.
+                    // A log-ratio can be negative, zero, or positive and still be a valid
+                    // display value. Only the raw input signal decides whether the pixel
+                    // belongs to the foreground.
+                    let hasRawSignal value =
+                        Double.IsFinite value &&
+                        value > minimumSignal
+
+                    let validForeground =
+                        Array.init redNumerator.Length (fun index ->
+                            hasRawSignal redNumerator.[index] ||
+                            hasRawSignal redDenominator.[index] ||
+                            hasRawSignal greenNumerator.[index] ||
+                            hasRawSignal greenDenominator.[index] ||
+                            hasRawSignal blueNumerator.[index] ||
+                            hasRawSignal blueDenominator.[index]
+                        )
+
                     let redBand =
                         safeLogRatio minimumSignal redNumerator redDenominator
 
@@ -438,26 +339,13 @@ module Image =
                     let blueBand =
                         safeLogRatio minimumSignal blueNumerator blueDenominator
 
-
-                    let isValidSignal value =
-                        Double.IsFinite value &&
-                        value > minimumSignal
-
-                    let validForeground =
-                        Array.init redBand.Length (fun index ->
-                            isValidSignal redBand.[index] ||
-                            isValidSignal greenBand.[index] ||
-                            isValidSignal blueBand.[index]
-                        )
-
                     let displayRangeForValidPixels values =
                         let validValues =
                             values
                             |> Array.mapi (fun index value ->
                                 if
                                     validForeground.[index] &&
-                                    Double.IsFinite value &&
-                                    value > 0.0
+                                    Double.IsFinite value 
                                 then
                                     Some value
                                 else
@@ -470,8 +358,11 @@ module Image =
                         if validValues.Length = 0 then
                             0.0, 1.0
                         else
+                            // uses percentile instead of absolute min and max,
+                            // avoids extreme outlier pixels controlling the whole contrast
+                            // todo: make this interactive
                             let minimum =
-                                percentile 0.02 validValues
+                                percentile 0.05 validValues
 
                             let maximum =
                                 percentile 0.98 validValues
@@ -492,91 +383,15 @@ module Image =
                     let blueMin, blueMax =
                         displayRangeForValidPixels blueBand
 
+                    // creates the final 8-bit display image (8 bit pro channel = 2^8 * 4 = 256 * 4)
+                    // each pixel gets: R = 0..255, G = 0..255, B = 0..255, A = 0..255
                     let rgbImage =
                         PixImage<byte>(
                             Col.Format.RGBA,
                             V2i(image.width, image.height)
                         )
 
-
-                    //let redLimit =
-                    //    getSymmetricDisplayLimit
-                    //        validForeground
-                    //        redRatio
-
-                    //let greenLimit =
-                    //    getSymmetricDisplayLimit
-                    //        validForeground
-                    //        greenRatio
-
-                    //let blueLimit =
-                    //    getSymmetricDisplayLimit
-                    //        validForeground
-                    //        blueRatio
-
-
-                    //let redMin, redMax =
-                    //    getSharedDisplayRange [| redRatio |]
-
-                    //let greenMin, greenMax =
-                    //    getSharedDisplayRange [| greenRatio |]
-
-                    //let blueMin, blueMax =
-                    //    getSharedDisplayRange [| blueRatio |]
-
-
-                    //rgbImage
-                    //    .GetMatrix<C4b>()
-                    //    .SetByCoord(fun (position : V2l) ->
-
-                    //        let x =
-                    //            int position.X
-
-                    //        let y =
-                    //            int position.Y
-
-                    //        let index =
-                    //            y * image.width + x
-
-                            //let r =
-                            //    valueToByte sharedMin sharedMax redRatio.[index]
-
-                            //let g =
-                            //    valueToByte sharedMin sharedMax greenRatio.[index]
-
-                            //let b =
-                            //    valueToByte sharedMin sharedMax blueRatio.[index]        
-                            //let r =
-                            //    signedValueToByte redLimit redRatio.[index]
-
-                            //let g =
-                            //    signedValueToByte greenLimit greenRatio.[index]
-
-                            //let b =
-                            //    signedValueToByte blueLimit blueRatio.[index]
-                                
-                            //let rawR1 = redBand1.[index]
-                            //let rawR2 = redBand2.[index]
-                            //let rawG1 = greenBand1.[index]
-                            //let rawG2 = greenBand2.[index]
-                            //let rawB1 = blueBand1.[index]
-                            //let rawB2 = blueBand2.[index]
-
-                            //let signal1 =
-                            //    max rawR1 (max rawG1 rawB1)
-                            //let signal2 =
-                            //    max rawR2 (max rawG2 rawB2)
-                            //let signal =
-                            //    max signal1 signal2
-
-                            //let foregroundThreshold = 0.001
-
-                            //let alpha =
-                            //    if signal < foregroundThreshold then
-                            //        0uy
-                            //    else
-                            //        255uy
-
+                    // convert each pixel to display color
                     rgbImage
                         .GetMatrix<C4b>()
                         .SetByCoord(fun (position : V2l) ->
@@ -604,6 +419,7 @@ module Image =
                                 C4b(r, g, b, 255uy)
 
                             else
+                                // if the pixel is background: black and transparent
                                 C4b(0uy, 0uy, 0uy, 0uy)
                         )
                     |> ignore
@@ -613,6 +429,7 @@ module Image =
             with error ->
                 Result.Error error.Message
 
+    // after successful image creation, this wraps the image into a texture
     let private loadRgbCompositeTexture
         (path : string)
         (redNumeratorIndex : int)
@@ -649,6 +466,7 @@ module Image =
 
             DefaultTextures.checkerboard.GetValue()
 
+    // makes the texture adaptive -> texture can update when the UI selection changes
     let createRgbCompositeTexture
         (path : aval<Option<string>>)
         (redNumeratorBand : aval<Option<int>>)
@@ -682,6 +500,7 @@ module Image =
             let blueDenominatorValue =
                 blueDenominatorBand.GetValue token
 
+            // checks if all values exsist
             match
                 pathValue,
                 redNumeratorValue,
@@ -699,6 +518,7 @@ module Image =
               Some blueNumerator,
               Some blueDenominator when File.Exists filePath ->
 
+                // creates image and wraps into texture
                 loadRgbCompositeTexture
                     filePath
                     redNumerator
@@ -744,6 +564,7 @@ module Image =
 
             None
 
+    // the 2D view displays the texture directly
     let createInstrumentScene
         (rgbTexture : aval<ITexture>) =
 
@@ -1095,41 +916,6 @@ module Image =
                     None
             )
 
-        let currentProjectedImageFromOptionalImage
-            (img : aval<Option<AdaptiveImage>>) =
-
-            img
-            |> AVal.bind (function
-                | Some img ->
-                    currentProjectedImageFromImage img
-                | None ->
-                    AVal.constant None
-            )
-
-        let selectedChannelFromOptionalImage
-            (img : aval<Option<AdaptiveImage>>) =
-
-            img
-            |> AVal.bind (function
-                | Some img ->
-                    img.selectedChannel
-                | None ->
-                    AVal.constant { idx = 0; name = None }
-            )
-
-        let extractBandValue
-            (defaultValue : float)
-            (getter : AdaptiveImage -> aval<float>)
-            (image : aval<Option<AdaptiveImage>>) =
-
-            image
-            |> AVal.bind (function
-                | Some selected ->
-                    getter selected
-                | None ->
-                    AVal.constant defaultValue
-            )
-
         let currentProjectedImage =
             sourceImagePath
             |> AVal.map (function
@@ -1141,8 +927,7 @@ module Image =
 
                 | _ ->
                     None
-            )
-            
+            )            
 
         let imageSettings =
             {
@@ -1185,11 +970,12 @@ module Image =
 
                     p, mbi.obs_date
 
-                | _ -> 
-                    let defaultTime =
-                        DateTime.Parse("2025-03-12 11:50:30.000Z")
+                | _ ->
+                    Log.warn
+                        "Could not access observation time from selected image metadata. Projection time was not updated. Current fallback value is: %A"
+                        p.time
 
-                    p, defaultTime
+                    p, p.time
             )
 
         let projection =
