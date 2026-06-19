@@ -163,6 +163,38 @@ module App =
 
             | None ->
                 m
+        | SetRgbLowerPercentile action ->
+            {
+                m with
+                    rgbComposite =
+                        {
+                            m.rgbComposite with
+                                lowerPercentile =
+                                    Numeric.update m.rgbComposite.lowerPercentile action
+                        }
+            }
+
+        | SetRgbUpperPercentile action ->
+            {
+                m with
+                    rgbComposite =
+                        {
+                            m.rgbComposite with
+                                upperPercentile =
+                                    Numeric.update m.rgbComposite.upperPercentile action
+                        }
+            }
+
+        | SetRgbGamma action ->
+            {
+                m with
+                    rgbComposite =
+                        {
+                            m.rgbComposite with
+                                gamma =
+                                    Numeric.update m.rgbComposite.gamma action
+                        }
+            }
 
 
     
@@ -177,6 +209,9 @@ module App =
                 m.rgbComposite.greenDenominatorBand
                 m.rgbComposite.blueNumeratorBand
                 m.rgbComposite.blueDenominatorBand
+                m.rgbComposite.lowerPercentile.value
+                m.rgbComposite.upperPercentile.value
+                m.rgbComposite.gamma.value
 
         let listAttributes =
             amap {
@@ -369,6 +404,25 @@ module App =
                         div [] [text "Visualization:"]
                         div [style "margin-left: auto;"] [
                             Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
+                        ]
+                    ]
+                    div [clazz "item"; style "margin-top: 10px;"] [
+                        div [style "padding-left: 5px"] [text "RGB contrast:"]
+                        Html.table [
+                            Html.row "Lower percentile:" [
+                                Numeric.view' [NumericInputType.InputBox] m.rgbComposite.lowerPercentile
+                                |> UI.map SetRgbLowerPercentile
+                            ]
+
+                            Html.row "Upper percentile:" [
+                                Numeric.view' [NumericInputType.InputBox] m.rgbComposite.upperPercentile
+                                |> UI.map SetRgbUpperPercentile
+                            ]
+
+                            Html.row "Gamma:" [
+                                Numeric.view' [NumericInputType.InputBox] m.rgbComposite.gamma
+                                |> UI.map SetRgbGamma
+                            ]
                         ]
                     ]
                     div [clazz "item"; style "margin-top: 10px;"] [

@@ -188,6 +188,7 @@ module Image =
 
     // important, otherwise black
     let private valueToByte
+        (gamma : float)
         (minimum : float)
         (maximum : float)
         (value : float) =
@@ -201,10 +202,16 @@ module Image =
                 |> max 0.0
                 |> min 1.0
 
+            let safeGamma =
+                if Double.IsFinite gamma && gamma > 0.0 then
+                    gamma
+                else
+                    1.0
+
             // Brightens darker values. Makes dark scientific values more visible.
             // todo make this interactive
             let gammaCorrected = 
-                Math.Pow(normalized, 1.75 / 2.0) // gamma < 1 -> brightens; gamma > 1 -> darkens
+                Math.Pow(normalized, safeGamma) // gamma < 1 -> brightens; gamma > 1 -> darkens
 
             // produces one byte of each of RGB
             gammaCorrected * 255.0
@@ -250,6 +257,9 @@ module Image =
         (greenDenominatorIndex : int)
         (blueNumeratorIndex : int)
         (blueDenominatorIndex : int)
+        (lowerPercentile : float)
+        (upperPercentile : float)
+        (gamma : float)
         : Result<PixImage<byte>, string> =
 
         // try to load TIFF file
@@ -339,6 +349,28 @@ module Image =
                     let blueBand =
                         safeLogRatio minimumSignal blueNumerator blueDenominator
 
+                    let lowerPercentileFraction =
+                        if Double.IsFinite lowerPercentile then
+                            lowerPercentile / 100.0
+                            |> max 0.0
+                            |> min 1.0
+                        else
+                            0.05
+
+                    let upperPercentileFraction =
+                        if Double.IsFinite upperPercentile then
+                            upperPercentile / 100.0
+                            |> max 0.0
+                            |> min 1.0
+                        else
+                            0.98
+
+                    let lowerPercentileFraction, upperPercentileFraction =
+                        if upperPercentileFraction <= lowerPercentileFraction then
+                            lowerPercentileFraction, min 1.0 (lowerPercentileFraction + 0.01)
+                        else
+                            lowerPercentileFraction, upperPercentileFraction
+
                     let displayRangeForValidPixels values =
                         let validValues =
                             values
@@ -362,10 +394,10 @@ module Image =
                             // avoids extreme outlier pixels controlling the whole contrast
                             // todo: make this interactive
                             let minimum =
-                                percentile 0.05 validValues
+                                percentile lowerPercentileFraction validValues
 
                             let maximum =
-                                percentile 0.98 validValues
+                                percentile upperPercentileFraction validValues
 
                             if maximum <= minimum then
                                 minimum, minimum + 1.0
@@ -408,13 +440,13 @@ module Image =
                             if validForeground.[index] then
 
                                 let r =
-                                    valueToByte redMin redMax redBand.[index]
+                                    valueToByte gamma redMin redMax redBand.[index]
 
                                 let g =
-                                    valueToByte greenMin greenMax greenBand.[index]
+                                    valueToByte gamma greenMin greenMax greenBand.[index]
 
                                 let b =
-                                    valueToByte blueMin blueMax blueBand.[index]
+                                    valueToByte gamma blueMin blueMax blueBand.[index]
 
                                 C4b(r, g, b, 255uy)
 
@@ -438,6 +470,9 @@ module Image =
         (greenDenominatorIndex : int)
         (blueNumeratorIndex : int)
         (blueDenominatorIndex : int)
+        (lowerPercentile : float)
+        (upperPercentile : float)
+        (gamma : float)
         : ITexture =
 
         match 
@@ -449,6 +484,9 @@ module Image =
                 greenDenominatorIndex
                 blueNumeratorIndex
                 blueDenominatorIndex
+                lowerPercentile
+                upperPercentile
+                gamma
         with
         | Result.Ok image ->
             PixTexture2d(
@@ -475,6 +513,9 @@ module Image =
         (greenDenominatorBand : aval<Option<int>>)
         (blueNumeratorBand : aval<Option<int>>)
         (blueDenominatorBand : aval<Option<int>>)
+        (lowerPercentile : aval<float>)
+        (upperPercentile : aval<float>)
+        (gamma : aval<float>)
         : aval<ITexture> =
 
         AVal.custom (fun token ->
@@ -499,6 +540,15 @@ module Image =
 
             let blueDenominatorValue =
                 blueDenominatorBand.GetValue token
+
+            let lowerPercentileValue =
+                lowerPercentile.GetValue token
+
+            let upperPercentileValue =
+                upperPercentile.GetValue token
+
+            let gammaValue =
+                gamma.GetValue token
 
             // checks if all values exsist
             match
@@ -527,6 +577,9 @@ module Image =
                     greenDenominator
                     blueNumerator
                     blueDenominator
+                    lowerPercentileValue
+                    upperPercentileValue
+                    gammaValue
 
             | Some filePath, _, _, _, _, _, _ when not (File.Exists filePath) ->
                 Log.warn "RGB source file does not exist: %s" filePath

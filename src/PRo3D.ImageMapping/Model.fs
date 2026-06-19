@@ -33,12 +33,16 @@ type RgbBandRole =
 [<ModelType>]
 type RgbComposite =
     {
-        redNumeratorBand     : Option<int>
-        greenNumeratorBand   : Option<int>
-        blueNumeratorBand    : Option<int>
+        redNumeratorBand       : Option<int>
+        greenNumeratorBand     : Option<int>
+        blueNumeratorBand      : Option<int>
         redDenominatorBand     : Option<int>
         greenDenominatorBand   : Option<int>
         blueDenominatorBand    : Option<int>
+
+        lowerPercentile        : NumericInput
+        upperPercentile        : NumericInput
+        gamma                  : NumericInput
     }
 
 module RgbComposite = 
@@ -50,6 +54,10 @@ module RgbComposite =
             redDenominatorBand = None
             greenDenominatorBand = None
             blueDenominatorBand = None
+
+            lowerPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.1; value = 5.0 }
+            upperPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.1; value = 98.0 }
+            gamma = { Numeric.init with min = 0.01; max = 5.0; step = 0.01; value = 0.875 }
         }
 
     let private firstBand bandCount =
@@ -64,25 +72,29 @@ module RgbComposite =
             firstBand bandCount
 
     let fromBandCount bandCount =
-        let denominator = firstBand bandCount
+        let settings = empty           
 
         {
             // These defaults avoid R = band0 / band0 when possible.
             // The user can overwrite all six choices in the UI.
             redNumeratorBand =
-                preferredBand 1 0 bandCount
+                preferredBand 13 1 bandCount
             redDenominatorBand =
-                denominator
+                preferredBand 2 0 bandCount
 
             greenNumeratorBand =
-                preferredBand 2 1 bandCount
+                preferredBand 7 1 bandCount
             greenDenominatorBand =
-                denominator
+                preferredBand 3 0 bandCount
 
             blueNumeratorBand =
-                preferredBand 3 2 bandCount
+                preferredBand 24 1 bandCount
             blueDenominatorBand =
-                denominator
+                preferredBand 17 0 bandCount
+
+            lowerPercentile = settings.lowerPercentile
+            upperPercentile = settings.upperPercentile
+            gamma = settings.gamma
         }
 
     let set channel role bandIndex composite =
@@ -189,4 +201,7 @@ type Message =
     | SetYaw of Numeric.Action
     | SetPitch of Numeric.Action
     | SetRgbBand of RgbChannel * RgbBandRole * Index
+    | SetRgbLowerPercentile of Numeric.Action
+    | SetRgbUpperPercentile of Numeric.Action
+    | SetRgbGamma of Numeric.Action
     | Nop
