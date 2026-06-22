@@ -44,7 +44,7 @@ module App =
                 Path.GetFullPath path
 
             let bands =
-                Image.loadBands fullPath
+                Image.loadDataset fullPath
                 |> IndexList.ofList
 
             let indices =
@@ -150,7 +150,7 @@ module App =
                 |> IndexList.mapi (fun index img -> index, img)
                 |> IndexList.toList
                 |> List.tryFind (fun (index, _) -> index = rowIndex)
-                |> Option.map (fun (_, img) -> img.selectedChannel.idx)
+                |> Option.map (fun (_, img) -> img.bandIndex)
 
             match selectedBandIndex with
             | Some bandIndex ->
@@ -202,7 +202,7 @@ module App =
 
         let rgbTexture =
             Image.createRgbCompositeTexture
-                m.sourceImagePath
+                m.images
                 m.rgbComposite.redNumeratorBand
                 m.rgbComposite.redDenominatorBand
                 m.rgbComposite.greenNumeratorBand
@@ -220,7 +220,7 @@ module App =
             } |> AttributeMap.ofAMap
 
         let jsImportDialog =
-            "top.aardvark.dialog.showOpenDialog({title: 'Select multispectral image', filters: [{name: 'Multispectral TIFF', extensions: ['tif', 'tiff']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open multispectral image dialog:', error);});"
+            "top.aardvark.dialog.showOpenDialog({title: 'Select multispectral image', filters: [{name: 'Multispectral TIFF', extensions: ['mbi', 'json', 'tif', 'tiff']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open multispectral image dialog:', error);});"
 
         let selectedAdaptiveImage (selected : aval<Option<Index>>) =
             adaptive {
@@ -257,6 +257,7 @@ module App =
         let contentImages = 
             let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesWavelength = attribute "style" $"cursor: pointer; width: 120px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesAttr2 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; display: flex; justify-content: center; align-items: center;"
 
@@ -265,10 +266,14 @@ module App =
                     // attribute "clazz" "title active inverted"
                     attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black" 
                 ] [
-                    div [attributesSelect] [text "R"]
-                    div [attributesSelect] [text "G"]
-                    div [attributesSelect] [text "B"]
+                    div [attributesSelect] [text "R Num"]
+                    div [attributesSelect] [text "R Den"]
+                    div [attributesSelect] [text "G Num"]
+                    div [attributesSelect] [text "G Den"]
+                    div [attributesSelect] [text "B Num"]
+                    div [attributesSelect] [text "B Den"]
                     div [ attributesEdit ] [text "Edit"]
+                    div [ attributesWavelength ] [text "Wavelengths"]
                     div [ attributesAttr1 ] [
                         i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance);] []
                         text "Dist. to Planet"
@@ -293,29 +298,32 @@ module App =
                                             div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"]
                                                 [
                                                     Incremental.text (
-                                                        (img.texture, img.selectedChannel)
-                                                        ||> AVal.map2 (fun path channel ->
-                                                            let bandNumber = channel.idx + 1
+                                                        (img.texture, img.bandIndex)
+                                                        ||> AVal.map2 (fun path bandIndex ->
+                                                            let bandNumber = bandIndex + 1
 
-                                                            match channel.name with
-                                                            | Some wavelength ->
-                                                                sprintf "%s — Band %d (%s)"
+                                                            sprintf "%s — Band %d"
                                                                     (Path.GetFileName path)
                                                                     bandNumber
-                                                                    wavelength
 
-                                                            | None ->
-                                                                sprintf "%s — Band %d"
-                                                                    (Path.GetFileName path)
-                                                                    bandNumber
+                                                            //match channel.name with
+                                                            //| Some wavelength ->
+                                                            //    sprintf "%s — Band %d (%s)"
+                                                            //        (Path.GetFileName path)
+                                                            //        bandNumber
+                                                            //        wavelength
+
+                                                            //| None ->
+                                                            //    sprintf "%s — Band %d"
+                                                            //        (Path.GetFileName path)
+                                                            //        bandNumber
                                                         )
                                                     )
                                                 ]
                                             div [attribute "style" "display: flex; font-weight: bold"] 
                                                 [
                                                     let selectedBandIndex =
-                                                        img.selectedChannel
-                                                        |> AVal.map (fun channel -> channel.idx)
+                                                        img.bandIndex
 
                                                     let rgbSelector
                                                         (selected : aval<Option<int>>)
@@ -362,7 +370,18 @@ module App =
                                                         m.rgbComposite.blueDenominatorBand
                                                         RgbChannel.Blue
                                                         RgbBandRole.Denominator
+
                                                     div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
+                                                    div [attributesWavelength] [
+                                                        Incremental.text (
+                                                            img.selectedChannel
+                                                            |> AVal.map (fun channel ->
+                                                                match channel.name with
+                                                                | Some wavelength -> wavelength
+                                                                | None -> "-"
+                                                            )
+                                                        )
+                                                    ]
                                                     div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
                                                     div [attributesAttr2] [ Incremental.text (img.time |> AVal.map string) ]
                                                 ]
@@ -385,6 +404,7 @@ module App =
                         })
                     ]
                 })
+
 
 
         let content = 

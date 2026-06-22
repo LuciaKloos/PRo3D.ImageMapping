@@ -100,6 +100,89 @@ module Image =
         format  = "{0:0.00}"
     }
 
+    type private MbiBandInfo =
+        {
+            index      : int
+            filePath   : string
+            label      : Option<string>
+            wavelength : Option<float>
+            exposure   : Option<float>
+        }
+
+    let private tryGetProperty (name : string) (element : JsonElement) =
+        let mutable property = Unchecked.defaultof<JsonElement>
+        if element.TryGetProperty(name, &property) then Some property else None
+
+    let private tryGetString (name : string) (element : JsonElement) =
+        match tryGetProperty name element with
+        | Some property when property.ValueKind = JsonValueKind.String ->
+            property.GetString() |> Option.ofObj
+        | _ ->
+            None
+
+    let private tryGetInt (name : string) (element : JsonElement) =
+        match tryGetProperty name element with
+        | Some property when property.ValueKind = JsonValueKind.Number ->
+            let mutable value = 0
+            if property.TryGetInt32(&value) then Some value else None
+        | _ ->
+            None
+
+    let private tryGetDouble (name : string) (element : JsonElement) =
+        match tryGetProperty name element with
+        | Some property when property.ValueKind = JsonValueKind.Number ->
+            let mutable value = 0.0
+            if property.TryGetDouble(&value) then Some value else None
+        | _ ->
+            None
+
+    let private tryReadMbiBands (mbiPath : string) =
+        try
+            let fullMbiPath = Path.GetFullPath mbiPath
+            let baseDirectory = Path.GetDirectoryName fullMbiPath
+
+            use document =
+                JsonDocument.Parse(File.ReadAllText fullMbiPath)
+
+            match tryGetProperty "mbi_bands" document.RootElement with
+            | Some bandsElement when bandsElement.ValueKind = JsonValueKind.Array ->
+
+                bandsElement.EnumerateArray()
+                |> Seq.choose (fun bandElement ->
+                    match tryGetInt "index" bandElement, tryGetString "file_path" bandElement with
+                    | Some index, Some relativePath ->
+
+                        let resolvedPath =
+                            if Path.IsPathRooted relativePath then
+                                relativePath
+                            else
+                                Path.Combine(baseDirectory, relativePath)
+
+                        Some
+                            {
+                                index = index
+                                filePath = Path.GetFullPath resolvedPath
+                                label = tryGetString "label" bandElement
+                                wavelength = tryGetDouble "wavelength" bandElement
+                                exposure = tryGetDouble "exposure" bandElement
+                            }
+
+                    | _ ->
+                        None
+                )
+                |> Seq.sortBy (fun band -> band.index)
+                |> Seq.toList
+                |> function
+                    | [] -> None
+                    | bands -> Some bands
+
+            | _ ->
+                None
+
+        with error ->
+            Log.warn "Could not read MBI manifest %s: %s" mbiPath error.Message
+            None
+
     let initial = { 
         colorMap = ColorMap.Magma;
         useFalseColor = true;
@@ -111,6 +194,10 @@ module Image =
         inputMinValue = minValue;
         inputMaxValue = maxValue;
         texture = initialPath;
+
+        bandIndex = 0;
+        wavelength = None;
+
         distance = 0;
         time = new DateTime();
     }
@@ -157,34 +244,34 @@ module Image =
 
             sortedValues.[index]
 
-    /// Calculates one common display range from all RGB bands.
-    let private getSharedDisplayRange (bands : float[][]) =
+    let private sharedSymmetricRatioRange
+        (validForeground : bool[])
+        (bands : float[][])
+        (upperPercentileFraction : float) =
 
-        let finiteValues =
+        let values =
             bands
-            |> Array.collect (fun values ->
-                values
-                |> Array.filter (fun value ->
-                    Double.IsFinite value &&
-                    value > 0.0
+            |> Array.collect (fun band ->
+                band
+                |> Array.mapi (fun index value ->
+                    if validForeground.[index] && Double.IsFinite value then
+                        Some (abs value)
+                    else
+                        None
                 )
+                |> Array.choose id
             )
 
-        Array.sortInPlace finiteValues
+        Array.sortInPlace values
 
-        if finiteValues.Length = 0 then
-            0.0, 1.0
+        if values.Length = 0 then
+            -1.0, 1.0
         else
-            let minimum =
-                percentile 0.05 finiteValues
+            let maxAbs =
+                percentile upperPercentileFraction values
+                |> max 1e-6
 
-            let maximum =
-                percentile 0.999 finiteValues
-
-            if maximum <= minimum then
-                minimum, minimum + 1.0
-            else
-                minimum, maximum
+            -maxAbs, maxAbs
 
     // important, otherwise black
     let private valueToByte
@@ -247,10 +334,276 @@ module Image =
             numerator
             denominator
 
-    // constructs four-channel byte image. The original TIFF values may be UInt16, UInt32, Float32, and so forth. 
-    // The final RGB image is always an 8-bit-per-channel RGBA image.
-    let private createRgbCompositePixImage
-        (path : string)
+    type private RgbBandSource =
+        {
+            logicalIndex : int
+            filePath     : string
+            channelIndex : int
+            wavelength   : Option<float>
+        }
+
+    type private RgbBandData =
+        {
+            source : RgbBandSource
+            width  : int
+            height : int
+            values : float[]
+        }
+
+    let private availableLogicalBandsMessage (sources : list<RgbBandSource>) =
+        sources
+        |> List.map (fun source -> source.logicalIndex)
+        |> List.distinct
+        |> List.sort
+        |> List.map string
+        |> String.concat ", "
+
+    let private readAdaptiveBandSources
+        (images : IndexList<AdaptiveImage>)
+        token =
+
+        images
+        |> IndexList.toList
+        |> List.map (fun image ->
+            let selectedChannel =
+                image.selectedChannel.GetValue token
+
+            {
+                logicalIndex = image.bandIndex.GetValue token
+                filePath = image.texture.GetValue token
+                channelIndex = selectedChannel.idx
+                wavelength = image.wavelength.GetValue token
+            }
+        )
+
+    let private readBandSourceAsFloat
+        (source : RgbBandSource)
+        : Result<RgbBandData, string> =
+
+        try
+            if String.IsNullOrWhiteSpace source.filePath then
+                Result.Error (
+                    sprintf
+                        "Logical band %d has no TIFF path."
+                        source.logicalIndex
+                )
+
+            elif not (File.Exists source.filePath) then
+                Result.Error (
+                    sprintf
+                        "TIFF for logical band %d does not exist: %s"
+                        source.logicalIndex
+                        source.filePath
+                )
+
+            else
+                match MultiBandReader.tryReadMultiBandTiff source.filePath false with
+                | Result.Error error ->
+                    Result.Error error
+
+                | Result.Ok image ->
+                    if source.channelIndex < 0 || source.channelIndex >= image.bands then
+                        Result.Error (
+                            sprintf
+                                "Logical band %d points to channel %d in %s, but the available TIFF channel range is 0..%d."
+                                source.logicalIndex
+                                source.channelIndex
+                                source.filePath
+                                (image.bands - 1)
+                        )
+                    else
+                        Result.Ok
+                            {
+                                source = source
+                                width = image.width
+                                height = image.height
+                                values = getBandAsFloat source.channelIndex image
+                            }
+
+        with error ->
+            Result.Error error.Message
+
+
+    let private averageBandData
+        (bands : list<RgbBandData>)
+        : Result<RgbBandData, string> =
+
+        match bands with
+        | [] ->
+            Result.Error "Cannot average an empty band list."
+
+        | first :: rest ->
+
+            let mismatch =
+                rest
+                |> List.tryFind (fun band ->
+                    band.width <> first.width ||
+                    band.height <> first.height ||
+                    band.values.Length <> first.values.Length
+                )
+
+            match mismatch with
+            | Some band ->
+                Result.Error (
+                    sprintf
+                        "Cannot average bands with different dimensions. Band %d is %dx%d, but band %d is %dx%d."
+                        band.source.logicalIndex
+                        band.width
+                        band.height
+                        first.source.logicalIndex
+                        first.width
+                        first.height
+                )
+
+            | None ->
+                let pixelCount =
+                    first.values.Length
+
+                let averaged =
+                    Array.init pixelCount (fun i ->
+                        let mutable sum = 0.0
+                        let mutable count = 0
+
+                        for band in bands do
+                            let value = band.values.[i]
+
+                            if Double.IsFinite value then
+                                sum <- sum + value
+                                count <- count + 1
+
+                        if count > 0 then
+                            sum / float count
+                        else
+                            Double.NaN
+                    )
+
+                Result.Ok
+                    {
+                        first with
+                            values = averaged
+                    }
+
+
+
+    let private readLogicalBand
+        (sources : list<RgbBandSource>)
+        (logicalBandIndex : int)
+        : Result<RgbBandData, string> =
+
+        match sources |> List.tryFind (fun source -> source.logicalIndex = logicalBandIndex) with
+        | Some source ->
+            readBandSourceAsFloat source
+
+        | None ->
+            Result.Error (
+                sprintf
+                    "Could not find logical RGB band %d. Available logical bands are: %s"
+                    logicalBandIndex
+                    (availableLogicalBandsMessage sources)
+            )
+
+    let private validateSameDimensions
+        (bands : list<RgbBandData>)
+        : Result<int * int * int, string> =
+
+        match bands with
+        | [] ->
+            Result.Error "No RGB bands were loaded."
+
+        | first :: rest ->
+            let mismatch =
+                rest
+                |> List.tryFind (fun band ->
+                    band.width <> first.width ||
+                    band.height <> first.height ||
+                    band.values.Length <> first.values.Length
+                )
+
+            match mismatch with
+            | Some band ->
+                Result.Error (
+                    sprintf
+                        "RGB bands do not have matching dimensions. Band %d is %dx%d, but band %d is %dx%d."
+                        band.source.logicalIndex
+                        band.width
+                        band.height
+                        first.source.logicalIndex
+                        first.width
+                        first.height
+                )
+
+            | None ->
+                Result.Ok (first.width, first.height, first.values.Length)
+
+    let private readAverageLogicalBand
+        (sources : list<RgbBandSource>)
+        (averageRadius : int)
+        (maxWavelengthDistanceNm : float)
+        (centerLogicalIndex : int)
+        : Result<RgbBandData, string> =
+
+        match sources |> List.tryFind (fun source -> source.logicalIndex = centerLogicalIndex) with
+        | None ->
+            Result.Error (sprintf "Could not find logical band %d." centerLogicalIndex)
+
+        | Some centerSource ->
+
+            let candidates =
+                match centerSource.wavelength with
+                | Some centerWavelength ->
+
+                    sources
+                    |> List.filter (fun source ->
+                        match source.wavelength with
+                        | Some wavelength ->
+                            abs (wavelength - centerWavelength) <= maxWavelengthDistanceNm
+                        | None ->
+                            source.logicalIndex = centerLogicalIndex
+                    )
+                    |> List.sortBy (fun source ->
+                        match source.wavelength with
+                        | Some wavelength -> abs (wavelength - centerWavelength)
+                        | None -> Double.PositiveInfinity
+                    )
+                    |> List.truncate (2 * averageRadius + 1)
+
+                | None ->
+
+                    sources
+                    |> List.filter (fun source ->
+                        abs (source.logicalIndex - centerLogicalIndex) <= averageRadius
+                    )
+                    |> List.sortBy (fun source ->
+                        abs (source.logicalIndex - centerLogicalIndex)
+                    )
+
+            let bandsOrErrors =
+                candidates
+                |> List.map (fun source -> readLogicalBand sources source.logicalIndex)
+
+            let errors =
+                bandsOrErrors
+                |> List.choose (function
+                    | Result.Error error -> Some error
+                    | Result.Ok _ -> None
+                )
+
+            if not errors.IsEmpty then
+                Result.Error (String.concat "\n" errors)
+            else
+                bandsOrErrors
+                |> List.choose (function
+                    | Result.Ok band -> Some band
+                    | Result.Error _ -> None
+                )
+                |> averageBandData
+
+    // Constructs a four-channel byte image from the currently loaded logical bands.
+    // This works for both dataset layouts:
+    // - stacked TIFF: every row points to the same TIFF, but uses another channelIndex
+    // - MBI manifest: every row points to its own single-band TIFF, usually channelIndex = 0
+    let private createRgbCompositePixImageFromSources
+        (sources : list<RgbBandSource>)
         (redNumeratorIndex : int)
         (redDenominatorIndex : int)
         (greenNumeratorIndex : int)
@@ -262,92 +615,92 @@ module Image =
         (gamma : float)
         : Result<PixImage<byte>, string> =
 
-        // try to load TIFF file
         try
-            match MultiBandReader.tryReadMultiBandTiff path false with
-            | Result.Error error ->
-                Result.Error error
+            let averageRadius = 1
+            let maxWavelengthDistanceNm = 35.0
 
-            | Result.Ok image ->
+            match
+                readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm redNumeratorIndex,
+                readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm redDenominatorIndex,
+                readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm greenNumeratorIndex,
+                readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm greenDenominatorIndex,
+                readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm blueNumeratorIndex,
+                readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm blueDenominatorIndex
+            with
+            | Result.Ok redNumerator,
+              Result.Ok redDenominator,
+              Result.Ok greenNumerator,
+              Result.Ok greenDenominator,
+              Result.Ok blueNumerator,
+              Result.Ok blueDenominator ->
 
-                let selectedIndices =
+                let selectedBands =
                     [
-                        redNumeratorIndex
-                        redDenominatorIndex
-                        greenNumeratorIndex
-                        greenDenominatorIndex
-                        blueNumeratorIndex
-                        blueDenominatorIndex
+                        redNumerator
+                        redDenominator
+                        greenNumerator
+                        greenDenominator
+                        blueNumerator
+                        blueDenominator
                     ]
 
-                // checks if any index is outside the available band range
-                let invalidIndex =
-                    selectedIndices
-                    |> List.tryFind (fun index ->
-                        index < 0 || index >= image.bands
-                    )
+                match validateSameDimensions selectedBands with
+                | Result.Error error ->
+                    Result.Error error
 
-                match invalidIndex with
-                | Some badIndex ->
-                    Result.Error (
-                        sprintf
-                            "Selected RGB band %d is outside the available range 0..%d."
-                            badIndex
-                            (image.bands - 1)
-                    )
+                | Result.Ok (width, height, pixelCount) ->
 
-                | None ->
-                    // converts different possible TIFF data types into float[]
-                    let redNumerator =
-                        getBandAsFloat redNumeratorIndex image
 
-                    let redDenominator =
-                        getBandAsFloat redDenominatorIndex image
-
-                    let greenNumerator =
-                        getBandAsFloat greenNumeratorIndex image
-
-                    let greenDenominator =
-                        getBandAsFloat greenDenominatorIndex image
-
-                    let blueNumerator =
-                        getBandAsFloat blueNumeratorIndex image
-
-                    let blueDenominator =
-                        getBandAsFloat blueDenominatorIndex image
-
-                    // pixel values below this are considered too weak/noisy for a safe ratio
-                    // important, because ratios become unstable when the denominator is very small
-                    let minimumSignal =
-                        1e-3
-
-                    // Foreground detection must be based on the original selected bands,
-                    // not on the computed log-ratio values.
-                    // A log-ratio can be negative, zero, or positive and still be a valid
-                    // display value. Only the raw input signal decides whether the pixel
-                    // belongs to the foreground.
-                    let hasRawSignal value =
-                        Double.IsFinite value &&
-                        value > minimumSignal
+                    let minimumSignal = 0.001 // or higher, depending on your data scale
 
                     let validForeground =
-                        Array.init redNumerator.Length (fun index ->
-                            hasRawSignal redNumerator.[index] ||
-                            hasRawSignal redDenominator.[index] ||
-                            hasRawSignal greenNumerator.[index] ||
-                            hasRawSignal greenDenominator.[index] ||
-                            hasRawSignal blueNumerator.[index] ||
-                            hasRawSignal blueDenominator.[index]
+                        Array.init pixelCount (fun i ->
+                            isFinite redNumerator.values.[i] &&
+                            isFinite redDenominator.values.[i] &&
+                            isFinite greenNumerator.values.[i] &&
+                            isFinite greenDenominator.values.[i] &&
+                            isFinite blueNumerator.values.[i] &&
+                            isFinite blueDenominator.values.[i] &&
+
+                            redNumerator.values.[i] > minimumSignal &&
+                            redDenominator.values.[i] > minimumSignal &&
+                            greenNumerator.values.[i] > minimumSignal &&
+                            greenDenominator.values.[i] > minimumSignal &&
+                            blueNumerator.values.[i] > minimumSignal &&
+                            blueDenominator.values.[i] > minimumSignal
                         )
+                        
+
+                    // Pixel values below this are considered too weak/noisy for a safe ratio.
+                    // This matters especially for denominator bands, because ratios become unstable
+                    // when the denominator is close to zero.
+                    //let minimumSignal =
+                    //    1e-3
+
+                    //let hasRawSignal value =
+                    //    Double.IsFinite value &&
+                    //    value > minimumSignal
+
+                    //// Foreground detection is based on the raw selected bands, not on the log-ratio.
+                    //// A log-ratio may be negative or zero and still be a valid foreground value.
+                    //let validForeground =
+                    //    Array.init pixelCount (fun index ->
+                    //        hasRawSignal redNumerator.values.[index] ||
+                    //        hasRawSignal redDenominator.values.[index] ||
+                    //        hasRawSignal greenNumerator.values.[index] ||
+                    //        hasRawSignal greenDenominator.values.[index] ||
+                    //        hasRawSignal blueNumerator.values.[index] ||
+                    //        hasRawSignal blueDenominator.values.[index]
+                    //    )
 
                     let redBand =
-                        safeLogRatio minimumSignal redNumerator redDenominator
+                        safeLogRatio minimumSignal redNumerator.values redDenominator.values
 
                     let greenBand =
-                        safeLogRatio minimumSignal greenNumerator greenDenominator
+                        safeLogRatio minimumSignal greenNumerator.values greenDenominator.values
 
                     let blueBand =
-                        safeLogRatio minimumSignal blueNumerator blueDenominator
+                        safeLogRatio minimumSignal blueNumerator.values blueDenominator.values
 
                     let lowerPercentileFraction =
                         if Double.IsFinite lowerPercentile then
@@ -375,10 +728,7 @@ module Image =
                         let validValues =
                             values
                             |> Array.mapi (fun index value ->
-                                if
-                                    validForeground.[index] &&
-                                    Double.IsFinite value 
-                                then
+                                if validForeground.[index] && Double.IsFinite value then
                                     Some value
                                 else
                                     None
@@ -390,9 +740,7 @@ module Image =
                         if validValues.Length = 0 then
                             0.0, 1.0
                         else
-                            // uses percentile instead of absolute min and max,
-                            // avoids extreme outlier pixels controlling the whole contrast
-                            // todo: make this interactive
+                            // Percentiles avoid extreme outlier pixels controlling the whole contrast.
                             let minimum =
                                 percentile lowerPercentileFraction validValues
 
@@ -404,30 +752,30 @@ module Image =
                             else
                                 minimum, maximum
 
-                        
+                    let ratioMin, ratioMax =
+                        sharedSymmetricRatioRange
+                            validForeground
+                            [| redBand; greenBand; blueBand |]
+                            upperPercentileFraction
 
                     let redMin, redMax =
-                        displayRangeForValidPixels redBand
+                        ratioMin, ratioMax
 
                     let greenMin, greenMax =
-                        displayRangeForValidPixels greenBand
+                        ratioMin, ratioMax
 
                     let blueMin, blueMax =
-                        displayRangeForValidPixels blueBand
+                        ratioMin, ratioMax
 
-                    // creates the final 8-bit display image (8 bit pro channel = 2^8 * 4 = 256 * 4)
-                    // each pixel gets: R = 0..255, G = 0..255, B = 0..255, A = 0..255
                     let rgbImage =
                         PixImage<byte>(
                             Col.Format.RGBA,
-                            V2i(image.width, image.height)
+                            V2i(width, height)
                         )
 
-                    // convert each pixel to display color
                     rgbImage
                         .GetMatrix<C4b>()
                         .SetByCoord(fun (position : V2l) ->
-
                             let x =
                                 int position.X
 
@@ -435,10 +783,9 @@ module Image =
                                 int position.Y
 
                             let index =
-                                y * image.width + x
+                                y * width + x
 
                             if validForeground.[index] then
-
                                 let r =
                                     valueToByte gamma redMin redMax redBand.[index]
 
@@ -449,21 +796,36 @@ module Image =
                                     valueToByte gamma blueMin blueMax blueBand.[index]
 
                                 C4b(r, g, b, 255uy)
-
                             else
-                                // if the pixel is background: black and transparent
                                 C4b(0uy, 0uy, 0uy, 0uy)
                         )
                     |> ignore
 
                     Result.Ok rgbImage
 
-            with error ->
-                Result.Error error.Message
+            | Result.Error error, _, _, _, _, _ ->
+                Result.Error error
 
-    // after successful image creation, this wraps the image into a texture
-    let private loadRgbCompositeTexture
-        (path : string)
+            | _, Result.Error error, _, _, _, _ ->
+                Result.Error error
+
+            | _, _, Result.Error error, _, _, _ ->
+                Result.Error error
+
+            | _, _, _, Result.Error error, _, _ ->
+                Result.Error error
+
+            | _, _, _, _, Result.Error error, _ ->
+                Result.Error error
+
+            | _, _, _, _, _, Result.Error error ->
+                Result.Error error
+
+        with error ->
+            Result.Error error.Message
+
+    let private loadRgbCompositeTextureFromSources
+        (sources : list<RgbBandSource>)
         (redNumeratorIndex : int)
         (redDenominatorIndex : int)
         (greenNumeratorIndex : int)
@@ -475,9 +837,9 @@ module Image =
         (gamma : float)
         : ITexture =
 
-        match 
-             createRgbCompositePixImage
-                path
+        match
+            createRgbCompositePixImageFromSources
+                sources
                 redNumeratorIndex
                 redDenominatorIndex
                 greenNumeratorIndex
@@ -498,15 +860,15 @@ module Image =
 
         | Result.Error error ->
             Log.warn
-                "Could not create RGB composite for %s: %s"
-                path
+                "Could not create RGB composite: %s"
                 error
 
             DefaultTextures.checkerboard.GetValue()
 
-    // makes the texture adaptive -> texture can update when the UI selection changes
+    // Makes the RGB texture adaptive. It is recalculated when the loaded image rows,
+    // RGB band selections, or contrast/gamma controls change.
     let createRgbCompositeTexture
-        (path : aval<Option<string>>)
+        (images : alist<AdaptiveImage>)
         (redNumeratorBand : aval<Option<int>>)
         (redDenominatorBand : aval<Option<int>>)
         (greenNumeratorBand : aval<Option<int>>)
@@ -518,10 +880,14 @@ module Image =
         (gamma : aval<float>)
         : aval<ITexture> =
 
+        let adaptiveImages =
+            AList.toAVal images
+
         AVal.custom (fun token ->
 
-            let pathValue =
-                path.GetValue token
+            let sources =
+                adaptiveImages.GetValue token
+                |> fun images -> readAdaptiveBandSources images token
 
             let redNumeratorValue =
                 redNumeratorBand.GetValue token
@@ -550,9 +916,8 @@ module Image =
             let gammaValue =
                 gamma.GetValue token
 
-            // checks if all values exsist
             match
-                pathValue,
+                sources,
                 redNumeratorValue,
                 redDenominatorValue,
                 greenNumeratorValue,
@@ -560,17 +925,19 @@ module Image =
                 blueNumeratorValue,
                 blueDenominatorValue
             with
-            | Some filePath,
+            | [], _, _, _, _, _, _ ->
+                DefaultTextures.checkerboard.GetValue()
+
+            | _,
               Some redNumerator,
               Some redDenominator,
               Some greenNumerator,
               Some greenDenominator,
               Some blueNumerator,
-              Some blueDenominator when File.Exists filePath ->
+              Some blueDenominator ->
 
-                // creates image and wraps into texture
-                loadRgbCompositeTexture
-                    filePath
+                loadRgbCompositeTextureFromSources
+                    sources
                     redNumerator
                     redDenominator
                     greenNumerator
@@ -580,10 +947,6 @@ module Image =
                     lowerPercentileValue
                     upperPercentileValue
                     gammaValue
-
-            | Some filePath, _, _, _, _, _, _ when not (File.Exists filePath) ->
-                Log.warn "RGB source file does not exist: %s" filePath
-                DefaultTextures.checkerboard.GetValue()
 
             | _ ->
                 DefaultTextures.checkerboard.GetValue()
@@ -629,6 +992,104 @@ module Image =
         |> Sg.shader {
             do! Shaders.displayRgbComposite
         }
+
+    let loadMbiBands (mbiPath : string) : list<Image> =
+        match tryReadMbiBands mbiPath with
+        | None ->
+            []
+
+        | Some mbiBands ->
+
+            [
+                for band in mbiBands do
+                    if File.Exists band.filePath then
+
+                        let _, tiffJson =
+                            InstrumentMetadata.tryParseMetadataForImagePath band.filePath
+
+                        let dataType =
+                            match tiffJson with
+                            | Some metadata ->
+                                match metadata.data_type.ToLowerInvariant() with
+                                | "uint16" -> DataType.UInt16
+                                | "uint32" -> DataType.UInt32
+                                | "float"  -> DataType.Float
+                                | _        -> DataType.UInt16
+                            | None ->
+                                DataType.UInt16
+
+                        let minimum, maximum =
+                            match tiffJson with
+                            | Some metadata when metadata.image_statistics.Length > 0 ->
+                                metadata.image_statistics.[0].minimum,
+                                metadata.image_statistics.[0].maximum
+                            | _ ->
+                                0.0, 1.0
+
+                        let sliderMinimum, sliderMaximum =
+                            match dataType with
+                            | DataType.Float ->
+                                minimum, maximum
+                            | DataType.UInt16 ->
+                                0.0, 65535.0
+                            | DataType.UInt32 ->
+                                0.0, float UInt32.MaxValue
+
+                        let bandName =
+                            match band.label, band.wavelength with
+                            | Some label, Some wavelength ->
+                                Some (sprintf "%s / %.0f nm" label wavelength)
+                            | None, Some wavelength ->
+                                Some (sprintf "%.0f nm" wavelength)
+                            | Some label, None ->
+                                Some label
+                            | None, None ->
+                                Some (sprintf "Band %d" band.index)
+
+                        let channel =
+                            {
+                                // The TIFF itself is single-band.
+                                idx = 0
+                                name = bandName
+                            }
+
+                        yield
+                            {
+                                initial with
+                                    texture = band.filePath
+
+                                    // This is the logical multiband index from the MBI file.
+                                    bandIndex = band.index
+                                    wavelength = band.wavelength
+
+                                    selectedChannel = channel
+                                    channelOptions = [ channel ]
+
+                                    defaultMinValues = [ minimum ]
+                                    defaultMaxValues = [ maximum ]
+
+                                    inputMinValue =
+                                        {
+                                            minValue with
+                                                value = minimum
+                                                min = sliderMinimum
+                                                max = sliderMaximum
+                                        }
+
+                                    inputMaxValue =
+                                        {
+                                            maxValue with
+                                                value = maximum
+                                                min = sliderMinimum
+                                                max = sliderMaximum
+                                        }
+
+                                    dataType = dataType
+                            }
+
+                    else
+                        Log.warn "MBI band file does not exist: %s" band.filePath
+            ]
 
     let loadBands (texturePath : string) : list<Image> =
 
@@ -723,6 +1184,10 @@ module Image =
                         sprintf "%.0f nm" wavelength
                     )
 
+                let wavelength =
+                    wavelengths
+                    |> List.tryItem channelIndex
+
                 let channel =
                     {
                         idx = channelIndex
@@ -761,6 +1226,8 @@ module Image =
                         initial with
                             texture = fullPath
                             selectedChannel = channel
+                            bandIndex = channelIndex
+                            wavelength = wavelength
 
                             // This band entry represents exactly one channel.
                             channelOptions = [channel]
@@ -776,6 +1243,14 @@ module Image =
                             time = time
                     }
         ]
+
+    let loadDataset (path : string) : list<Image> =
+        match tryReadMbiBands path with
+        | Some _ ->
+            loadMbiBands path
+
+        | None ->
+            loadBands path
 
     let loadFile (texturePath : string) =
         // this could be a fallback

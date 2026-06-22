@@ -78,19 +78,19 @@ module RgbComposite =
             // These defaults avoid R = band0 / band0 when possible.
             // The user can overwrite all six choices in the UI.
             redNumeratorBand =
-                preferredBand 13 1 bandCount
+                preferredBand 10 1 bandCount
             redDenominatorBand =
-                preferredBand 2 0 bandCount
+                preferredBand 7 0 bandCount
 
             greenNumeratorBand =
-                preferredBand 7 1 bandCount
+                preferredBand 6 1 bandCount
             greenDenominatorBand =
                 preferredBand 3 0 bandCount
 
             blueNumeratorBand =
-                preferredBand 24 1 bandCount
+                preferredBand 3 1 bandCount
             blueDenominatorBand =
-                preferredBand 17 0 bandCount
+                preferredBand 0 0 bandCount
 
             lowerPercentile = settings.lowerPercentile
             upperPercentile = settings.upperPercentile
@@ -143,6 +143,10 @@ type Image =
         inputMinValue : NumericInput
         inputMaxValue : NumericInput
         texture : string
+
+        bandIndex : int
+        wavelength : Option<float>
+
         distance: float
         time: System.DateTime
     }
