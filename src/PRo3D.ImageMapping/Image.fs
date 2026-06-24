@@ -9,6 +9,9 @@ open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
 
 open System.IO
+open System.Runtime.InteropServices
+
+open HDF.PInvoke
 
 open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentProjection
@@ -108,6 +111,431 @@ module Image =
             wavelength : Option<float>
             exposure   : Option<float>
         }
+
+
+    type private NcProductKind =
+        | Reflectance
+        | ReflectanceUncertainty
+        | Mask
+
+    type private NcDatasetInfo =
+        {
+            path        : string
+            datasetPath : string
+            width       : int
+            height      : int
+            bands       : int
+            productKind : NcProductKind
+        }
+
+    let private emitMaskBandNames =
+        [
+            "Cloud Flag"
+            "Cirrus Flag"
+            "Water Flag"
+            "Spacecraft Flag"
+            "Dilated Cloud Flag"
+            "AOD550"
+            "H2O (g cm-2)"
+            "Aggregate Flag"
+            "SpecTf-Cloud Probability"
+            "SpecTf-Cloud Flag"
+            "SpecTf-Buffer Distance"
+        ]
+
+    let private isNcFile (path : string) =
+        String.Equals(Path.GetExtension(path), ".nc", StringComparison.OrdinalIgnoreCase)
+
+    let private isReflectanceNcFileName (path : string) =
+        let name = Path.GetFileName(path).ToUpperInvariant()
+        (name.Contains("_L2A_RFL_") || name.Contains("_RFL_"))
+        && not (name.Contains("_RFLUNCERT_"))
+        && not (name.Contains("_MASK_"))
+
+    let private tryResolveNcPathToLoad (path : string) : Option<string> =
+        let fullPath = Path.GetFullPath path
+
+        if File.Exists fullPath && isNcFile fullPath then
+            Some fullPath
+
+        elif Directory.Exists fullPath then
+            let ncFiles =
+                Directory.GetFiles(fullPath, "*.nc", SearchOption.TopDirectoryOnly)
+                |> Array.toList
+
+            match ncFiles |> List.tryFind isReflectanceNcFileName with
+            | Some rflPath ->
+                Log.warn "Selected a directory, not a NetCDF file. Loading EMIT reflectance file found in that directory: %s" rflPath
+                Some rflPath
+
+            | None ->
+                match ncFiles with
+                | firstNc :: _ ->
+                    Log.warn "Selected a directory, not a NetCDF file. No EMIT RFL file was found, so loading first .nc file instead: %s" firstNc
+                    Some firstNc
+                | [] ->
+                    None
+
+        else
+            None
+
+    let private closeHdf5 (close : int64 -> int) (id : int64) =
+        if id >= 0L then close id |> ignore
+
+    let private ncProductKindFromPath (path : string) =
+        let fileName = Path.GetFileName(path).ToUpperInvariant()
+
+        if fileName.Contains("_L2A_RFLUNCERT_") || fileName.Contains("_RFLUNCERT_") then
+            ReflectanceUncertainty
+        elif fileName.Contains("_L2A_MASK_") || fileName.Contains("_MASK_") then
+            Mask
+        else
+            // EMIT_L2A_RFL_*.nc is the product that contains the hyperspectral cube.
+            Reflectance
+
+    let private ncDatasetPathForKind kind =
+        match kind with
+        | Reflectance -> "reflectance"
+        | ReflectanceUncertainty -> "reflectance_uncertainty"
+        | Mask -> "mask"
+
+    let private tryOpenHdf5Dataset (path : string) (datasetPath : string) : Result<int64 * int64, string> =
+        try
+            let fileId = H5F.``open``(path, H5F.ACC_RDONLY)
+
+            if fileId < 0L then
+                Result.Error (sprintf "Could not open NetCDF/HDF5 file: %s" path)
+            else
+                let datasetId = H5D.``open``(fileId, datasetPath)
+
+                if datasetId < 0L then
+                    closeHdf5 H5F.close fileId
+                    Result.Error (sprintf "The NetCDF file does not contain a dataset named '%s'." datasetPath)
+                else
+                    Result.Ok (fileId, datasetId)
+        with error ->
+            Result.Error error.Message
+
+    let private tryReadNcDatasetInfo (path : string) : Result<NcDatasetInfo, string> =
+        let fullPath = Path.GetFullPath path
+        let kind = ncProductKindFromPath fullPath
+        let datasetPath = ncDatasetPathForKind kind
+
+        match tryOpenHdf5Dataset fullPath datasetPath with
+        | Result.Error error ->
+            Result.Error error
+
+        | Result.Ok (fileId, datasetId) ->
+            let mutable spaceId = -1L
+
+            try
+                spaceId <- H5D.get_space datasetId
+
+                if spaceId < 0L then
+                    Result.Error (sprintf "Could not read the dataspace of NetCDF dataset '%s'." datasetPath)
+                else
+                    let dims = Array.zeroCreate<uint64> 3
+                    let maxDims = Array.zeroCreate<uint64> 3
+                    let rank = H5S.get_simple_extent_dims(spaceId, dims, maxDims)
+
+                    if rank <> 3 then
+                        Result.Error (sprintf "Expected NetCDF dataset '%s' to have rank 3, but it has rank %d." datasetPath rank)
+                    else
+                        Result.Ok
+                            {
+                                path = fullPath
+                                datasetPath = datasetPath
+                                height = int dims.[0]
+                                width = int dims.[1]
+                                bands = int dims.[2]
+                                productKind = kind
+                            }
+            finally
+                closeHdf5 H5S.close spaceId
+                closeHdf5 H5D.close datasetId
+                closeHdf5 H5F.close fileId
+
+    let private readNcBandAsFloat
+        (path : string)
+        (datasetPath : string)
+        (bandIndex : int)
+        : Result<int * int * int * float[], string> =
+
+        match tryReadNcDatasetInfo path with
+        | Result.Error error ->
+            Result.Error error
+
+        | Result.Ok info ->
+            if info.datasetPath <> datasetPath then
+                Result.Error (sprintf "NetCDF product %s uses dataset '%s', not '%s'." path info.datasetPath datasetPath)
+            elif bandIndex < 0 || bandIndex >= info.bands then
+                Result.Error (sprintf "NetCDF band index %d is out of range. Available range is 0..%d." bandIndex (info.bands - 1))
+            else
+                match tryOpenHdf5Dataset info.path info.datasetPath with
+                | Result.Error error ->
+                    Result.Error error
+
+                | Result.Ok (fileId, datasetId) ->
+                    let mutable fileSpaceId = -1L
+                    let mutable memSpaceId = -1L
+                    let values = Array.zeroCreate<float32> (info.width * info.height)
+                    let handle = GCHandle.Alloc(values, GCHandleType.Pinned)
+
+                    try
+                        fileSpaceId <- H5D.get_space datasetId
+
+                        if fileSpaceId < 0L then
+                            Result.Error (sprintf "Could not read dataspace for '%s'." info.datasetPath)
+                        else
+                            let start = [| 0UL; 0UL; uint64 bandIndex |]
+                            let count = [| uint64 info.height; uint64 info.width; 1UL |]
+                            let memDims = [| uint64 info.height; uint64 info.width |]
+
+                            let selectStatus =
+                                H5S.select_hyperslab(
+                                    fileSpaceId,
+                                    H5S.seloper_t.SET,
+                                    start,
+                                    null,
+                                    count,
+                                    null
+                                )
+
+                            if selectStatus < 0 then
+                                Result.Error (sprintf "Could not select band %d from '%s'." bandIndex info.datasetPath)
+                            else
+                                memSpaceId <- H5S.create_simple(2, memDims, null)
+
+                                if memSpaceId < 0L then
+                                    Result.Error "Could not create HDF5 memory dataspace."
+                                else
+                                    let readStatus =
+                                        H5D.read(
+                                            datasetId,
+                                            H5T.NATIVE_FLOAT,
+                                            memSpaceId,
+                                            fileSpaceId,
+                                            H5P.DEFAULT,
+                                            handle.AddrOfPinnedObject()
+                                        )
+
+                                    if readStatus < 0 then
+                                        Result.Error (sprintf "Could not read band %d from '%s'." bandIndex info.datasetPath)
+                                    else
+                                        let bandValues =
+                                            values
+                                            |> Array.map (fun value ->
+                                                let v = float value
+                                                if v <= -9998.0 then Double.NaN else v
+                                            )
+
+                                        Result.Ok (info.width, info.height, info.bands, bandValues)
+                    finally
+                        handle.Free()
+                        closeHdf5 H5S.close memSpaceId
+                        closeHdf5 H5S.close fileSpaceId
+                        closeHdf5 H5D.close datasetId
+                        closeHdf5 H5F.close fileId
+
+    let private tryReadNcVectorFloat (path : string) (datasetPath : string) : Option<float list> =
+        try
+            match tryOpenHdf5Dataset path datasetPath with
+            | Result.Error _ ->
+                None
+
+            | Result.Ok (fileId, datasetId) ->
+                let mutable spaceId = -1L
+                let mutable memSpaceId = -1L
+
+                try
+                    spaceId <- H5D.get_space datasetId
+                    let dims = Array.zeroCreate<uint64> 1
+                    let maxDims = Array.zeroCreate<uint64> 1
+                    let rank = H5S.get_simple_extent_dims(spaceId, dims, maxDims)
+
+                    if rank <> 1 then
+                        None
+                    else
+                        let count = int dims.[0]
+                        let values = Array.zeroCreate<float32> count
+                        let handle = GCHandle.Alloc(values, GCHandleType.Pinned)
+
+                        try
+                            let status =
+                                H5D.read(
+                                    datasetId,
+                                    H5T.NATIVE_FLOAT,
+                                    H5S.ALL,
+                                    H5S.ALL,
+                                    H5P.DEFAULT,
+                                    handle.AddrOfPinnedObject()
+                                )
+
+                            if status < 0 then None else values |> Array.map float |> Array.toList |> Some
+                        finally
+                            handle.Free()
+                finally
+                    closeHdf5 H5S.close memSpaceId
+                    closeHdf5 H5S.close spaceId
+                    closeHdf5 H5D.close datasetId
+                    closeHdf5 H5F.close fileId
+        with _ ->
+            None
+
+    let private tryReadNcVectorInt (path : string) (datasetPath : string) : Option<int list> =
+        try
+            match tryOpenHdf5Dataset path datasetPath with
+            | Result.Error _ ->
+                None
+
+            | Result.Ok (fileId, datasetId) ->
+                let mutable spaceId = -1L
+
+                try
+                    spaceId <- H5D.get_space datasetId
+                    let dims = Array.zeroCreate<uint64> 1
+                    let maxDims = Array.zeroCreate<uint64> 1
+                    let rank = H5S.get_simple_extent_dims(spaceId, dims, maxDims)
+
+                    if rank <> 1 then
+                        None
+                    else
+                        let count = int dims.[0]
+                        let values = Array.zeroCreate<int> count
+                        let handle = GCHandle.Alloc(values, GCHandleType.Pinned)
+
+                        try
+                            let status =
+                                H5D.read(
+                                    datasetId,
+                                    H5T.NATIVE_INT,
+                                    H5S.ALL,
+                                    H5S.ALL,
+                                    H5P.DEFAULT,
+                                    handle.AddrOfPinnedObject()
+                                )
+
+                            if status < 0 then None else values |> Array.toList |> Some
+                        finally
+                            handle.Free()
+                finally
+                    closeHdf5 H5S.close spaceId
+                    closeHdf5 H5D.close datasetId
+                    closeHdf5 H5F.close fileId
+        with _ ->
+            None
+
+    let private finiteMinMax (values : float[]) =
+        let mutable minimum = Double.PositiveInfinity
+        let mutable maximum = Double.NegativeInfinity
+
+        for value in values do
+            if Double.IsFinite value then
+                if value < minimum then minimum <- value
+                if value > maximum then maximum <- value
+
+        if Double.IsInfinity minimum || Double.IsInfinity maximum then
+            0.0, 1.0
+        elif minimum = maximum then
+            minimum, minimum + 1.0
+        else
+            minimum, maximum
+
+    let private matchingEmitSibling (path : string) (targetToken : string) =
+        let directory = Path.GetDirectoryName(Path.GetFullPath path)
+        let name = Path.GetFileName(path)
+
+        if String.IsNullOrWhiteSpace directory || String.IsNullOrWhiteSpace name then
+            None
+        else
+            let candidates =
+                [
+                    name.Replace("_RFL_", targetToken)
+                    name.Replace("_RFLUNCERT_", targetToken)
+                    name.Replace("_MASK_", targetToken)
+                ]
+                |> List.distinct
+                |> List.map (fun fileName -> Path.Combine(directory, fileName))
+
+            candidates |> List.tryFind File.Exists
+
+    let private matchingEmitMaskPath (path : string) =
+        matchingEmitSibling path "_MASK_"
+
+    let private readNcAggregateMask (reflectancePath : string) (expectedPixels : int) : Option<bool[]> =
+        match matchingEmitMaskPath reflectancePath with
+        | None ->
+            None
+
+        | Some maskPath ->
+            // Prefer Aggregate Flag (index 7). If it exists and is 1, the reflectance pixel is invalid.
+            // Be conservative: if the mask would remove almost everything, ignore it for rendering.
+            // This prevents a valid reflectance cube from becoming fully transparent because of a
+            // mask convention/dimension interpretation problem.
+            match readNcBandAsFloat maskPath "mask" 7 with
+            | Result.Ok (width, height, _, values) when width * height = expectedPixels ->
+                let invalidPixels =
+                    values
+                    |> Array.map (fun value -> Double.IsFinite value && value >= 0.5)
+
+                let invalidCount =
+                    invalidPixels
+                    |> Array.filter id
+                    |> Array.length
+
+                let invalidFraction =
+                    float invalidCount / float expectedPixels
+
+                Log.warn
+                    "EMIT aggregate mask: %d / %d pixels invalid (%.1f%%)."
+                    invalidCount
+                    expectedPixels
+                    (100.0 * invalidFraction)
+
+                if invalidFraction >= 0.995 then
+                    Log.warn
+                        "Ignoring EMIT aggregate mask because it would hide almost the entire reflectance image."
+                    None
+                else
+                    Some invalidPixels
+
+            | Result.Error error ->
+                Log.warn "Could not read matching EMIT MASK file %s: %s" maskPath error
+                None
+
+            | _ ->
+                Log.warn "Matching EMIT MASK file does not match reflectance image dimensions: %s" maskPath
+                None
+
+    let private applyEmitAuxiliaryMasks
+        (sourcePath : string)
+        (bandIndex : int)
+        (values : float[])
+        : float[] =
+
+        let result = Array.copy values
+
+        // EMIT uses good_wavelengths=0 for noisy atmospheric absorption regions.
+        match tryReadNcVectorInt sourcePath "sensor_band_parameters/good_wavelengths" with
+        | Some goodWavelengths ->
+            match goodWavelengths |> List.tryItem bandIndex with
+            | Some good when good = 0 ->
+                for i in 0 .. result.Length - 1 do
+                    result.[i] <- Double.NaN
+            | _ ->
+                ()
+        | None ->
+            ()
+
+        //match readNcAggregateMask sourcePath result.Length with
+        //| Some invalidPixels ->
+        //    for i in 0 .. result.Length - 1 do
+        //        if invalidPixels.[i] then
+        //            result.[i] <- Double.NaN
+        //| None ->
+        //    ()
+
+        result
 
     let private tryGetProperty (name : string) (element : JsonElement) =
         let mutable property = Unchecked.defaultof<JsonElement>
@@ -391,10 +819,37 @@ module Image =
             elif not (File.Exists source.filePath) then
                 Result.Error (
                     sprintf
-                        "TIFF for logical band %d does not exist: %s"
+                        "Image source for logical band %d does not exist: %s"
                         source.logicalIndex
                         source.filePath
                 )
+
+            elif isNcFile source.filePath then
+                match tryReadNcDatasetInfo source.filePath with
+                | Result.Error error ->
+                    Result.Error error
+
+                | Result.Ok info ->
+                    match readNcBandAsFloat source.filePath info.datasetPath source.channelIndex with
+                    | Result.Error error ->
+                        Result.Error error
+
+                    | Result.Ok (width, height, _, values) ->
+                        let values =
+                            match info.productKind with
+                            | Reflectance ->
+                                applyEmitAuxiliaryMasks source.filePath source.channelIndex values
+                            | ReflectanceUncertainty
+                            | Mask ->
+                                values
+
+                        Result.Ok
+                            {
+                                source = source
+                                width = width
+                                height = height
+                                values = values
+                            }
 
             else
                 match MultiBandReader.tryReadMultiBandTiff source.filePath false with
@@ -616,8 +1071,16 @@ module Image =
         : Result<PixImage<byte>, string> =
 
         try
-            let averageRadius = 1
-            let maxWavelengthDistanceNm = 35.0
+            let usesNetCDF =
+                sources
+                |> List.exists (fun source -> isNcFile source.filePath)
+
+            let averageRadius =
+                if usesNetCDF then 0 else 1
+
+            let maxWavelengthDistanceNm =
+                if usesNetCDF then 0.0 else 35.0
+
 
             match
                 readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm redNumeratorIndex,
@@ -651,24 +1114,33 @@ module Image =
                 | Result.Ok (width, height, pixelCount) ->
 
 
-                    let minimumSignal = 0.001 // or higher, depending on your data scale
+                    // EMIT reflectance is floating-point data. Keep this threshold very small:
+                    // a too-high threshold can make the whole RGB result transparent.
+                    let minimumSignal = 1.0e-8
+
+                    let hasSignal value =
+                        Double.IsFinite value && value > minimumSignal
+
+                    let validRatio numerator denominator =
+                        hasSignal numerator && hasSignal denominator
 
                     let validForeground =
                         Array.init pixelCount (fun i ->
-                            isFinite redNumerator.values.[i] &&
-                            isFinite redDenominator.values.[i] &&
-                            isFinite greenNumerator.values.[i] &&
-                            isFinite greenDenominator.values.[i] &&
-                            isFinite blueNumerator.values.[i] &&
-                            isFinite blueDenominator.values.[i] &&
-
-                            redNumerator.values.[i] > minimumSignal &&
-                            redDenominator.values.[i] > minimumSignal &&
-                            greenNumerator.values.[i] > minimumSignal &&
-                            greenDenominator.values.[i] > minimumSignal &&
-                            blueNumerator.values.[i] > minimumSignal &&
-                            blueDenominator.values.[i] > minimumSignal
+                            // Do not require all six selected bands to be valid. One bad channel
+                            // should not make the whole pixel transparent; valueToByte already maps
+                            // invalid channel values to 0.
+                            validRatio redNumerator.values.[i] redDenominator.values.[i] ||
+                            validRatio greenNumerator.values.[i] greenDenominator.values.[i] ||
+                            validRatio blueNumerator.values.[i] blueDenominator.values.[i]
                         )
+
+                    let validForegroundCount =
+                        validForeground |> Array.filter id |> Array.length
+
+                    Log.warn
+                        "RGB composite valid foreground pixels: %d / %d"
+                        validForegroundCount
+                        pixelCount
                         
 
                     // Pixel values below this are considered too weak/noisy for a safe ratio.
@@ -1244,13 +1716,142 @@ module Image =
                     }
         ]
 
+
+    let loadNcBands (ncPath : string) : list<Image> =
+        let fullPath = Path.GetFullPath ncPath
+
+        match tryReadNcDatasetInfo fullPath with
+        | Result.Error error ->
+            Log.warn "Could not read NetCDF file %s: %s" fullPath error
+            []
+
+        | Result.Ok info ->
+            let wavelengths =
+                match info.productKind with
+                | Reflectance
+                | ReflectanceUncertainty ->
+                    tryReadNcVectorFloat fullPath "sensor_band_parameters/wavelengths"
+                    |> Option.defaultValue []
+
+                | Mask ->
+                    []
+
+            let goodWavelengths =
+                match info.productKind with
+                | Reflectance
+                | ReflectanceUncertainty ->
+                    tryReadNcVectorInt fullPath "sensor_band_parameters/good_wavelengths"
+                    |> Option.defaultValue []
+
+                | Mask ->
+                    []
+
+            // Important:
+            // Do not read every NetCDF band here just to calculate statistics.
+            // An EMIT RFL cube has ~285 bands and each band is large; reading all bands
+            // during file selection blocks the UI and makes it look as if nothing loaded.
+            // The actual selected bands are still read later by readBandSourceAsFloat
+            // when the RGB composite/texture is created.
+            let defaultRangeForProduct =
+                match info.productKind with
+                | Reflectance ->
+                    0.0, 1.0, 0.0, 1.0
+
+                | ReflectanceUncertainty ->
+                    0.0, 0.1, 0.0, 1.0
+
+                | Mask ->
+                    0.0, 1.0, 0.0, 1.0
+
+            [
+                for bandIndex in 0 .. info.bands - 1 do
+                    let minimum, maximum, sliderMinimum, sliderMaximum =
+                        defaultRangeForProduct
+
+                    let bandName, wavelength =
+                        match info.productKind with
+                        | Mask ->
+                            emitMaskBandNames
+                            |> List.tryItem bandIndex
+                            |> Option.defaultValue (sprintf "Mask band %d" bandIndex)
+                            |> Some,
+                            None
+
+                        | Reflectance ->
+                            match wavelengths |> List.tryItem bandIndex with
+                            | Some wavelength ->
+                                let goodSuffix =
+                                    match goodWavelengths |> List.tryItem bandIndex with
+                                    | Some 0 -> " / bad wavelength"
+                                    | _ -> ""
+
+                                Some (sprintf "RFL %.1f nm%s" wavelength goodSuffix),
+                                Some wavelength
+
+                            | None ->
+                                Some (sprintf "RFL band %d" bandIndex),
+                                None
+
+                        | ReflectanceUncertainty ->
+                            match wavelengths |> List.tryItem bandIndex with
+                            | Some wavelength ->
+                                Some (sprintf "RFL uncertainty %.1f nm" wavelength),
+                                Some wavelength
+
+                            | None ->
+                                Some (sprintf "RFL uncertainty band %d" bandIndex),
+                                None
+
+                    let channel =
+                        {
+                            idx = bandIndex
+                            name = bandName
+                        }
+
+                    yield
+                        {
+                            initial with
+                                texture = fullPath
+                                selectedChannel = channel
+                                channelOptions = [ channel ]
+                                dataType = DataType.Float
+
+                                bandIndex = bandIndex
+                                wavelength = wavelength
+
+                                defaultMinValues = [ minimum ]
+                                defaultMaxValues = [ maximum ]
+
+                                inputMinValue =
+                                    {
+                                        minValue with
+                                            value = minimum
+                                            min = sliderMinimum
+                                            max = sliderMaximum
+                                    }
+
+                                inputMaxValue =
+                                    {
+                                        maxValue with
+                                            value = maximum
+                                            min = sliderMinimum
+                                            max = sliderMaximum
+                                    }
+                        }
+            ]
+
     let loadDataset (path : string) : list<Image> =
-        match tryReadMbiBands path with
-        | Some _ ->
-            loadMbiBands path
+        match tryResolveNcPathToLoad path with
+        | Some ncPath ->
+            loadNcBands ncPath
 
         | None ->
-            loadBands path
+            match tryReadMbiBands path with
+            | Some _ ->
+                loadMbiBands path
+
+            | None ->
+                loadBands path
 
     let loadFile (texturePath : string) =
         // this could be a fallback

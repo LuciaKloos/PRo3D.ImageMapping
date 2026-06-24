@@ -43,32 +43,85 @@ module App =
             let fullPath =
                 Path.GetFullPath path
 
-            let bands =
+            let loadedBands =
                 Image.loadDataset fullPath
-                |> IndexList.ofList
 
-            let indices =
-                bands
-                |> IndexList.mapi (fun index _ -> index)
-                |> IndexList.toList
+            if List.isEmpty loadedBands then
+                Log.warn "No image bands were loaded from selected path: %s" fullPath
+                m
+            else
+                let bands =
+                    loadedBands
+                    |> IndexList.ofList
 
-            let firstBand =
-                indices
-                |> List.tryHead
+                let indices =
+                    bands
+                    |> IndexList.mapi (fun index _ -> index)
+                    |> IndexList.toList
 
-            let bandCount = 
-                bands 
-                |> IndexList.toList
-                |> List.length
+                let firstBand =
+                    indices
+                    |> List.tryHead
 
-            {
-                m with
-                    images = bands
-                    selectedImage = firstBand
-                    sourceImagePath = Some fullPath
-                    editImages = []
-                    rgbComposite = RgbComposite.fromBandCount bandCount
-            }
+                let bandCount = 
+                    loadedBands.Length
+
+                let isNetCdf =
+                    String.Equals(Path.GetExtension fullPath, ".nc", StringComparison.OrdinalIgnoreCase)
+
+                let privateLowBand preferred fallback =
+                    if bandCount > preferred then
+                        Some preferred
+                    elif bandCount > fallback then
+                        Some fallback
+                    elif bandCount > 0 then
+                        Some 0
+                    else
+                        None
+
+                let defaultRgbComposite =
+                    let genericDefaults =
+                        RgbComposite.fromBandCount bandCount
+
+                    if isNetCdf then
+                        // Keep NetCDF/EMIT simple for now: just assign low-index bands.
+                        // The six UI checkboxes should now be checked immediately after loading:
+                        // R = 5/4, G = 3/2, B = 1/0, with fallbacks for smaller cubes.
+                        {
+                            genericDefaults with
+                                redNumeratorBand = privateLowBand 5 1
+                                redDenominatorBand = privateLowBand 4 0
+
+                                greenNumeratorBand = privateLowBand 3 1
+                                greenDenominatorBand = privateLowBand 2 0
+
+                                blueNumeratorBand = privateLowBand 1 1
+                                blueDenominatorBand = privateLowBand 0 0
+                        }
+                    else
+                        genericDefaults
+
+                if isNetCdf then
+                    Log.warn
+                        "Default NetCDF RGB ratio bands: R=%A/%A, G=%A/%A, B=%A/%A"
+                        defaultRgbComposite.redNumeratorBand
+                        defaultRgbComposite.redDenominatorBand
+                        defaultRgbComposite.greenNumeratorBand
+                        defaultRgbComposite.greenDenominatorBand
+                        defaultRgbComposite.blueNumeratorBand
+                        defaultRgbComposite.blueDenominatorBand
+
+
+                Log.warn "Loaded %d image bands from %s" bandCount fullPath
+
+                {
+                    m with
+                        images = bands
+                        selectedImage = firstBand
+                        sourceImagePath = Some fullPath
+                        editImages = []
+                        rgbComposite = defaultRgbComposite
+                }
         | SelectImage idx ->
             { m with selectedImage = Some idx }
         | EditImage idx ->
@@ -220,7 +273,7 @@ module App =
             } |> AttributeMap.ofAMap
 
         let jsImportDialog =
-            "top.aardvark.dialog.showOpenDialog({title: 'Select multispectral image', filters: [{name: 'Multispectral TIFF', extensions: ['mbi', 'json', 'tif', 'tiff']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open multispectral image dialog:', error);});"
+            "top.aardvark.dialog.showOpenDialog({title: 'Select multispectral image', filters: [{name: 'Multispectral TIFF', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open multispectral image dialog:', error);});"
 
         let selectedAdaptiveImage (selected : aval<Option<Index>>) =
             adaptive {
