@@ -11,20 +11,14 @@ module ImageProjection =
 
     module Shaders =
 
-        open Aardvark.Base
-    
         open FShade
-        open Aardvark.Rendering.Effects
-
 
         type UniformScope with  
             member x.ProjectedImageModelViewProjValid : bool = uniform?ProjectedImageModelViewProjValid
             member x.ProjectedImageModelViewProj : M44d = uniform?ProjectedImageModelViewProj
             member x.ProjectedImagesLocalTrafos : M44d[] = uniform?StorageBuffer?ProjectedImagesLocalTrafos
             member x.ProjectedImagesCount : int = uniform?ProjectedImagesLocalTrafosCount
-            member x.ProjectedImageOpacity : float = uniform?ProjectedImageOpacity
-           
-
+            member x.ProjectedImageOpacity : float = uniform?ProjectedImageOpacity         
 
         type Vertex = {
             [<Position>]    pos     : V4d
@@ -33,8 +27,7 @@ module ImageProjection =
             [<Semantic("BodyLocalPos")>] localPos : V4d
             [<Semantic("LocalNormal")>] localNormalNumericallyUnstable : V3d
             [<Normal>] n : V3d
-        }
-         
+        }         
         
         let private projectedTexture =
             sampler2d {
@@ -82,7 +75,6 @@ module ImageProjection =
                         //let blendedProjected = Fun.Lerp(uniform.ProjectedImageOpacity, v.c.XYZ, c.XYZ)
                         let borderImage = blendedProjected.XYZ * borderFactor + borderColor * (1.0 - borderFactor)
                         V4d(borderImage.XYZ, 1.0) 
-
                     
                     else
                         v.c
@@ -116,11 +108,6 @@ module ImageProjection =
                         let projectedTc =
                             V2d(tc.X, tc.Y)
 
-                        let sampledColor =
-                            projectedTexture
-                                .Sample(projectedTc)
-                                .XYZ
-
                         let borderWidth =
                             0.01
 
@@ -132,37 +119,14 @@ module ImageProjection =
                             smoothstep 0.0 borderWidth tc.Y *
                             smoothstep 1.0 (1.0 - borderWidth) tc.Y
 
-                        let borderFactor =
-                            xBorder * yBorder
-
-                        let borderColor =
-                            V3d(0.0, 1.0, 0.0)
-
-                        //let blendedProjected =
-                        //    Fun.Lerp(
-                        //        uniform.ProjectedImageOpacity,
-                        //        v.c.XYZ,
-                        //        sampledColor
-                        //    )
                         let sampled =
                             projectedTexture.Sample(projectedTc)
 
-                        let effectiveOpacity =
-                            uniform.ProjectedImageOpacity *
-                            sampled.W
-                            |> max 0.0
-                            |> min 1.0
-
-                        let blendedProjected =
-                            Fun.Lerp(
-                                effectiveOpacity,
-                                v.c.XYZ,
-                                sampled.XYZ
-                            )
-
                         let finalColor =
-                            blendedProjected * borderFactor +
-                            borderColor * (1.0 - borderFactor)
+                            if sampled.W > 0.0 then
+                                sampled.XYZ
+                            else
+                                v.c.XYZ
 
                         V4d(finalColor, 1.0)
                     else
@@ -170,27 +134,6 @@ module ImageProjection =
 
                 return { v with c = color }
             }
-
-        [<ReflectedDefinition>]
-        let isBorder (tc : V3d) =
-            let borderWidth = 0.0001 
-            //let xBorder = (smoothstep 0.0 borderWidth tc.X) * smoothstep 1.0 (1.0 - borderWidth) tc.X 
-            //let yBorder = (smoothstep 0.0 borderWidth tc.Y) * smoothstep 1.0 (1.0 - borderWidth) tc.Y
-            //let borderFactor = xBorder * yBorder
-            let borderX = tc.X < borderWidth || tc.X > 1.0 - borderWidth 
-            let borderY = tc.Y < borderWidth || tc.Y > 1.0 - borderWidth
-            borderX || borderY
-
-        [<ReflectedDefinition>]
-        let mapClippedProjectionsToColor (validCount : int) (totalCount : int) =
-            let ratio = float validCount / float totalCount
-            let color = 
-                if ratio < 0.1 then V3d(0.0, 0.0, 1.0) // Blue
-                elif ratio < 0.2 then V3d(0.0, 1.0, 1.0) // Cyan
-                elif ratio < 0.3 then V3d(0.0, 1.0, 0.0) // Green
-                elif ratio < 0.4 then V3d(1.0, 1.0, 0.0) // Yellow
-                else V3d(1.0, 0.0, 0.0) // Red
-            color
 
         [<ReflectedDefinition>]
         let mapClippedProjectionsToColor2 (validCount : int) (totalCount : int) =
@@ -235,7 +178,6 @@ module ImageProjection =
             [<Normal>] n : V3d
             [<SourceVertexIndex>] i : int
         }
-
 
         let generateNormal (t : Triangle<NormalVertex>) =
             triangle {

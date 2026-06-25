@@ -20,6 +20,7 @@ open PRo3D.Core
 open PRo3D.SPICE
 
 open System.Text.Json
+open System.Collections.Concurrent
 
 module Shaders = 
     open FShade
@@ -128,6 +129,20 @@ module Image =
             productKind : NcProductKind
         }
 
+    // caches to keep already-read metadata and bands in memory so changing one RGB ratio band
+    // does not reread the other five bands from disk
+    let private ncDatasetInfoCache =
+        ConcurrentDictionary<string, NcDatasetInfo>()
+
+    let private ncRawBandCache =
+        ConcurrentDictionary<string, int * int * int * float[]>()
+
+    let private normalizedPath (path : string) =
+        Path.GetFullPath(path).ToLowerInvariant()
+
+    let private ncBandCacheKey (path : string) (datasetPath : string) (bandIndex : int) = 
+        sprintf "%s|%s|%d" (normalizedPath path) datasetPath bandIndex
+
     let private emitMaskBandNames =
         [
             "Cloud Flag"
@@ -199,6 +214,85 @@ module Image =
         | ReflectanceUncertainty -> "reflectance_uncertainty"
         | Mask -> "mask"
 
+    let private trySaveDebugBmp
+        (width : int)
+        (height : int)
+        (rgbBytes : byte[])
+        (path : string) =
+
+        try
+            let directory =
+                Path.GetDirectoryName path
+
+            if not (String.IsNullOrWhiteSpace directory) then
+                Directory.CreateDirectory directory |> ignore
+
+            use stream =
+                File.Create path
+
+            use writer =
+                new BinaryWriter(stream)
+
+            let rowStride =
+                ((width * 3 + 3) / 4) * 4
+
+            let padding =
+                Array.zeroCreate<byte> (rowStride - width * 3)
+
+            let pixelDataSize =
+                rowStride * height
+
+            let fileSize =
+                54 + pixelDataSize
+
+            // BMP header
+            writer.Write(byte 0x42) // B
+            writer.Write(byte 0x4D) // M
+            writer.Write(int32 fileSize)
+            writer.Write(int16 0)
+            writer.Write(int16 0)
+            writer.Write(int32 54)
+
+            // DIB header
+            writer.Write(int32 40)
+            writer.Write(int32 width)
+            writer.Write(int32 height)
+            writer.Write(int16 1)
+            writer.Write(int16 24)
+            writer.Write(int32 0)
+            writer.Write(int32 pixelDataSize)
+            writer.Write(int32 2835)
+            writer.Write(int32 2835)
+            writer.Write(int32 0)
+            writer.Write(int32 0)
+
+            // BMP stores rows bottom-up and pixels as BGR
+            for y = height - 1 downto 0 do
+                for x = 0 to width - 1 do
+                    let index =
+                        (y * width + x) * 3
+
+                    let r =
+                        rgbBytes.[index + 0]
+
+                    let g =
+                        rgbBytes.[index + 1]
+
+                    let b =
+                        rgbBytes.[index + 2]
+
+                    writer.Write(b)
+                    writer.Write(g)
+                    writer.Write(r)
+
+                if padding.Length > 0 then
+                    writer.Write(padding)
+
+            Log.warn "Saved debug RGB composite to %s" path
+
+        with error ->
+            Log.warn "Could not save debug RGB composite: %s" error.Message
+
     let private tryOpenHdf5Dataset (path : string) (datasetPath : string) : Result<int64 * int64, string> =
         try
             let fileId = H5F.``open``(path, H5F.ACC_RDONLY)
@@ -216,7 +310,7 @@ module Image =
         with error ->
             Result.Error error.Message
 
-    let private tryReadNcDatasetInfo (path : string) : Result<NcDatasetInfo, string> =
+    let private tryReadNcDatasetInfoUncached (path : string) : Result<NcDatasetInfo, string> =
         let fullPath = Path.GetFullPath path
         let kind = ncProductKindFromPath fullPath
         let datasetPath = ncDatasetPathForKind kind
@@ -234,7 +328,7 @@ module Image =
                 if spaceId < 0L then
                     Result.Error (sprintf "Could not read the dataspace of NetCDF dataset '%s'." datasetPath)
                 else
-                    let dims = Array.zeroCreate<uint64> 3
+                    let dims = Array.zeroCreate<uint64> 3   // expects shape: height x width x bands
                     let maxDims = Array.zeroCreate<uint64> 3
                     let rank = H5S.get_simple_extent_dims(spaceId, dims, maxDims)
 
@@ -261,7 +355,7 @@ module Image =
         (bandIndex : int)
         : Result<int * int * int * float[], string> =
 
-        match tryReadNcDatasetInfo path with
+        match tryReadNcDatasetInfoUncached path with
         | Result.Error error ->
             Result.Error error
 
@@ -271,71 +365,80 @@ module Image =
             elif bandIndex < 0 || bandIndex >= info.bands then
                 Result.Error (sprintf "NetCDF band index %d is out of range. Available range is 0..%d." bandIndex (info.bands - 1))
             else
-                match tryOpenHdf5Dataset info.path info.datasetPath with
-                | Result.Error error ->
-                    Result.Error error
+                let cacheKey = ncBandCacheKey info.path info.datasetPath bandIndex
 
-                | Result.Ok (fileId, datasetId) ->
-                    let mutable fileSpaceId = -1L
-                    let mutable memSpaceId = -1L
-                    let values = Array.zeroCreate<float32> (info.width * info.height)
-                    let handle = GCHandle.Alloc(values, GCHandleType.Pinned)
+                match ncRawBandCache.TryGetValue cacheKey with
+                | true, cached ->
+                    Result.Ok cached
 
-                    try
-                        fileSpaceId <- H5D.get_space datasetId
+                | false, _ ->
+                    match tryOpenHdf5Dataset info.path info.datasetPath with
+                    | Result.Error error ->
+                        Result.Error error
 
-                        if fileSpaceId < 0L then
-                            Result.Error (sprintf "Could not read dataspace for '%s'." info.datasetPath)
-                        else
-                            let start = [| 0UL; 0UL; uint64 bandIndex |]
-                            let count = [| uint64 info.height; uint64 info.width; 1UL |]
-                            let memDims = [| uint64 info.height; uint64 info.width |]
+                    | Result.Ok (fileId, datasetId) ->
+                        let mutable fileSpaceId = -1L
+                        let mutable memSpaceId = -1L
+                        let values = Array.zeroCreate<float32> (info.width * info.height)
+                        let handle = GCHandle.Alloc(values, GCHandleType.Pinned)
 
-                            let selectStatus =
-                                H5S.select_hyperslab(
-                                    fileSpaceId,
-                                    H5S.seloper_t.SET,
-                                    start,
-                                    null,
-                                    count,
-                                    null
-                                )
+                        try
+                            fileSpaceId <- H5D.get_space datasetId
 
-                            if selectStatus < 0 then
-                                Result.Error (sprintf "Could not select band %d from '%s'." bandIndex info.datasetPath)
+                            if fileSpaceId < 0L then
+                                Result.Error (sprintf "Could not read dataspace for '%s'." info.datasetPath)
                             else
-                                memSpaceId <- H5S.create_simple(2, memDims, null)
+                                let start = [| 0UL; 0UL; uint64 bandIndex |]
+                                let count = [| uint64 info.height; uint64 info.width; 1UL |]
+                                let memDims = [| uint64 info.height; uint64 info.width |]
 
-                                if memSpaceId < 0L then
-                                    Result.Error "Could not create HDF5 memory dataspace."
+                                let selectStatus =
+                                    H5S.select_hyperslab(
+                                        fileSpaceId,
+                                        H5S.seloper_t.SET,
+                                        start,
+                                        null,
+                                        count,
+                                        null
+                                    )
+
+                                if selectStatus < 0 then
+                                    Result.Error (sprintf "Could not select band %d from '%s'." bandIndex info.datasetPath)
                                 else
-                                    let readStatus =
-                                        H5D.read(
-                                            datasetId,
-                                            H5T.NATIVE_FLOAT,
-                                            memSpaceId,
-                                            fileSpaceId,
-                                            H5P.DEFAULT,
-                                            handle.AddrOfPinnedObject()
-                                        )
+                                    memSpaceId <- H5S.create_simple(2, memDims, null)
 
-                                    if readStatus < 0 then
-                                        Result.Error (sprintf "Could not read band %d from '%s'." bandIndex info.datasetPath)
+                                    if memSpaceId < 0L then
+                                        Result.Error "Could not create HDF5 memory dataspace."
                                     else
-                                        let bandValues =
-                                            values
-                                            |> Array.map (fun value ->
-                                                let v = float value
-                                                if v <= -9998.0 then Double.NaN else v
+                                        let readStatus =
+                                            H5D.read(
+                                                datasetId,
+                                                H5T.NATIVE_FLOAT,
+                                                memSpaceId,
+                                                fileSpaceId,
+                                                H5P.DEFAULT,
+                                                handle.AddrOfPinnedObject()
                                             )
 
-                                        Result.Ok (info.width, info.height, info.bands, bandValues)
-                    finally
-                        handle.Free()
-                        closeHdf5 H5S.close memSpaceId
-                        closeHdf5 H5S.close fileSpaceId
-                        closeHdf5 H5D.close datasetId
-                        closeHdf5 H5F.close fileId
+                                        if readStatus < 0 then
+                                            Result.Error (sprintf "Could not read band %d from '%s'." bandIndex info.datasetPath)
+                                        else
+                                            let bandValues =
+                                                values
+                                                |> Array.map (fun value ->
+                                                    let v = float value
+                                                    if v <= -9998.0 then Double.NaN else v
+                                                )
+
+                                            let result = (info.width, info.height, info.bands, bandValues)
+                                            ncRawBandCache.[cacheKey] <- result
+                                            Result.Ok result
+                        finally
+                            handle.Free()
+                            closeHdf5 H5S.close memSpaceId
+                            closeHdf5 H5S.close fileSpaceId
+                            closeHdf5 H5D.close datasetId
+                            closeHdf5 H5F.close fileId
 
     let private tryReadNcVectorFloat (path : string) (datasetPath : string) : Option<float list> =
         try
@@ -425,88 +528,6 @@ module Image =
         with _ ->
             None
 
-    let private finiteMinMax (values : float[]) =
-        let mutable minimum = Double.PositiveInfinity
-        let mutable maximum = Double.NegativeInfinity
-
-        for value in values do
-            if Double.IsFinite value then
-                if value < minimum then minimum <- value
-                if value > maximum then maximum <- value
-
-        if Double.IsInfinity minimum || Double.IsInfinity maximum then
-            0.0, 1.0
-        elif minimum = maximum then
-            minimum, minimum + 1.0
-        else
-            minimum, maximum
-
-    let private matchingEmitSibling (path : string) (targetToken : string) =
-        let directory = Path.GetDirectoryName(Path.GetFullPath path)
-        let name = Path.GetFileName(path)
-
-        if String.IsNullOrWhiteSpace directory || String.IsNullOrWhiteSpace name then
-            None
-        else
-            let candidates =
-                [
-                    name.Replace("_RFL_", targetToken)
-                    name.Replace("_RFLUNCERT_", targetToken)
-                    name.Replace("_MASK_", targetToken)
-                ]
-                |> List.distinct
-                |> List.map (fun fileName -> Path.Combine(directory, fileName))
-
-            candidates |> List.tryFind File.Exists
-
-    let private matchingEmitMaskPath (path : string) =
-        matchingEmitSibling path "_MASK_"
-
-    let private readNcAggregateMask (reflectancePath : string) (expectedPixels : int) : Option<bool[]> =
-        match matchingEmitMaskPath reflectancePath with
-        | None ->
-            None
-
-        | Some maskPath ->
-            // Prefer Aggregate Flag (index 7). If it exists and is 1, the reflectance pixel is invalid.
-            // Be conservative: if the mask would remove almost everything, ignore it for rendering.
-            // This prevents a valid reflectance cube from becoming fully transparent because of a
-            // mask convention/dimension interpretation problem.
-            match readNcBandAsFloat maskPath "mask" 7 with
-            | Result.Ok (width, height, _, values) when width * height = expectedPixels ->
-                let invalidPixels =
-                    values
-                    |> Array.map (fun value -> Double.IsFinite value && value >= 0.5)
-
-                let invalidCount =
-                    invalidPixels
-                    |> Array.filter id
-                    |> Array.length
-
-                let invalidFraction =
-                    float invalidCount / float expectedPixels
-
-                Log.warn
-                    "EMIT aggregate mask: %d / %d pixels invalid (%.1f%%)."
-                    invalidCount
-                    expectedPixels
-                    (100.0 * invalidFraction)
-
-                if invalidFraction >= 0.995 then
-                    Log.warn
-                        "Ignoring EMIT aggregate mask because it would hide almost the entire reflectance image."
-                    None
-                else
-                    Some invalidPixels
-
-            | Result.Error error ->
-                Log.warn "Could not read matching EMIT MASK file %s: %s" maskPath error
-                None
-
-            | _ ->
-                Log.warn "Matching EMIT MASK file does not match reflectance image dimensions: %s" maskPath
-                None
-
     let private applyEmitAuxiliaryMasks
         (sourcePath : string)
         (bandIndex : int)
@@ -526,14 +547,6 @@ module Image =
                 ()
         | None ->
             ()
-
-        //match readNcAggregateMask sourcePath result.Length with
-        //| Some invalidPixels ->
-        //    for i in 0 .. result.Length - 1 do
-        //        if invalidPixels.[i] then
-        //            result.[i] <- Double.NaN
-        //| None ->
-        //    ()
 
         result
 
@@ -672,35 +685,6 @@ module Image =
 
             sortedValues.[index]
 
-    let private sharedSymmetricRatioRange
-        (validForeground : bool[])
-        (bands : float[][])
-        (upperPercentileFraction : float) =
-
-        let values =
-            bands
-            |> Array.collect (fun band ->
-                band
-                |> Array.mapi (fun index value ->
-                    if validForeground.[index] && Double.IsFinite value then
-                        Some (abs value)
-                    else
-                        None
-                )
-                |> Array.choose id
-            )
-
-        Array.sortInPlace values
-
-        if values.Length = 0 then
-            -1.0, 1.0
-        else
-            let maxAbs =
-                percentile upperPercentileFraction values
-                |> max 1e-6
-
-            -maxAbs, maxAbs
-
     // important, otherwise black
     let private valueToByte
         (gamma : float)
@@ -733,11 +717,7 @@ module Image =
             |> Math.Round
             |> byte
 
-    // means: numerator > denominator  -> positive value
-    //        numerator = denominator  -> 0
-    //        numerator < denominator  -> negative value
-    // log ratio makes reciprocal ratios symmetric: log(2 / 1) =  0.693     log(1 / 2) = -0.693
-    let private safeLogRatio
+    let private safeRatio
         (minimumSignal : float)
         (numerator : float[])
         (denominator : float[]) =
@@ -752,10 +732,9 @@ module Image =
                 if
                     Double.IsFinite numeratorValue &&
                     Double.IsFinite denominatorValue &&
-                    numeratorValue > minimumSignal &&
-                    denominatorValue > minimumSignal
+                    Math.Abs denominatorValue > minimumSignal
                 then
-                    Math.Log(numeratorValue / denominatorValue)
+                    numeratorValue / denominatorValue
                 else
                     Double.NaN
             )
@@ -825,7 +804,7 @@ module Image =
                 )
 
             elif isNcFile source.filePath then
-                match tryReadNcDatasetInfo source.filePath with
+                match tryReadNcDatasetInfoUncached source.filePath with
                 | Result.Error error ->
                     Result.Error error
 
@@ -1113,7 +1092,6 @@ module Image =
 
                 | Result.Ok (width, height, pixelCount) ->
 
-
                     // EMIT reflectance is floating-point data. Keep this threshold very small:
                     // a too-high threshold can make the whole RGB result transparent.
                     let minimumSignal = 1.0e-8
@@ -1134,45 +1112,16 @@ module Image =
                             validRatio blueNumerator.values.[i] blueDenominator.values.[i]
                         )
 
-                    let validForegroundCount =
-                        validForeground |> Array.filter id |> Array.length
-
-                    Log.warn
-                        "RGB composite valid foreground pixels: %d / %d"
-                        validForegroundCount
-                        pixelCount
-                        
-
-                    // Pixel values below this are considered too weak/noisy for a safe ratio.
-                    // This matters especially for denominator bands, because ratios become unstable
-                    // when the denominator is close to zero.
-                    //let minimumSignal =
-                    //    1e-3
-
-                    //let hasRawSignal value =
-                    //    Double.IsFinite value &&
-                    //    value > minimumSignal
-
-                    //// Foreground detection is based on the raw selected bands, not on the log-ratio.
-                    //// A log-ratio may be negative or zero and still be a valid foreground value.
-                    //let validForeground =
-                    //    Array.init pixelCount (fun index ->
-                    //        hasRawSignal redNumerator.values.[index] ||
-                    //        hasRawSignal redDenominator.values.[index] ||
-                    //        hasRawSignal greenNumerator.values.[index] ||
-                    //        hasRawSignal greenDenominator.values.[index] ||
-                    //        hasRawSignal blueNumerator.values.[index] ||
-                    //        hasRawSignal blueDenominator.values.[index]
-                    //    )
+                    let makeRatio = safeRatio
 
                     let redBand =
-                        safeLogRatio minimumSignal redNumerator.values redDenominator.values
+                        makeRatio minimumSignal redNumerator.values redDenominator.values
 
                     let greenBand =
-                        safeLogRatio minimumSignal greenNumerator.values greenDenominator.values
+                        makeRatio minimumSignal greenNumerator.values greenDenominator.values
 
                     let blueBand =
-                        safeLogRatio minimumSignal blueNumerator.values blueDenominator.values
+                        makeRatio minimumSignal blueNumerator.values blueDenominator.values
 
                     let lowerPercentileFraction =
                         if Double.IsFinite lowerPercentile then
@@ -1224,26 +1173,27 @@ module Image =
                             else
                                 minimum, maximum
 
-                    let ratioMin, ratioMax =
-                        sharedSymmetricRatioRange
-                            validForeground
-                            [| redBand; greenBand; blueBand |]
-                            upperPercentileFraction
-
                     let redMin, redMax =
-                        ratioMin, ratioMax
+                        displayRangeForValidPixels redBand
 
                     let greenMin, greenMax =
-                        ratioMin, ratioMax
+                        displayRangeForValidPixels greenBand
 
                     let blueMin, blueMax =
-                        ratioMin, ratioMax
+                        displayRangeForValidPixels blueBand
 
                     let rgbImage =
                         PixImage<byte>(
                             Col.Format.RGBA,
                             V2i(width, height)
                         )
+
+                    let debugRgbBytes =
+                        if usesNetCDF then
+                            Some (Array.zeroCreate<byte> (pixelCount * 3))
+                        else
+                            None
+
 
                     rgbImage
                         .GetMatrix<C4b>()
@@ -1267,6 +1217,19 @@ module Image =
                                 let b =
                                     valueToByte gamma blueMin blueMax blueBand.[index]
 
+                                match debugRgbBytes with
+                                | Some bytes ->
+                                    let offset =
+                                        index * 3
+
+                                    bytes.[offset + 0] <- r
+                                    bytes.[offset + 1] <- g
+                                    bytes.[offset + 2] <- b
+
+                                | None ->
+                                    ()
+
+
                                 C4b(r, g, b, 255uy)
                             else
                                 C4b(0uy, 0uy, 0uy, 0uy)
@@ -1274,6 +1237,7 @@ module Image =
                     |> ignore
 
                     Result.Ok rgbImage
+
 
             | Result.Error error, _, _, _, _, _ ->
                 Result.Error error
@@ -1720,7 +1684,7 @@ module Image =
     let loadNcBands (ncPath : string) : list<Image> =
         let fullPath = Path.GetFullPath ncPath
 
-        match tryReadNcDatasetInfo fullPath with
+        match tryReadNcDatasetInfoUncached fullPath with
         | Result.Error error ->
             Log.warn "Could not read NetCDF file %s: %s" fullPath error
             []
@@ -1748,8 +1712,7 @@ module Image =
 
             // Important:
             // Do not read every NetCDF band here just to calculate statistics.
-            // An EMIT RFL cube has ~285 bands and each band is large; reading all bands
-            // during file selection blocks the UI and makes it look as if nothing loaded.
+            // An EMIT RFL cube has ~285 bands and each band is large
             // The actual selected bands are still read later by readBandSourceAsFloat
             // when the RGB composite/texture is created.
             let defaultRangeForProduct =
@@ -1764,7 +1727,9 @@ module Image =
                     0.0, 1.0, 0.0, 1.0
 
             [
-                for bandIndex in 0 .. info.bands - 1 do
+                // loads bands and creates list of images
+                //for bandIndex in 0 .. info.bands - 1 do
+                  for bandIndex in 0 .. info.bands - 1 do // only load half of bands for speed
                     let minimum, maximum, sliderMinimum, sliderMaximum =
                         defaultRangeForProduct
 
@@ -2145,23 +2110,9 @@ module Image =
                 div [] [
                     div [] [
                         // the 2D control
-                        let leftControl = [style "position: fixed; left: 0; top: 0; width: 50%; height: 100%"; attribute "showLoader" "false"]
+                        let leftControl = [style "position: fixed; left: 0; top: 0; width: 100%; height: 100%"; attribute "showLoader" "false"]
                         renderControl (AVal.constant (Camera.create cameraView frustum2D)) leftControl instrumentVisualization
                     
-                        // the 3D projection view
-                        let rightControl =
-                            [
-                                style "position: fixed; right: 0; top: 0; width: 50%; height: 100%"
-                                attribute "showLoader" "false"
-                            ]
-                            |> AttributeMap.ofList
-                        
-                        OrbitController.controlledControl
-                            orbitState
-                            OrbitCameraMessage
-                            frustum
-                            rightControl
-                            scene
                     ]
                 ]
         )

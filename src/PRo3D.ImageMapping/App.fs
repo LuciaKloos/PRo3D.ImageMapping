@@ -7,7 +7,6 @@ open Aardvark.UI.Primitives
 open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
-open PRo3D.Extensions.FSharp
 
 open System.IO
 
@@ -84,9 +83,6 @@ module App =
                         RgbComposite.fromBandCount bandCount
 
                     if isNetCdf then
-                        // Keep NetCDF/EMIT simple for now: just assign low-index bands.
-                        // The six UI checkboxes should now be checked immediately after loading:
-                        // R = 5/4, G = 3/2, B = 1/0, with fallbacks for smaller cubes.
                         {
                             genericDefaults with
                                 redNumeratorBand = privateLowBand 5 1

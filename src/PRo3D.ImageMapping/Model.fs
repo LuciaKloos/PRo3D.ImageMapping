@@ -55,9 +55,9 @@ module RgbComposite =
             greenDenominatorBand = None
             blueDenominatorBand = None
 
-            lowerPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.1; value = 5.0 }
+            lowerPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.1; value = 2.0 }
             upperPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.1; value = 98.0 }
-            gamma = { Numeric.init with min = 0.01; max = 5.0; step = 0.01; value = 0.875 }
+            gamma = { Numeric.init with min = 0.01; max = 5.0; step = 0.01; value = 1.0 }
         }
 
     let private firstBand bandCount =
