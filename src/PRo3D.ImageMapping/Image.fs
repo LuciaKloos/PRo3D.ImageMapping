@@ -1069,8 +1069,6 @@ module Image =
         (greenDenominatorIndex : int)
         (blueNumeratorIndex : int)
         (blueDenominatorIndex : int)
-        (lowerPercentile : float)
-        (upperPercentile : float)
         (gamma : float)
         (highlightAmount : float)
         (highlightTone   : float)
@@ -1079,6 +1077,8 @@ module Image =
         (shadowTone   : float)
         (shadowRadius : float)
         (midtoneContrastGainFactor : float)
+        (blackClipPercentile : float)
+        (whiteClipPercentile : float)
         : Result<PixImage<byte>, string> =
 
         try
@@ -1155,22 +1155,30 @@ module Image =
                     let blueBand =
                         makeRatio minimumSignal blueNumerator.values blueDenominator.values
 
-                    let lowerPercentileFraction =
-                        if Double.IsFinite lowerPercentile then
-                            lowerPercentile / 100.0
+
+                    let blackClipFraction =
+                        if Double.IsFinite blackClipPercentile then
+                            blackClipPercentile / 100.0
                             |> max 0.0
                             |> min 1.0
                         else
-                            0.00
+                            0.0
+
+                    let whiteClipFraction =
+                        if Double.IsFinite whiteClipPercentile then
+                            whiteClipPercentile / 100.0
+                            |> max 0.0
+                            |> min 1.0
+                        else
+                            0.0
+
+                    let lowerPercentileFraction =
+                        blackClipFraction
 
                     let upperPercentileFraction =
-                        if Double.IsFinite upperPercentile then
-                            upperPercentile / 100.0
-                            |> max 0.0
-                            |> min 1.0
-                        else
-                            1.0
+                        1.0 - whiteClipFraction
 
+                    // safety check
                     let lowerPercentileFraction, upperPercentileFraction =
                         if upperPercentileFraction <= lowerPercentileFraction then
                             lowerPercentileFraction, min 1.0 (lowerPercentileFraction + 0.01)
@@ -1193,7 +1201,6 @@ module Image =
                         if validValues.Length = 0 then
                             0.0, 1.0
                         else
-                            // Percentiles avoid extreme outlier pixels controlling the whole contrast.
                             let minimum =
                                 percentile lowerPercentileFraction validValues
 
@@ -1545,8 +1552,6 @@ module Image =
         (greenDenominatorIndex : int)
         (blueNumeratorIndex : int)
         (blueDenominatorIndex : int)
-        (lowerPercentile : float)
-        (upperPercentile : float)
         (gamma : float)
         (highlightAmount : float)
         (highlightTone : float)
@@ -1555,6 +1560,8 @@ module Image =
         (shadowTone : float)
         (shadowRadius : float)
         (midtoneContrastGainFactor : float)
+        (blackClipPercentileValue : float)
+        (whiteClipPercentileValue : float)
         : ITexture =
 
         match
@@ -1566,8 +1573,6 @@ module Image =
                 greenDenominatorIndex
                 blueNumeratorIndex
                 blueDenominatorIndex
-                lowerPercentile
-                upperPercentile
                 gamma
                 highlightAmount
                 highlightTone
@@ -1576,6 +1581,8 @@ module Image =
                 shadowTone
                 shadowRadius
                 midtoneContrastGainFactor
+                blackClipPercentileValue
+                whiteClipPercentileValue
         with
         | Result.Ok image ->
             PixTexture2d(
@@ -1602,8 +1609,6 @@ module Image =
         (greenDenominatorBand : aval<Option<int>>)
         (blueNumeratorBand : aval<Option<int>>)
         (blueDenominatorBand : aval<Option<int>>)
-        (lowerPercentile : aval<float>)
-        (upperPercentile : aval<float>)
         (gamma : aval<float>)
         (highlightAmount : aval<float>)
         (highlightTone : aval<float>)
@@ -1612,6 +1617,8 @@ module Image =
         (shadowTone : aval<float>)
         (shadowRadius : aval<float>)
         (midToneContrastGainFactor : aval<float>)
+        (blackClipPercentile : aval<float>)
+        (whiteClipPercentile : aval<float>)
         : aval<ITexture> =
 
         let adaptiveImages =
@@ -1641,12 +1648,6 @@ module Image =
             let blueDenominatorValue =
                 blueDenominatorBand.GetValue token
 
-            let lowerPercentileValue =
-                lowerPercentile.GetValue token
-
-            let upperPercentileValue =
-                upperPercentile.GetValue token
-
             let gammaValue =
                 gamma.GetValue token
 
@@ -1670,6 +1671,12 @@ module Image =
 
             let midtoneContrastGainFactorValue =
                 midToneContrastGainFactor.GetValue token
+
+            let blackClipPercentileValue =
+                blackClipPercentile.GetValue token
+
+            let whiteClipPercentileValue = 
+                whiteClipPercentile.GetValue token
 
             match
                 sources,
@@ -1699,8 +1706,6 @@ module Image =
                     greenDenominator
                     blueNumerator
                     blueDenominator
-                    lowerPercentileValue
-                    upperPercentileValue
                     gammaValue
                     highlightAmountValue
                     highlightToneValue
@@ -1709,6 +1714,8 @@ module Image =
                     shadowToneValue
                     shadowRadiusValue
                     midtoneContrastGainFactorValue
+                    blackClipPercentileValue
+                    whiteClipPercentileValue
 
             | _ ->
                 DefaultTextures.checkerboard.GetValue()
@@ -1725,8 +1732,6 @@ module Image =
         (greenDenominatorBand : aval<Option<int>>)
         (blueNumeratorBand : aval<Option<int>>)
         (blueDenominatorBand : aval<Option<int>>)
-        (lowerPercentile : aval<float>)
-        (upperPercentile : aval<float>)
         (gamma : aval<float>)
         (amountHighlight : aval<float>)
         (toneHighlight : aval<float>)
@@ -1735,6 +1740,8 @@ module Image =
         (toneShadow : aval<float>)
         (radiusShadow : aval<float>)
         (midtoneContrastGainFactor : aval<float>)
+        (blackClipPercentile : aval<float>)
+        (whiteClipPercentile : aval<float>)
         : aval<ITexture> =
 
         createRgbCompositeTextureWithHighlights
@@ -1745,8 +1752,6 @@ module Image =
             greenDenominatorBand
             blueNumeratorBand
             blueDenominatorBand
-            lowerPercentile
-            upperPercentile
             gamma
             amountHighlight
             toneHighlight
@@ -1755,6 +1760,8 @@ module Image =
             toneShadow
             radiusShadow
             midtoneContrastGainFactor
+            blackClipPercentile
+            whiteClipPercentile
 
     let private tryReadWavelengthsFromJson (jsonPath : string) =
         try

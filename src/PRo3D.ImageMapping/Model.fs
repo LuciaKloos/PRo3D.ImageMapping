@@ -39,9 +39,6 @@ type RgbComposite =
         redDenominatorBand     : Option<int>
         greenDenominatorBand   : Option<int>
         blueDenominatorBand    : Option<int>
-
-        lowerPercentile        : NumericInput
-        upperPercentile        : NumericInput
         gamma                  : NumericInput
     }
 
@@ -89,6 +86,21 @@ module MidtoneContrastAdjustment =
             gainFactor = { Numeric.init with min = -1.0; max = 1.0; step = 0.01; value = 0.0 }
         }
 
+[<ModelType>]
+type BlackWhiteClip =
+    {
+        blackClipPercentile : NumericInput
+        whiteClipPercentile : NumericInput
+    }
+
+module BlackWhiteClip =
+    let init =
+        {
+            blackClipPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.01; value = 2.0 }
+            whiteClipPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.01; value = 2.0 }
+        }
+
+
 
 module RgbComposite = 
     let empty = 
@@ -99,9 +111,6 @@ module RgbComposite =
             redDenominatorBand = None
             greenDenominatorBand = None
             blueDenominatorBand = None
-
-            lowerPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.1; value = 2.0 }
-            upperPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.1; value = 98.0 }
             gamma = { Numeric.init with min = 0.01; max = 5.0; step = 0.01; value = 1.0 }
         }
 
@@ -137,8 +146,6 @@ module RgbComposite =
             blueDenominatorBand =
                 preferredBand 0 0 bandCount
 
-            lowerPercentile = settings.lowerPercentile
-            upperPercentile = settings.upperPercentile
             gamma = settings.gamma
         }
 
@@ -227,6 +234,7 @@ type Model =
         highlightAdjustment : HighlightAdjustment
         shadowAdjustment    : ShadowAdjustment
         midtoneContrastAdjustment : MidtoneContrastAdjustment
+        blackWhiteClip  : BlackWhiteClip
     }
 
 type ImageMessage =
@@ -253,8 +261,6 @@ type Message =
     | SetYaw of Numeric.Action
     | SetPitch of Numeric.Action
     | SetRgbBand of RgbChannel * RgbBandRole * Index
-    | SetRgbLowerPercentile of Numeric.Action
-    | SetRgbUpperPercentile of Numeric.Action
     | SetRgbGamma of Numeric.Action
     | SetAmountHighlight of Numeric.Action
     | SetToneHighlight of Numeric.Action
@@ -263,4 +269,6 @@ type Message =
     | SetToneShadow of Numeric.Action
     | SetRadiusShadow of Numeric.Action
     | SetMidtoneContrastGainFactor of Numeric.Action
+    | SetBlackClipPercentile of Numeric.Action
+    | SetWhiteClipPercentile of Numeric.Action
     | Nop

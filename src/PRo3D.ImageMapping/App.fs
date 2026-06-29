@@ -28,6 +28,7 @@ module App =
         highlightAdjustment = HighlightAdjustment.init
         shadowAdjustment = ShadowAdjustment.init
         midtoneContrastAdjustment = MidtoneContrastAdjustment.init
+        blackWhiteClip = BlackWhiteClip.init
     }
 
     let update (m : Model) (msg : Message) = 
@@ -213,30 +214,8 @@ module App =
                             |> RgbComposite.set rgbChannel rgbBandRole bandIndex
                 }
 
-            | None ->
+            | None ->        
                 m
-        | SetRgbLowerPercentile action ->
-            {
-                m with
-                    rgbComposite =
-                        {
-                            m.rgbComposite with
-                                lowerPercentile =
-                                    Numeric.update m.rgbComposite.lowerPercentile action
-                        }
-            }
-
-        | SetRgbUpperPercentile action ->
-            {
-                m with
-                    rgbComposite =
-                        {
-                            m.rgbComposite with
-                                upperPercentile =
-                                    Numeric.update m.rgbComposite.upperPercentile action
-                        }
-            }
-
         | SetRgbGamma action ->
             {
                 m with
@@ -317,6 +296,26 @@ module App =
                                     Numeric.update m.midtoneContrastAdjustment.gainFactor action
                         }
             }
+        | SetBlackClipPercentile action ->
+            {
+                m with
+                    blackWhiteClip =
+                        {
+                            m.blackWhiteClip with
+                                blackClipPercentile =
+                                    Numeric.update m.blackWhiteClip.blackClipPercentile action
+                        }
+            }
+        | SetWhiteClipPercentile action ->
+            {
+                m with
+                    blackWhiteClip =
+                        {
+                            m.blackWhiteClip with
+                                whiteClipPercentile = 
+                                    Numeric.update m.blackWhiteClip.whiteClipPercentile action
+                        }
+            }
 
 
     
@@ -331,8 +330,6 @@ module App =
                 m.rgbComposite.greenDenominatorBand
                 m.rgbComposite.blueNumeratorBand
                 m.rgbComposite.blueDenominatorBand
-                m.rgbComposite.lowerPercentile.value
-                m.rgbComposite.upperPercentile.value
                 m.rgbComposite.gamma.value
                 m.highlightAdjustment.amount.value
                 m.highlightAdjustment.tone.value
@@ -341,12 +338,9 @@ module App =
                 m.shadowAdjustment.tone.value
                 m.shadowAdjustment.radius.value
                 m.midtoneContrastAdjustment.gainFactor.value
+                m.blackWhiteClip.blackClipPercentile.value
+                m.blackWhiteClip.whiteClipPercentile.value
 
-        let listAttributes =
-            amap {
-                yield clazz "ui divided list inverted segment"
-                yield style "overflow-y : hidden"
-            } |> AttributeMap.ofAMap
 
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({title: 'Select multispectral image', filters: [{name: 'Multispectral TIFF', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open multispectral image dialog:', error);});"
@@ -544,25 +538,7 @@ module App =
                             Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
                         ]
                     ]
-                    div [clazz "item"; style "margin-top: 10px;"] [
-                        div [style "padding-left: 5px"] [text "RGB contrast:"]
-                        Html.table [
-                            Html.row "Lower percentile:" [
-                                Numeric.view' [NumericInputType.InputBox] m.rgbComposite.lowerPercentile
-                                |> UI.map SetRgbLowerPercentile
-                            ]
-
-                            Html.row "Upper percentile:" [
-                                Numeric.view' [NumericInputType.InputBox] m.rgbComposite.upperPercentile
-                                |> UI.map SetRgbUpperPercentile
-                            ]
-
-                            Html.row "Gamma:" [
-                                Numeric.view' [NumericInputType.InputBox] m.rgbComposite.gamma
-                                |> UI.map SetRgbGamma
-                            ]
-                        ]
-                    ]
+                   
                     div [clazz "item"; style "margin-top: 10px;"] [
                         div [style "padding-left: 5px"] [text "Highlights:"]
                         Html.table [
@@ -622,17 +598,30 @@ module App =
                     ]
 
                     div [clazz "item"; style "margin-top: 10px;"] [
-                        div [style "padding-left: 5px"] [text "Midtone Contrast:"]
+                        div [style "padding-left: 5px"] [text "Adjustments:"]
                         Html.table [
-                            Html.row "Amount:" [
+                            Html.row "Color (Saturation):" [
+                                
+                            ]
+                            Html.row "Midtone Contrast:" [
                                 Numeric.view' [NumericInputType.Slider] m.midtoneContrastAdjustment.gainFactor  
                                 |> UI.map SetMidtoneContrastGainFactor
 
                                 Numeric.view' [NumericInputType.InputBox] m.midtoneContrastAdjustment.gainFactor
                                 |> UI.map SetMidtoneContrastGainFactor
                             ]
+                            Html.row "Black Clip:" [
+                                Numeric.view' [NumericInputType.InputBox] m.blackWhiteClip.blackClipPercentile
+                                |> UI.map SetBlackClipPercentile
+                            ]
+                            Html.row "White Clip:" [
+                                Numeric.view' [NumericInputType.InputBox] m.blackWhiteClip.whiteClipPercentile
+                                |> UI.map SetWhiteClipPercentile
+                            ]
+
                         ]
                     ]
+
                     div [clazz "item"; style "margin-top: 10px;"] [
                         div [style "padding-left: 5px"] [text "Registration:"]
                         Html.table [  
