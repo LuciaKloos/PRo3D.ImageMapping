@@ -22,67 +22,7 @@ open PRo3D.SPICE
 open System.Text.Json
 open System.Collections.Concurrent
 
-module Shaders = 
-    open FShade
-    open Aardvark.Rendering.Effects
-
-    let instrumentSampler = 
-        sampler2d {
-            texture uniform?InstrumentImage
-            filter Filter.MinMagMipLinear
-            addressU WrapMode.Wrap
-            addressV WrapMode.Wrap
-        }
-
-    let colormapTextureSampler =
-        sampler2d {
-            texture uniform?ColormapTexture
-            filter Filter.MinMagMipLinear
-            addressU WrapMode.Wrap
-            addressV WrapMode.Wrap
-        }
-
-    let rgbCompositeSampler =
-        sampler2d {
-            texture uniform?RgbCompositeTexture
-            filter Filter.MinMagMipLinear
-            addressU WrapMode.Clamp
-            addressV WrapMode.Clamp
-        }
-
-    type UniformScope with
-        member x.MinValue : float = uniform?MinValue
-        member x.MaxValue : float = uniform?MaxValue
-        member x.UseFalseColor : bool = uniform?UseFalseColor
-        member x.DataType : int = uniform?DataType
-        member x.OverlayMax : V2d = uniform?OverlayMax
-        member x.OverlayMin : V2d = uniform?OverlayMin
-
-    let hshColors (v : Vertex)  = 
-        fragment {
-            let hshValueX = instrumentSampler.Sample(v.tc).X 
-            let remappedClampedNormalizedXInt16 =
-                ((min uniform.MaxValue (max uniform.MinValue (hshValueX * 65000.0))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
-            let remappedClampedNormalizedXFloat =
-                (hshValueX - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
-            let remapClampNormalize =
-                if uniform.UseFalseColor then
-                    V4d(
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        1.0
-                    )
-                else 
-                    colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
-            return remapClampNormalize
-        }
-
-    // only displays the finished RGB texture. Only samples at current texture coordinate
-    let displayRgbComposite (v : Vertex) =
-        fragment {
-            return rgbCompositeSampler.Sample(v.tc)
-        }
+open ImageMath
 
 module Image =
 
@@ -624,31 +564,6 @@ module Image =
             Log.warn "Could not read MBI manifest %s: %s" mbiPath error.Message
             None
 
-    let private clamp01 x =
-        let xf = float x
-        max 0.0 (min 1.0 xf)
-
-    let private contrastPointOperation
-        (gain : float)
-        (midpoint : float)
-        (inputValue : float) =
-
-        let b =
-            midpoint * (1.0 - gain)
-
-        gain * inputValue + b
-        |> clamp01
-
-    let private smoothstep edge0 edge1 x =
-        let t = 
-            if edge1 <= edge0 then
-                if x >= edge1 then 1.0 else 0.0
-            else 
-                clamp01 ((x - edge0) / (edge1 - edge0))
-
-        t * t * (3.0 - 2.0 * t)
-
-   
     let initial = { 
         colorMap = ColorMap.Magma;
         useFalseColor = true;
@@ -693,78 +608,6 @@ module Image =
         | PixelBuffers.Int32Bands bands ->
             bands.[bandIndex]
             |> Array.map float
-
-    let private percentile
-        (fraction : float)
-        (sortedValues : float[]) =
-
-        if sortedValues.Length = 0 then
-            0.0
-        else
-            let index =
-                fraction * float (sortedValues.Length - 1)
-                |> Math.Round
-                |> int
-                |> max 0
-                |> min (sortedValues.Length - 1)
-
-            sortedValues.[index]
-
-    // important, otherwise black
-    let private valueToByte
-        (gamma : float)
-        (minimum : float)
-        (maximum : float)
-        (value : float) =
-
-        if not (Double.IsFinite value) || maximum <= minimum then
-            0uy
-        else
-            // normalizes & clamps the result
-            let normalized = 
-                (value - minimum) / (maximum - minimum)
-                |> max 0.0
-                |> min 1.0
-
-            let safeGamma =
-                if Double.IsFinite gamma && gamma > 0.0 then
-                    gamma
-                else
-                    1.0
-
-            // Brightens darker values. Makes dark scientific values more visible.
-            // todo make this interactive
-            let gammaCorrected = 
-                Math.Pow(normalized, safeGamma) // gamma < 1 -> brightens; gamma > 1 -> darkens
-
-            // produces one byte of each of RGB
-            gammaCorrected * 255.0
-            |> Math.Round
-            |> byte
-
-    let private safeRatio
-        (minimumSignal : float)
-        (numerator : float[])
-        (denominator : float[]) =
-
-        if numerator.Length <> denominator.Length then
-            invalidArg
-                "denominator"
-                "Ratio bands must contain the same number of pixels."
-
-        Array.map2
-            (fun numeratorValue denominatorValue ->
-                if
-                    Double.IsFinite numeratorValue &&
-                    Double.IsFinite denominatorValue &&
-                    Math.Abs denominatorValue > minimumSignal
-                then
-                    numeratorValue / denominatorValue
-                else
-                    Double.NaN
-            )
-            numerator
-            denominator
 
     type private RgbBandSource =
         {
@@ -942,25 +785,6 @@ module Image =
                             values = averaged
                     }
 
-
-
-    let private readLogicalBand
-        (sources : list<RgbBandSource>)
-        (logicalBandIndex : int)
-        : Result<RgbBandData, string> =
-
-        match sources |> List.tryFind (fun source -> source.logicalIndex = logicalBandIndex) with
-        | Some source ->
-            readBandSourceAsFloat source
-
-        | None ->
-            Result.Error (
-                sprintf
-                    "Could not find logical RGB band %d. Available logical bands are: %s"
-                    logicalBandIndex
-                    (availableLogicalBandsMessage sources)
-            )
-
     let private validateSameDimensions
         (bands : list<RgbBandData>)
         : Result<int * int * int, string> =
@@ -993,6 +817,24 @@ module Image =
 
             | None ->
                 Result.Ok (first.width, first.height, first.values.Length)
+
+
+    let private readLogicalBand
+        (sources : list<RgbBandSource>)
+        (logicalBandIndex : int)
+        : Result<RgbBandData, string> =
+
+        match sources |> List.tryFind (fun source -> source.logicalIndex = logicalBandIndex) with
+        | Some source ->
+            readBandSourceAsFloat source
+
+        | None ->
+            Result.Error (
+                sprintf
+                    "Could not find logical RGB band %d. Available logical bands are: %s"
+                    logicalBandIndex
+                    (availableLogicalBandsMessage sources)
+            )
 
     let private readAverageLogicalBand
         (sources : list<RgbBandSource>)
