@@ -25,6 +25,8 @@ module App =
         boresightAdjustment = BoresightAdjustment.identity
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))  
         rgbComposite = RgbComposite.empty
+        highlightAdjustment = HighlightAdjustment.init
+        shadowAdjustment = ShadowAdjustment.init
     }
 
     let update (m : Model) (msg : Message) = 
@@ -244,6 +246,66 @@ module App =
                                     Numeric.update m.rgbComposite.gamma action
                         }
             }
+        | SetAmountHighlight action ->
+            {
+                m with 
+                    highlightAdjustment =
+                        {
+                            m.highlightAdjustment with
+                                amount = 
+                                    Numeric.update m.highlightAdjustment.amount action
+                        }
+            }
+        | SetToneHighlight action ->
+            {
+                m with 
+                    highlightAdjustment =
+                        {
+                            m.highlightAdjustment with
+                                tone = 
+                                    Numeric.update m.highlightAdjustment.tone action
+                        }
+            }
+        | SetRadiusHighlight action ->
+            {
+                m with 
+                    highlightAdjustment =
+                        {
+                            m.highlightAdjustment with
+                                radius = 
+                                    Numeric.update m.highlightAdjustment.radius action
+                        }
+            }
+        | SetAmountShadow action ->
+            {
+                m with 
+                    shadowAdjustment =
+                        {
+                            m.shadowAdjustment with
+                                amount = 
+                                    Numeric.update m.shadowAdjustment.amount action
+                        }
+            }
+        | SetToneShadow action ->
+            {
+                m with 
+                    shadowAdjustment =
+                        {
+                            m.shadowAdjustment with
+                                tone = 
+                                    Numeric.update m.shadowAdjustment.tone action
+                        }
+            }
+        | SetRadiusShadow action ->
+            {
+                m with 
+                    shadowAdjustment =
+                        {
+                            m.shadowAdjustment with
+                                radius = 
+                                    Numeric.update m.shadowAdjustment.radius action
+                        }
+            }
 
 
     
@@ -261,6 +323,12 @@ module App =
                 m.rgbComposite.lowerPercentile.value
                 m.rgbComposite.upperPercentile.value
                 m.rgbComposite.gamma.value
+                m.highlightAdjustment.amount.value
+                m.highlightAdjustment.tone.value
+                m.highlightAdjustment.radius.value
+                m.shadowAdjustment.amount.value
+                m.shadowAdjustment.tone.value
+                m.shadowAdjustment.radius.value
 
         let listAttributes =
             amap {
@@ -355,17 +423,6 @@ module App =
                                                                     (Path.GetFileName path)
                                                                     bandNumber
 
-                                                            //match channel.name with
-                                                            //| Some wavelength ->
-                                                            //    sprintf "%s — Band %d (%s)"
-                                                            //        (Path.GetFileName path)
-                                                            //        bandNumber
-                                                            //        wavelength
-
-                                                            //| None ->
-                                                            //    sprintf "%s — Band %d"
-                                                            //        (Path.GetFileName path)
-                                                            //        bandNumber
                                                         )
                                                     )
                                                 ]
@@ -492,6 +549,42 @@ module App =
                                 Numeric.view' [NumericInputType.InputBox] m.rgbComposite.gamma
                                 |> UI.map SetRgbGamma
                             ]
+                        ]
+                    ]
+                    div [clazz "item"; style "margin-top: 10px;"] [
+                        div [style "padding-left: 5px"] [text "Highlights:"]
+                        Html.table [
+                            Html.row "Amount:" [
+                                Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.amount  
+                                |> UI.map SetAmountHighlight
+                            ]
+
+                            Html.row "Tone:" [
+                                Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.tone
+                                |> UI.map SetToneHighlight
+                            ]
+
+                            Html.row "Radius:" [
+                                Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.radius
+                                |> UI.map SetRadiusHighlight                          ]
+                        ]
+                    ]
+                    div [clazz "item"; style "margin-top: 10px;"] [
+                        div [style "padding-left: 5px"] [text "Shadows:"]
+                        Html.table [
+                            Html.row "Amount:" [
+                                Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.amount  
+                                |> UI.map SetAmountShadow
+                            ]
+
+                            Html.row "Tone:" [
+                                Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.tone
+                                |> UI.map SetToneShadow
+                            ]
+
+                            Html.row "Radius:" [
+                                Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.radius
+                                |> UI.map SetRadiusShadow                          ]
                         ]
                     ]
                     div [clazz "item"; style "margin-top: 10px;"] [

@@ -624,6 +624,20 @@ module Image =
             Log.warn "Could not read MBI manifest %s: %s" mbiPath error.Message
             None
 
+    let private clamp01 x =
+        let xf = float x
+        max 0.0 (min 1.0 xf)
+
+    let private smoothstep edge0 edge1 x =
+        let t = 
+            if edge1 <= edge0 then
+                if x >= edge1 then 1.0 else 0.0
+            else 
+                clamp01 ((x - edge0) / (edge1 - edge0))
+
+        t * t * (3.0 - 2.0 * t)
+
+   
     let initial = { 
         colorMap = ColorMap.Magma;
         useFalseColor = true;
@@ -816,8 +830,8 @@ module Image =
                     | Result.Ok (width, height, _, values) ->
                         let values =
                             match info.productKind with
-                            | Reflectance ->
-                                applyEmitAuxiliaryMasks source.filePath source.channelIndex values
+                            | Reflectance //->
+                                //applyEmitAuxiliaryMasks source.filePath source.channelIndex values
                             | ReflectanceUncertainty
                             | Mask ->
                                 values
@@ -1047,6 +1061,12 @@ module Image =
         (lowerPercentile : float)
         (upperPercentile : float)
         (gamma : float)
+        (highlightAmount : float)
+        (highlightTone   : float)
+        (highlightRadius : float)
+        (shadowAmount : float)
+        (shadowTone   : float)
+        (shadowRadius : float)
         : Result<PixImage<byte>, string> =
 
         try
@@ -1192,8 +1212,213 @@ module Image =
                         if usesNetCDF then
                             Some (Array.zeroCreate<byte> (pixelCount * 3))
                         else
+
                             None
 
+                    let redBytes =
+                        Array.zeroCreate<byte> pixelCount
+
+                    let greenBytes =
+                        Array.zeroCreate<byte> pixelCount
+
+                    let blueBytes =
+                        Array.zeroCreate<byte> pixelCount
+
+                    let alphaBytes =
+                        Array.zeroCreate<byte> pixelCount
+
+                    let luminance =
+                        Array.zeroCreate<float> pixelCount
+
+                    // First pass: create display RGB bytes and luminance once for the whole image.
+                    for index in 0 .. pixelCount - 1 do
+                        if validForeground.[index] then
+                            let r =
+                                valueToByte gamma redMin redMax redBand.[index]
+
+                            let g =
+                                valueToByte gamma greenMin greenMax greenBand.[index]
+
+                            let b =
+                                valueToByte gamma blueMin blueMax blueBand.[index]
+
+                            redBytes.[index] <- r
+                            greenBytes.[index] <- g
+                            blueBytes.[index] <- b
+                            alphaBytes.[index] <- 255uy
+
+                            let rf =
+                                float r / 255.0
+
+                            let gf =
+                                float g / 255.0
+
+                            let bf =
+                                float b / 255.0
+
+                            luminance.[index] <-
+                                0.2126 * rf + 0.7152 * gf + 0.0722 * bf
+
+                            match debugRgbBytes with
+                            | Some bytes ->
+                                let offset =
+                                    index * 3
+
+                                bytes.[offset + 0] <- r
+                                bytes.[offset + 1] <- g
+                                bytes.[offset + 2] <- b
+
+                            | None ->
+                                ()
+
+                    let highlightStart =
+                        1.0 - clamp01 highlightTone
+
+                    let highlightMask =
+                        Array.init pixelCount (fun index ->
+                            if alphaBytes.[index] > 0uy then
+                                smoothstep highlightStart 1.0 luminance.[index]
+                            else
+                                0.0
+                        )
+
+                    let shadowEnd =
+                        clamp01 shadowTone
+
+                    let shadowMask =
+                        Array.init pixelCount (fun index ->
+                            if alphaBytes.[index] > 0uy then
+                                1.0 - smoothstep 0.0 shadowEnd luminance.[index]
+                            else
+                                0.0
+                        )
+
+                    let boxBlurMask
+                        (width : int)
+                        (height : int)
+                        (radius : int)
+                        (mask : float[])
+                        : float[] =
+
+                        if radius <= 0 then
+                            Array.copy mask
+                        else
+                            let temp =
+                                Array.zeroCreate<float> mask.Length
+
+                            let result =
+                                Array.zeroCreate<float> mask.Length
+
+                            // Horizontal pass.
+                            for y in 0 .. height - 1 do
+                                for x in 0 .. width - 1 do
+                                    let mutable sum = 0.0
+                                    let mutable count = 0
+                                    let x0 = max 0 (x - radius)
+                                    let x1 = min (width - 1) (x + radius)
+
+                                    for xx in x0 .. x1 do
+                                        let index =
+                                            y * width + xx
+
+                                        if alphaBytes.[index] > 0uy then
+                                            sum <- sum + mask.[index]
+                                            count <- count + 1
+
+                                    temp.[y * width + x] <-
+                                        if count > 0 then sum / float count else 0.0
+
+                            // Vertical pass.
+                            for y in 0 .. height - 1 do
+                                for x in 0 .. width - 1 do
+                                    let mutable sum = 0.0
+                                    let mutable count = 0
+                                    let y0 = max 0 (y - radius)
+                                    let y1 = min (height - 1) (y + radius)
+
+                                    for yy in y0 .. y1 do
+                                        let index =
+                                            yy * width + x
+
+                                        if alphaBytes.[index] > 0uy then
+                                            sum <- sum + temp.[index]
+                                            count <- count + 1
+
+                                    result.[y * width + x] <-
+                                        if count > 0 then sum / float count else 0.0
+
+                            result
+
+                    let radiusHighlightPixels =
+                        if Double.IsFinite highlightRadius then
+                            int (round highlightRadius) |> max 0
+                        else
+                            0
+
+                    let radiusShadowPixels =
+                        if Double.IsFinite highlightRadius then
+                            int (round highlightRadius) |> max 0
+                        else    
+                            0
+
+                    let localHighlightMask =
+                        boxBlurMask width height radiusHighlightPixels highlightMask
+
+                    let localShadowMask =
+                        boxBlurMask width height radiusShadowPixels shadowMask
+
+                    let clampedAmountHighlight =
+                        clamp01 highlightAmount
+                    
+                    let clampedAmountShadow =
+                        clamp01 shadowAmount
+
+                    let adjustedRedBytes =
+                        Array.zeroCreate<byte> pixelCount
+
+                    let adjustedGreenBytes =
+                        Array.zeroCreate<byte> pixelCount
+
+                    let adjustedBlueBytes =
+                        Array.zeroCreate<byte> pixelCount
+
+                    // Third pass: darken highlights according to Amount * local highlight mask.
+                    for index in 0 .. pixelCount - 1 do
+                        if alphaBytes.[index] > 0uy then
+                            let highlightMaskValue = 
+                                localHighlightMask.[index]
+
+                            let shadowMaskValue =
+                                localShadowMask.[index]
+
+                            let applyAdjustments (channel : byte) =
+                                let c = float channel / 255.0
+
+                                let afterHighlight =
+                                    c * (1.0 - clampedAmountHighlight * highlightMaskValue)
+
+                                let afterShadow =
+                                    afterHighlight + (1.0 - afterHighlight) * clampedAmountShadow * shadowMaskValue
+                            
+                                clamp01 afterShadow
+                                
+                            let r =
+                                applyAdjustments redBytes.[index]
+
+                            let g =
+                                applyAdjustments greenBytes.[index]
+
+                            let b =
+                                applyAdjustments blueBytes.[index]
+
+                            adjustedRedBytes.[index] <-
+                                byte (round (255.0 * r))
+
+                            adjustedGreenBytes.[index] <-
+                                byte (round (255.0 * g))
+
+                            adjustedBlueBytes.[index] <-
+                                byte (round (255.0 * b))
 
                     rgbImage
                         .GetMatrix<C4b>()
@@ -1207,30 +1432,13 @@ module Image =
                             let index =
                                 y * width + x
 
-                            if validForeground.[index] then
-                                let r =
-                                    valueToByte gamma redMin redMax redBand.[index]
-
-                                let g =
-                                    valueToByte gamma greenMin greenMax greenBand.[index]
-
-                                let b =
-                                    valueToByte gamma blueMin blueMax blueBand.[index]
-
-                                match debugRgbBytes with
-                                | Some bytes ->
-                                    let offset =
-                                        index * 3
-
-                                    bytes.[offset + 0] <- r
-                                    bytes.[offset + 1] <- g
-                                    bytes.[offset + 2] <- b
-
-                                | None ->
-                                    ()
-
-
-                                C4b(r, g, b, 255uy)
+                            if alphaBytes.[index] > 0uy then
+                                C4b(
+                                    adjustedRedBytes.[index],
+                                    adjustedGreenBytes.[index],
+                                    adjustedBlueBytes.[index],
+                                    255uy
+                                )
                             else
                                 C4b(0uy, 0uy, 0uy, 0uy)
                         )
@@ -1271,6 +1479,12 @@ module Image =
         (lowerPercentile : float)
         (upperPercentile : float)
         (gamma : float)
+        (highlightAmount : float)
+        (highlightTone : float)
+        (highlightRadius : float)
+        (shadowAmount : float)
+        (shadowTone : float)
+        (shadowRadius : float)
         : ITexture =
 
         match
@@ -1285,6 +1499,12 @@ module Image =
                 lowerPercentile
                 upperPercentile
                 gamma
+                highlightAmount
+                highlightTone
+                highlightRadius
+                shadowAmount
+                shadowTone
+                shadowRadius
         with
         | Result.Ok image ->
             PixTexture2d(
@@ -1302,8 +1522,8 @@ module Image =
             DefaultTextures.checkerboard.GetValue()
 
     // Makes the RGB texture adaptive. It is recalculated when the loaded image rows,
-    // RGB band selections, or contrast/gamma controls change.
-    let createRgbCompositeTexture
+    // RGB band selections, contrast/gamma controls, or highlight controls change.
+    let createRgbCompositeTextureWithHighlights
         (images : alist<AdaptiveImage>)
         (redNumeratorBand : aval<Option<int>>)
         (redDenominatorBand : aval<Option<int>>)
@@ -1314,6 +1534,12 @@ module Image =
         (lowerPercentile : aval<float>)
         (upperPercentile : aval<float>)
         (gamma : aval<float>)
+        (highlightAmount : aval<float>)
+        (highlightTone : aval<float>)
+        (highlightRadius : aval<float>)
+        (shadowAmount : aval<float>)
+        (shadowTone : aval<float>)
+        (shadowRadius : aval<float>)
         : aval<ITexture> =
 
         let adaptiveImages =
@@ -1352,6 +1578,24 @@ module Image =
             let gammaValue =
                 gamma.GetValue token
 
+            let highlightAmountValue =
+                highlightAmount.GetValue token
+
+            let highlightToneValue =
+                highlightTone.GetValue token
+
+            let highlightRadiusValue =
+                highlightRadius.GetValue token
+
+            let shadowAmountValue =
+                shadowAmount.GetValue token
+
+            let shadowToneValue =
+                shadowTone.GetValue token
+
+            let shadowRadiusValue =
+                shadowRadius.GetValue token
+
             match
                 sources,
                 redNumeratorValue,
@@ -1383,10 +1627,56 @@ module Image =
                     lowerPercentileValue
                     upperPercentileValue
                     gammaValue
+                    highlightAmountValue
+                    highlightToneValue
+                    highlightRadiusValue
+                    shadowAmountValue
+                    shadowToneValue
+                    shadowRadiusValue
 
             | _ ->
                 DefaultTextures.checkerboard.GetValue()
         )
+
+    // Backwards-compatible wrapper for the existing App.fs call.
+    // With these defaults the highlight adjustment is disabled until App.fs wires sliders
+    // to createRgbCompositeTextureWithHighlights.
+    let createRgbCompositeTexture
+        (images : alist<AdaptiveImage>)
+        (redNumeratorBand : aval<Option<int>>)
+        (redDenominatorBand : aval<Option<int>>)
+        (greenNumeratorBand : aval<Option<int>>)
+        (greenDenominatorBand : aval<Option<int>>)
+        (blueNumeratorBand : aval<Option<int>>)
+        (blueDenominatorBand : aval<Option<int>>)
+        (lowerPercentile : aval<float>)
+        (upperPercentile : aval<float>)
+        (gamma : aval<float>)
+        (amountHighlight : aval<float>)
+        (toneHighlight : aval<float>)
+        (radiusHighlight : aval<float>)
+        (amountShadow : aval<float>)
+        (toneShadow : aval<float>)
+        (radiusShadow : aval<float>)
+        : aval<ITexture> =
+
+        createRgbCompositeTextureWithHighlights
+            images
+            redNumeratorBand
+            redDenominatorBand
+            greenNumeratorBand
+            greenDenominatorBand
+            blueNumeratorBand
+            blueDenominatorBand
+            lowerPercentile
+            upperPercentile
+            gamma
+            amountHighlight
+            toneHighlight
+            radiusHighlight
+            amountShadow
+            toneShadow
+            radiusShadow
 
     let private tryReadWavelengthsFromJson (jsonPath : string) =
         try
@@ -1998,18 +2288,7 @@ module Image =
         let referenceFrame = cval "ECLIPJ2000"
         let referenceFrame = cval "IAU_MARS"
 
-        let currentProjectedImageFromImage (m : AdaptiveImage) =
-            m.texture
-            |> AVal.map (fun path ->
-                if File.Exists path then
-                    Some (
-                        path,
-                        InstrumentMetadata.tryParseMetadataForImagePath path
-                    )
-                else
-                    None
-            )
-
+      
         let currentProjectedImage =
             sourceImagePath
             |> AVal.map (function

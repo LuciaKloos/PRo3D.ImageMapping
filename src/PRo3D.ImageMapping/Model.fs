@@ -45,6 +45,38 @@ type RgbComposite =
         gamma                  : NumericInput
     }
 
+[<ModelType>]
+type HighlightAdjustment = 
+    { 
+        amount  :   NumericInput
+        tone    :   NumericInput
+        radius  :   NumericInput
+    }
+
+module HighlightAdjustment =
+    let init =
+        {
+            amount = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.0 }
+            tone = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.5 }
+            radius = { Numeric.init with min = 0.0; max = 100.0; step = 1.0; value = 50.0 }
+        }
+
+[<ModelType>]
+type ShadowAdjustment = 
+    { 
+        amount  :   NumericInput
+        tone    :   NumericInput
+        radius  :   NumericInput
+    }
+
+module ShadowAdjustment =
+    let init =
+        {
+            amount = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.0 }
+            tone = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.5 }
+            radius = { Numeric.init with min = 0.0; max = 100.0; step = 1.0; value = 50.0 }
+        }
+
 module RgbComposite = 
     let empty = 
         {
@@ -179,6 +211,8 @@ type Model =
         boresightAdjustment : BoresightAdjustment
         cameraState     : OrbitState
         rgbComposite    : RgbComposite
+        highlightAdjustment : HighlightAdjustment
+        shadowAdjustment    : ShadowAdjustment
     }
 
 type ImageMessage =
@@ -208,4 +242,10 @@ type Message =
     | SetRgbLowerPercentile of Numeric.Action
     | SetRgbUpperPercentile of Numeric.Action
     | SetRgbGamma of Numeric.Action
+    | SetAmountHighlight of Numeric.Action
+    | SetToneHighlight of Numeric.Action
+    | SetRadiusHighlight of Numeric.Action
+    | SetAmountShadow of Numeric.Action
+    | SetToneShadow of Numeric.Action
+    | SetRadiusShadow of Numeric.Action
     | Nop
