@@ -77,6 +77,19 @@ module ShadowAdjustment =
             radius = { Numeric.init with min = 0.0; max = 100.0; step = 1.0; value = 50.0 }
         }
 
+[<ModelType>]
+type MidtoneContrastAdjustment =
+    {
+        gainFactor  : NumericInput
+    }
+
+module MidtoneContrastAdjustment =
+    let init =
+        {
+            gainFactor = { Numeric.init with min = -1.0; max = 1.0; step = 0.01; value = 0.0 }
+        }
+
+
 module RgbComposite = 
     let empty = 
         {
@@ -213,6 +226,7 @@ type Model =
         rgbComposite    : RgbComposite
         highlightAdjustment : HighlightAdjustment
         shadowAdjustment    : ShadowAdjustment
+        midtoneContrastAdjustment : MidtoneContrastAdjustment
     }
 
 type ImageMessage =
@@ -248,4 +262,5 @@ type Message =
     | SetAmountShadow of Numeric.Action
     | SetToneShadow of Numeric.Action
     | SetRadiusShadow of Numeric.Action
+    | SetMidtoneContrastGainFactor of Numeric.Action
     | Nop

@@ -27,6 +27,7 @@ module App =
         rgbComposite = RgbComposite.empty
         highlightAdjustment = HighlightAdjustment.init
         shadowAdjustment = ShadowAdjustment.init
+        midtoneContrastAdjustment = MidtoneContrastAdjustment.init
     }
 
     let update (m : Model) (msg : Message) = 
@@ -306,6 +307,16 @@ module App =
                                     Numeric.update m.shadowAdjustment.radius action
                         }
             }
+        | SetMidtoneContrastGainFactor action ->
+            {
+                m with 
+                    midtoneContrastAdjustment =
+                        {
+                            m.midtoneContrastAdjustment with
+                                gainFactor =
+                                    Numeric.update m.midtoneContrastAdjustment.gainFactor action
+                        }
+            }
 
 
     
@@ -329,6 +340,7 @@ module App =
                 m.shadowAdjustment.amount.value
                 m.shadowAdjustment.tone.value
                 m.shadowAdjustment.radius.value
+                m.midtoneContrastAdjustment.gainFactor.value
 
         let listAttributes =
             amap {
@@ -557,34 +569,68 @@ module App =
                             Html.row "Amount:" [
                                 Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.amount  
                                 |> UI.map SetAmountHighlight
+
+                                Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.amount
+                                |> UI.map SetAmountHighlight
                             ]
 
                             Html.row "Tone:" [
                                 Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.tone
                                 |> UI.map SetToneHighlight
+
+                                Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.tone
+                                |> UI.map SetToneHighlight
                             ]
 
                             Html.row "Radius:" [
                                 Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.radius
-                                |> UI.map SetRadiusHighlight                          ]
+                                |> UI.map SetRadiusHighlight
+
+                                Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.radius
+                                |> UI.map SetRadiusHighlight
+                            ]
                         ]
                     ]
+
                     div [clazz "item"; style "margin-top: 10px;"] [
                         div [style "padding-left: 5px"] [text "Shadows:"]
                         Html.table [
                             Html.row "Amount:" [
                                 Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.amount  
                                 |> UI.map SetAmountShadow
+
+                                Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.amount
+                                |> UI.map SetAmountShadow
                             ]
 
                             Html.row "Tone:" [
                                 Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.tone
                                 |> UI.map SetToneShadow
+
+                                Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.tone
+                                |> UI.map SetToneShadow
                             ]
 
                             Html.row "Radius:" [
                                 Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.radius
-                                |> UI.map SetRadiusShadow                          ]
+                                |> UI.map SetRadiusShadow
+
+                                Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.radius
+                                |> UI.map SetRadiusShadow
+                            ]
+                        ]
+                    ]
+
+                    div [clazz "item"; style "margin-top: 10px;"] [
+                        div [style "padding-left: 5px"] [text "Midtone Contrast:"]
+                        Html.table [
+                            Html.row "Amount:" [
+                                Numeric.view' [NumericInputType.Slider] m.midtoneContrastAdjustment.gainFactor  
+                                |> UI.map SetMidtoneContrastGainFactor
+
+                                Numeric.view' [NumericInputType.InputBox] m.midtoneContrastAdjustment.gainFactor
+                                |> UI.map SetMidtoneContrastGainFactor
+                            ]
                         ]
                     ]
                     div [clazz "item"; style "margin-top: 10px;"] [

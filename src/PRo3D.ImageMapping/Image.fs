@@ -628,6 +628,17 @@ module Image =
         let xf = float x
         max 0.0 (min 1.0 xf)
 
+    let private contrastPointOperation
+        (gain : float)
+        (midpoint : float)
+        (inputValue : float) =
+
+        let b =
+            midpoint * (1.0 - gain)
+
+        gain * inputValue + b
+        |> clamp01
+
     let private smoothstep edge0 edge1 x =
         let t = 
             if edge1 <= edge0 then
@@ -1067,6 +1078,7 @@ module Image =
         (shadowAmount : float)
         (shadowTone   : float)
         (shadowRadius : float)
+        (midtoneContrastGainFactor : float)
         : Result<PixImage<byte>, string> =
 
         try
@@ -1149,7 +1161,7 @@ module Image =
                             |> max 0.0
                             |> min 1.0
                         else
-                            0.05
+                            0.00
 
                     let upperPercentileFraction =
                         if Double.IsFinite upperPercentile then
@@ -1157,7 +1169,7 @@ module Image =
                             |> max 0.0
                             |> min 1.0
                         else
-                            0.98
+                            1.0
 
                     let lowerPercentileFraction, upperPercentileFraction =
                         if upperPercentileFraction <= lowerPercentileFraction then
@@ -1356,8 +1368,8 @@ module Image =
                             0
 
                     let radiusShadowPixels =
-                        if Double.IsFinite highlightRadius then
-                            int (round highlightRadius) |> max 0
+                        if Double.IsFinite shadowRadius then
+                            int (round shadowRadius) |> max 0
                         else    
                             0
 
@@ -1372,6 +1384,50 @@ module Image =
                     
                     let clampedAmountShadow =
                         clamp01 shadowAmount
+
+                    let clampedMidtoneContrastGainFactor =
+                        if Double.IsFinite midtoneContrastGainFactor then  
+                            midtoneContrastGainFactor |> max -1.0 |> min 1.0
+                        else 
+                            0.0
+
+                    let midtoneGainFactor =
+                        if clampedMidtoneContrastGainFactor >= 0.0 then
+                            1.0 + 2.0 * clampedMidtoneContrastGainFactor
+                        else 
+                            1.0 + clampedMidtoneContrastGainFactor
+
+                    let fixedMidtoneLow =
+                        0.25
+
+                    let fixedMidtoneHigh =
+                        0.75
+
+                    let midtoneLow =
+                        clamp01 fixedMidtoneLow
+
+                    let midtoneHigh =
+                        clamp01 fixedMidtoneHigh
+
+                    let midtoneMidpoint =
+                        (midtoneLow + midtoneHigh) * 0.5
+
+                    let validMidtoneRange =
+                        midtoneHigh > midtoneLow
+
+                    let midtoneMask =
+                        Array.init pixelCount (fun index ->
+                            if alphaBytes.[index] > 0uy && validMidtoneRange then
+                                let l =
+                                    luminance.[index]
+
+                                if l >= midtoneLow && l <= midtoneHigh then
+                                    1.0
+                                else
+                                    0.0
+                            else
+                                0.0
+                        )
 
                     let adjustedRedBytes =
                         Array.zeroCreate<byte> pixelCount
@@ -1391,16 +1447,29 @@ module Image =
                             let shadowMaskValue =
                                 localShadowMask.[index]
 
+                            let midtoneMaskValue =
+                                midtoneMask.[index]
+
                             let applyAdjustments (channel : byte) =
-                                let c = float channel / 255.0
+                                let c =
+                                    float channel / 255.0
 
                                 let afterHighlight =
                                     c * (1.0 - clampedAmountHighlight * highlightMaskValue)
 
                                 let afterShadow =
                                     afterHighlight + (1.0 - afterHighlight) * clampedAmountShadow * shadowMaskValue
-                            
-                                clamp01 afterShadow
+
+                                let afterMidtoneContrast =
+                                    contrastPointOperation midtoneGainFactor midtoneMidpoint afterShadow
+
+                                let result =
+                                    if midtoneMaskValue > 0.0 then
+                                        afterMidtoneContrast
+                                    else
+                                        afterShadow
+
+                                clamp01 result
                                 
                             let r =
                                 applyAdjustments redBytes.[index]
@@ -1485,6 +1554,7 @@ module Image =
         (shadowAmount : float)
         (shadowTone : float)
         (shadowRadius : float)
+        (midtoneContrastGainFactor : float)
         : ITexture =
 
         match
@@ -1505,6 +1575,7 @@ module Image =
                 shadowAmount
                 shadowTone
                 shadowRadius
+                midtoneContrastGainFactor
         with
         | Result.Ok image ->
             PixTexture2d(
@@ -1540,6 +1611,7 @@ module Image =
         (shadowAmount : aval<float>)
         (shadowTone : aval<float>)
         (shadowRadius : aval<float>)
+        (midToneContrastGainFactor : aval<float>)
         : aval<ITexture> =
 
         let adaptiveImages =
@@ -1596,6 +1668,9 @@ module Image =
             let shadowRadiusValue =
                 shadowRadius.GetValue token
 
+            let midtoneContrastGainFactorValue =
+                midToneContrastGainFactor.GetValue token
+
             match
                 sources,
                 redNumeratorValue,
@@ -1633,6 +1708,7 @@ module Image =
                     shadowAmountValue
                     shadowToneValue
                     shadowRadiusValue
+                    midtoneContrastGainFactorValue
 
             | _ ->
                 DefaultTextures.checkerboard.GetValue()
@@ -1658,6 +1734,7 @@ module Image =
         (amountShadow : aval<float>)
         (toneShadow : aval<float>)
         (radiusShadow : aval<float>)
+        (midtoneContrastGainFactor : aval<float>)
         : aval<ITexture> =
 
         createRgbCompositeTextureWithHighlights
@@ -1677,6 +1754,7 @@ module Image =
             amountShadow
             toneShadow
             radiusShadow
+            midtoneContrastGainFactor
 
     let private tryReadWavelengthsFromJson (jsonPath : string) =
         try
