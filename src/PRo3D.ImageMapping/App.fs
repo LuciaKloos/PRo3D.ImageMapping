@@ -7,6 +7,7 @@ open Aardvark.UI.Primitives
 open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
+open PRo3D.ImageMapping.TiffLoader
 
 open System.IO
 
@@ -47,7 +48,7 @@ module App =
                 Path.GetFullPath path
 
             let loadedBands =
-                Image.loadDataset fullPath
+                TiffLoader.loadDataset fullPath
 
             if List.isEmpty loadedBands then
                 Log.warn "No image bands were loaded from selected path: %s" fullPath

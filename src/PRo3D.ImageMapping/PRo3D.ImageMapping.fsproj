@@ -21,7 +21,13 @@
     <Compile Include="Dialogs.fs" />
     <Compile Include="Model.fs" />
     <Compile Include="ImageShader.fs" />
-    <Compile Include="ImageMath.fs" />
+	<Compile Include="ImageTypes.fs" />
+	<Compile Include="ImageMath.fs" />
+	<Compile Include="ImageMetadata.fs" />
+	<Compile Include="NetCdfLoader.fs" />
+	<Compile Include="MbiLoader.fs" />
+	<Compile Include="TiffLoader.fs" />
+	<Compile Include="RgbComposite.fs" />
     <Compile Include="Image.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
