@@ -100,7 +100,18 @@ module BlackWhiteClip =
             whiteClipPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.01; value = 2.0 }
         }
 
+[<ModelType>]
+type Saturation =
+    {
+        gainFactor  : NumericInput
+    }
 
+module Saturation =
+    let init =
+        {
+            gainFactor = { Numeric.init with min = -1.0; max = 1.0; step = 0.01; value = 0.0 }
+        }
+        
 
 module RgbComposite = 
     let empty = 
@@ -235,6 +246,7 @@ type Model =
         shadowAdjustment    : ShadowAdjustment
         midtoneContrastAdjustment : MidtoneContrastAdjustment
         blackWhiteClip  : BlackWhiteClip
+        saturation   : Saturation
     }
 
 type ImageMessage =
@@ -271,4 +283,5 @@ type Message =
     | SetMidtoneContrastGainFactor of Numeric.Action
     | SetBlackClipPercentile of Numeric.Action
     | SetWhiteClipPercentile of Numeric.Action
+    | SetSaturationGainFactor of Numeric.Action
     | Nop

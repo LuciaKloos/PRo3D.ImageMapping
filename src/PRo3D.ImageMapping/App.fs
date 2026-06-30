@@ -30,6 +30,7 @@ module App =
         shadowAdjustment = ShadowAdjustment.init
         midtoneContrastAdjustment = MidtoneContrastAdjustment.init
         blackWhiteClip = BlackWhiteClip.init
+        saturation = Saturation.init
     }
 
     let update (m : Model) (msg : Message) = 
@@ -317,6 +318,16 @@ module App =
                                     Numeric.update m.blackWhiteClip.whiteClipPercentile action
                         }
             }
+        | SetSaturationGainFactor action ->
+            {
+                m with
+                    saturation =
+                        {
+                            m.saturation with
+                                gainFactor =
+                                    Numeric.update m.saturation.gainFactor action
+                        }
+            }
 
 
     
@@ -341,7 +352,7 @@ module App =
                 m.midtoneContrastAdjustment.gainFactor.value
                 m.blackWhiteClip.blackClipPercentile.value
                 m.blackWhiteClip.whiteClipPercentile.value
-
+                m.saturation.gainFactor.value
 
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({title: 'Select multispectral image', filters: [{name: 'Multispectral TIFF', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open multispectral image dialog:', error);});"
@@ -602,7 +613,11 @@ module App =
                         div [style "padding-left: 5px"] [text "Adjustments:"]
                         Html.table [
                             Html.row "Color (Saturation):" [
-                                
+                                Numeric.view' [NumericInputType.Slider] m.saturation.gainFactor  
+                                |> UI.map SetSaturationGainFactor
+
+                                Numeric.view' [NumericInputType.InputBox] m.saturation.gainFactor
+                                |> UI.map SetSaturationGainFactor
                             ]
                             Html.row "Midtone Contrast:" [
                                 Numeric.view' [NumericInputType.Slider] m.midtoneContrastAdjustment.gainFactor  

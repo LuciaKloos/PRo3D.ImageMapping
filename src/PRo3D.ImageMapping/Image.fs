@@ -34,85 +34,6 @@ open PRo3D.ImageMapping.RgbComposite
 
 module Image =
 
-    let private trySaveDebugBmp
-        (width : int)
-        (height : int)
-        (rgbBytes : byte[])
-        (path : string) =
-
-        try
-            let directory =
-                Path.GetDirectoryName path
-
-            if not (String.IsNullOrWhiteSpace directory) then
-                Directory.CreateDirectory directory |> ignore
-
-            use stream =
-                File.Create path
-
-            use writer =
-                new BinaryWriter(stream)
-
-            let rowStride =
-                ((width * 3 + 3) / 4) * 4
-
-            let padding =
-                Array.zeroCreate<byte> (rowStride - width * 3)
-
-            let pixelDataSize =
-                rowStride * height
-
-            let fileSize =
-                54 + pixelDataSize
-
-            // BMP header
-            writer.Write(byte 0x42) // B
-            writer.Write(byte 0x4D) // M
-            writer.Write(int32 fileSize)
-            writer.Write(int16 0)
-            writer.Write(int16 0)
-            writer.Write(int32 54)
-
-            // DIB header
-            writer.Write(int32 40)
-            writer.Write(int32 width)
-            writer.Write(int32 height)
-            writer.Write(int16 1)
-            writer.Write(int16 24)
-            writer.Write(int32 0)
-            writer.Write(int32 pixelDataSize)
-            writer.Write(int32 2835)
-            writer.Write(int32 2835)
-            writer.Write(int32 0)
-            writer.Write(int32 0)
-
-            // BMP stores rows bottom-up and pixels as BGR
-            for y = height - 1 downto 0 do
-                for x = 0 to width - 1 do
-                    let index =
-                        (y * width + x) * 3
-
-                    let r =
-                        rgbBytes.[index + 0]
-
-                    let g =
-                        rgbBytes.[index + 1]
-
-                    let b =
-                        rgbBytes.[index + 2]
-
-                    writer.Write(b)
-                    writer.Write(g)
-                    writer.Write(r)
-
-                if padding.Length > 0 then
-                    writer.Write(padding)
-
-            Log.warn "Saved debug RGB composite to %s" path
-
-        with error ->
-            Log.warn "Could not save debug RGB composite: %s" error.Message
-
     let private loadRgbCompositeTextureFromSources
         (sources : list<RgbBandSource>)
         (redNumeratorIndex : int)
@@ -131,6 +52,7 @@ module Image =
         (midtoneContrastGainFactor : float)
         (blackClipPercentileValue : float)
         (whiteClipPercentileValue : float)
+        (saturation : float)
         : ITexture =
 
         match
@@ -152,6 +74,7 @@ module Image =
                 midtoneContrastGainFactor
                 blackClipPercentileValue
                 whiteClipPercentileValue
+                saturation
         with
         | Result.Ok image ->
             PixTexture2d(
@@ -188,6 +111,7 @@ module Image =
         (midToneContrastGainFactor : aval<float>)
         (blackClipPercentile : aval<float>)
         (whiteClipPercentile : aval<float>)
+        (saturation : aval<float>)
         : aval<ITexture> =
 
         let adaptiveImages =
@@ -247,6 +171,9 @@ module Image =
             let whiteClipPercentileValue = 
                 whiteClipPercentile.GetValue token
 
+            let saturationValue = 
+                saturation.GetValue token
+
             match
                 sources,
                 redNumeratorValue,
@@ -285,6 +212,7 @@ module Image =
                     midtoneContrastGainFactorValue
                     blackClipPercentileValue
                     whiteClipPercentileValue
+                    saturationValue
 
             | _ ->
                 DefaultTextures.checkerboard.GetValue()
@@ -311,6 +239,7 @@ module Image =
         (midtoneContrastGainFactor : aval<float>)
         (blackClipPercentile : aval<float>)
         (whiteClipPercentile : aval<float>)
+        (saturation : aval<float>)
         : aval<ITexture> =
 
         createRgbCompositeTextureWithHighlights
@@ -331,6 +260,7 @@ module Image =
             midtoneContrastGainFactor
             blackClipPercentile
             whiteClipPercentile
+            saturation
 
     // the 2D view displays the texture directly
     let createInstrumentScene

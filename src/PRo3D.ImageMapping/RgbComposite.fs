@@ -267,6 +267,7 @@ module RgbComposite =
                     | Result.Error _ -> None
                 )
                 |> averageBandData
+
     let private validateSameDimensions
         (bands : list<RgbBandData>)
         : Result<int * int * int, string> =
@@ -300,10 +301,14 @@ module RgbComposite =
             | None ->
                 Result.Ok (first.width, first.height, first.values.Length)
 
-    // Constructs a four-channel byte image from the currently loaded logical bands.
-    // This works for both dataset layouts:
-    // - stacked TIFF: every row points to the same TIFF, but uses another channelIndex
-    // - MBI manifest: every row points to its own single-band TIFF, usually channelIndex = 0
+    // raw band ratio values
+    //-> percentile stretch / black-white clip
+    //-> gamma
+    //-> RGB bytes
+    //-> luminance masks for highlights/shadows/midtones
+    //-> highlight / shadow / midtone contrast adjustment
+    //-> saturation adjustment
+    //-> final RGBA image
     let createRgbCompositePixImageFromSources
         (sources : list<RgbBandSource>)
         (redNumeratorIndex : int)
@@ -322,6 +327,7 @@ module RgbComposite =
         (midtoneContrastGainFactor : float)
         (blackClipPercentile : float)
         (whiteClipPercentile : float)
+        (saturation : float)
         : Result<PixImage<byte>, string> =
 
         try
@@ -679,6 +685,17 @@ module RgbComposite =
                                 0.0
                         )
 
+                    // UI saturation is centered around 0:
+                    // -1.0 -> grayscale, 0.0 -> unchanged, +1.0 -> oversaturated.
+                    // Internally this is a chroma multiplier:
+                    //  0.0 -> grayscale, 1.0 -> unchanged, 2.0 -> oversaturated.
+                    let saturationGain =
+                        if Double.IsFinite saturation then
+                            1.0 + (saturation |> max -1.0 |> min 1.0)
+                        else
+                            1.0
+
+
                     let adjustedRedBytes =
                         Array.zeroCreate<byte> pixelCount
 
@@ -730,14 +747,26 @@ module RgbComposite =
                             let b =
                                 applyAdjustments blueBytes.[index]
 
+                            let luminanceAfterAdjustments =
+                                0.2126 * r + 0.7152 * g + 0.0722 * b
+
+                            let saturatedRed =
+                                luminanceAfterAdjustments + saturationGain * ( r - luminanceAfterAdjustments )
+
+                            let saturatedGreen =
+                                luminanceAfterAdjustments + saturationGain * ( g - luminanceAfterAdjustments )
+
+                            let saturatedBlue =
+                                luminanceAfterAdjustments + saturationGain * ( b - luminanceAfterAdjustments )
+
                             adjustedRedBytes.[index] <-
-                                byte (round (255.0 * r))
+                                byte (round (255.0 * saturatedRed))
 
                             adjustedGreenBytes.[index] <-
-                                byte (round (255.0 * g))
+                                byte (round (255.0 * saturatedGreen))
 
                             adjustedBlueBytes.[index] <-
-                                byte (round (255.0 * b))
+                                byte (round (255.0 * saturatedBlue))
 
                     rgbImage
                         .GetMatrix<C4b>()
