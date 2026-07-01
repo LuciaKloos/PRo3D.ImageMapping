@@ -9,109 +9,38 @@ open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
 
 open System.IO
-open System.Runtime.InteropServices
 
-open HDF.PInvoke
-
-open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentProjection
 open PRo3D.InstrumentVisualization
 open PRo3D.Core
 open PRo3D.SPICE
 
-open System.Text.Json
-open System.Collections.Concurrent
-
-open ImageMath
-open ImageMetadata
-open NetCdfLoader
-open NetCdfLoader
-
-open PRo3D.ImageMapping.MbiLoader
 open PRo3D.ImageMapping.ImageDefaults
+open PRo3D.ImageMapping.NetCdfLoader
+open PRo3D.ImageMapping.MbiLoader
 open PRo3D.ImageMapping.TiffLoader
 open PRo3D.ImageMapping.RgbComposite
 
 module Image =
 
-    let private loadRgbCompositeTextureFromSources
-        (sources : list<RgbBandSource>)
-        (redNumeratorIndex : int)
-        (redDenominatorIndex : int)
-        (greenNumeratorIndex : int)
-        (greenDenominatorIndex : int)
-        (blueNumeratorIndex : int)
-        (blueDenominatorIndex : int)
-        (gamma : float)
-        (highlightAmount : float)
-        (highlightTone : float)
-        (highlightRadius : float)
-        (shadowAmount : float)
-        (shadowTone : float)
-        (shadowRadius : float)
-        (midtoneContrastGainFactor : float)
-        (blackClipPercentileValue : float)
-        (whiteClipPercentileValue : float)
-        (saturation : float)
-        : ITexture =
+    let loadDataset (path : string) : list<Image> =
+        match tryResolveNcPathToLoad path with
+        | Some ncPath ->
+            loadNcBands ncPath
 
-        match
-            createRgbCompositePixImageFromSources
-                sources
-                redNumeratorIndex
-                redDenominatorIndex
-                greenNumeratorIndex
-                greenDenominatorIndex
-                blueNumeratorIndex
-                blueDenominatorIndex
-                gamma
-                highlightAmount
-                highlightTone
-                highlightRadius
-                shadowAmount
-                shadowTone
-                shadowRadius
-                midtoneContrastGainFactor
-                blackClipPercentileValue
-                whiteClipPercentileValue
-                saturation
-        with
-        | Result.Ok image ->
-            PixTexture2d(
-                PixImageMipMap [|
-                    image :> PixImage
-                |],
-                false
-            ) :> ITexture
+        | None ->
+            match tryReadMbiBands path with
+            | Some _ ->
+                loadMbiBands path
 
-        | Result.Error error ->
-            Log.warn
-                "Could not create RGB composite: %s"
-                error
-
-            DefaultTextures.checkerboard.GetValue()
+            | None ->
+                loadTiffBands path
 
     // Makes the RGB texture adaptive. It is recalculated when the loaded image rows,
     // RGB band selections, contrast/gamma controls, or highlight controls change.
     let createRgbCompositeTextureWithHighlights
         (images : alist<AdaptiveImage>)
-        (redNumeratorBand : aval<Option<int>>)
-        (redDenominatorBand : aval<Option<int>>)
-        (greenNumeratorBand : aval<Option<int>>)
-        (greenDenominatorBand : aval<Option<int>>)
-        (blueNumeratorBand : aval<Option<int>>)
-        (blueDenominatorBand : aval<Option<int>>)
-        (gamma : aval<float>)
-        (highlightAmount : aval<float>)
-        (highlightTone : aval<float>)
-        (highlightRadius : aval<float>)
-        (shadowAmount : aval<float>)
-        (shadowTone : aval<float>)
-        (shadowRadius : aval<float>)
-        (midToneContrastGainFactor : aval<float>)
-        (blackClipPercentile : aval<float>)
-        (whiteClipPercentile : aval<float>)
-        (saturation : aval<float>)
+        (rgbCompositeRenderSettings : RgbCompositeRenderSettings)
         : aval<ITexture> =
 
         let adaptiveImages =
@@ -124,55 +53,70 @@ module Image =
                 |> fun images -> readAdaptiveBandSources images token
 
             let redNumeratorValue =
-                redNumeratorBand.GetValue token
+                rgbCompositeRenderSettings.redNumeratorBand.GetValue token
 
             let redDenominatorValue =
-                redDenominatorBand.GetValue token
+                rgbCompositeRenderSettings.redDenominatorBand.GetValue token
 
             let greenNumeratorValue =
-                greenNumeratorBand.GetValue token
+                rgbCompositeRenderSettings.greenNumeratorBand.GetValue token
 
             let greenDenominatorValue =
-                greenDenominatorBand.GetValue token
+                rgbCompositeRenderSettings.greenDenominatorBand.GetValue token
 
             let blueNumeratorValue =
-                blueNumeratorBand.GetValue token
+                rgbCompositeRenderSettings.blueNumeratorBand.GetValue token
 
             let blueDenominatorValue =
-                blueDenominatorBand.GetValue token
+                rgbCompositeRenderSettings.blueDenominatorBand.GetValue token
 
             let gammaValue =
-                gamma.GetValue token
+                rgbCompositeRenderSettings.gamma.GetValue token
+
+            let highlightAdjustmentValue =
+                rgbCompositeRenderSettings.highlightAdjustments.GetValue token
 
             let highlightAmountValue =
-                highlightAmount.GetValue token
+                highlightAdjustmentValue.amount.value
 
             let highlightToneValue =
-                highlightTone.GetValue token
+                highlightAdjustmentValue.tone.value
 
             let highlightRadiusValue =
-                highlightRadius.GetValue token
+                highlightAdjustmentValue.radius.value
+
+            let shadowAdjustmentValue =
+                rgbCompositeRenderSettings.shadowAdjustments.GetValue token
 
             let shadowAmountValue =
-                shadowAmount.GetValue token
+                shadowAdjustmentValue.amount.value
 
             let shadowToneValue =
-                shadowTone.GetValue token
+                shadowAdjustmentValue.tone.value
 
             let shadowRadiusValue =
-                shadowRadius.GetValue token
+                shadowAdjustmentValue.radius.value
+
+            let midtoneContrastValue =
+                rgbCompositeRenderSettings.midtoneContrast.GetValue token
 
             let midtoneContrastGainFactorValue =
-                midToneContrastGainFactor.GetValue token
+                midtoneContrastValue.gainFactor.value
+
+            let blackWhiteClipValue =
+                rgbCompositeRenderSettings.blackWhiteClip.GetValue token
 
             let blackClipPercentileValue =
-                blackClipPercentile.GetValue token
+                blackWhiteClipValue.blackClipPercentile.value
 
             let whiteClipPercentileValue = 
-                whiteClipPercentile.GetValue token
+                blackWhiteClipValue.whiteClipPercentile.value
 
             let saturationValue = 
-                saturation.GetValue token
+                rgbCompositeRenderSettings.saturation.GetValue token
+
+            let saturationGainFactorValue =
+                saturationValue.gainFactor.value
 
             match
                 sources,
@@ -194,73 +138,45 @@ module Image =
               Some blueNumerator,
               Some blueDenominator ->
 
-                loadRgbCompositeTextureFromSources
-                    sources
-                    redNumerator
-                    redDenominator
-                    greenNumerator
-                    greenDenominator
-                    blueNumerator
-                    blueDenominator
-                    gammaValue
-                    highlightAmountValue
-                    highlightToneValue
-                    highlightRadiusValue
-                    shadowAmountValue
-                    shadowToneValue
-                    shadowRadiusValue
-                    midtoneContrastGainFactorValue
-                    blackClipPercentileValue
-                    whiteClipPercentileValue
-                    saturationValue
+                match
+                    createRgbCompositePixImageFromSources
+                        sources
+                        redNumerator
+                        redDenominator
+                        greenNumerator
+                        greenDenominator
+                        blueNumerator
+                        blueDenominator
+                        gammaValue
+                        highlightAmountValue
+                        highlightToneValue
+                        highlightRadiusValue
+                        shadowAmountValue
+                        shadowToneValue
+                        shadowRadiusValue
+                        midtoneContrastGainFactorValue
+                        blackClipPercentileValue
+                        whiteClipPercentileValue
+                        saturationGainFactorValue
+                with
+                | Result.Ok image ->
+                    PixTexture2d(
+                        PixImageMipMap [|
+                            image :> PixImage
+                        |],
+                        false
+                    ) :> ITexture
+
+                | Result.Error error ->
+                    Log.warn
+                        "Could not create RGB composite: %s"
+                        error
+
+                    DefaultTextures.checkerboard.GetValue()
 
             | _ ->
                 DefaultTextures.checkerboard.GetValue()
         )
-
-    // Backwards-compatible wrapper for the existing App.fs call.
-    // With these defaults the highlight adjustment is disabled until App.fs wires sliders
-    // to createRgbCompositeTextureWithHighlights.
-    let createRgbCompositeTexture
-        (images : alist<AdaptiveImage>)
-        (redNumeratorBand : aval<Option<int>>)
-        (redDenominatorBand : aval<Option<int>>)
-        (greenNumeratorBand : aval<Option<int>>)
-        (greenDenominatorBand : aval<Option<int>>)
-        (blueNumeratorBand : aval<Option<int>>)
-        (blueDenominatorBand : aval<Option<int>>)
-        (gamma : aval<float>)
-        (amountHighlight : aval<float>)
-        (toneHighlight : aval<float>)
-        (radiusHighlight : aval<float>)
-        (amountShadow : aval<float>)
-        (toneShadow : aval<float>)
-        (radiusShadow : aval<float>)
-        (midtoneContrastGainFactor : aval<float>)
-        (blackClipPercentile : aval<float>)
-        (whiteClipPercentile : aval<float>)
-        (saturation : aval<float>)
-        : aval<ITexture> =
-
-        createRgbCompositeTextureWithHighlights
-            images
-            redNumeratorBand
-            redDenominatorBand
-            greenNumeratorBand
-            greenDenominatorBand
-            blueNumeratorBand
-            blueDenominatorBand
-            gamma
-            amountHighlight
-            toneHighlight
-            radiusHighlight
-            amountShadow
-            toneShadow
-            radiusShadow
-            midtoneContrastGainFactor
-            blackClipPercentile
-            whiteClipPercentile
-            saturation
 
     // the 2D view displays the texture directly
     let createInstrumentScene
@@ -275,8 +191,6 @@ module Image =
             do! Shaders.displayRgbComposite
         }
 
-    
-    
     let update (m : Image) (msg : ImageMessage) =
         match msg with
             | SetDataTypeAndRange (dataType, min, max) ->
@@ -320,7 +234,6 @@ module Image =
                             | None -> string c.idx
                             | Some name -> name
                         Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.selectedChannel (fun value -> SetEXRChannel value) channelRepr
-                        // Html.SemUi.dropDown m.channel SetEXRChannel
                     ]
                 ]
                 Html.row "False Color:" [

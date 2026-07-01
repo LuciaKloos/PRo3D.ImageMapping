@@ -1,28 +1,12 @@
- 
 namespace PRo3D.ImageMapping
 
 open System
-open Aardvark.Base
-open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Rendering
 open FSharp.Data.Adaptive
-
-open System.IO
-open System.Runtime.InteropServices
-
-open HDF.PInvoke
-
-open Aardvark.PixImage.LibTiff
-open PRo3D.InstrumentProjection
-open PRo3D.InstrumentVisualization
-open PRo3D.Core
-open PRo3D.SPICE
-
-open System.Text.Json
-open System.Collections.Concurrent
-
 open PRo3D.ImageMapping.Model
+
+open PRo3D.InstrumentProjection
+
 
 type NcProductKind =
     | Reflectance
@@ -64,6 +48,21 @@ type MbiBandInfo =
             exposure   : Option<float>
         }
 
+type RgbCompositeRenderSettings =
+        {
+            redNumeratorBand : aval<Option<int>>
+            redDenominatorBand : aval<Option<int>>
+            greenNumeratorBand : aval<Option<int>>
+            greenDenominatorBand : aval<Option<int>>
+            blueNumeratorBand : aval<Option<int>>
+            blueDenominatorBand : aval<Option<int>>
+            gamma : aval<float>
+            highlightAdjustments : aval<HighlightAdjustment>
+            shadowAdjustments : aval<ShadowAdjustment>
+            midtoneContrast : aval<MidtoneContrastAdjustment>
+            blackWhiteClip : aval<BlackWhiteClip>
+            saturation : aval<Saturation>
+        }
 
 module ImageDefaults =
 

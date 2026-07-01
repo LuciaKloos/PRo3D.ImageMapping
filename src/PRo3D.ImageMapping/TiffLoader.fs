@@ -2,30 +2,14 @@ namespace PRo3D.ImageMapping
 
 open System
 open Aardvark.Base
-open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Rendering
-open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
 
 open System.IO
-open System.Runtime.InteropServices
-
-open HDF.PInvoke
 
 open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentProjection
-open PRo3D.InstrumentVisualization
 open PRo3D.Core
-open PRo3D.SPICE
-
-open System.Text.Json
-open System.Collections.Concurrent
-
-open ImageMath
-open ImageMetadata
-open NetCdfLoader
-open NetCdfLoader
 
 open PRo3D.ImageMapping.MbiLoader
 open PRo3D.ImageMapping.ImageDefaults
@@ -58,7 +42,7 @@ module TiffLoader =
             bands.[bandIndex]
             |> Array.map float
 
-    let loadBands (texturePath : string) : list<Image> =
+    let loadTiffBands (texturePath : string) : list<Image> =
 
         let fullPath = Path.GetFullPath texturePath
 
@@ -79,16 +63,7 @@ module TiffLoader =
             else
                 []
 
-        let dataType =
-            match tiffJson with
-            | Some metadata ->
-                match metadata.data_type.ToLowerInvariant() with
-                | "uint16" -> DataType.UInt16
-                | "uint32" -> DataType.UInt32
-                | "float"  -> DataType.Float
-                | _        -> DataType.UInt16
-            | None ->
-                DataType.UInt16
+        let dataType = dataTypeFromMetadata fullPath
 
         let rawMinValues =
             match tiffJson with
@@ -108,8 +83,6 @@ module TiffLoader =
             | None ->
                 []
 
-        // Ensure that these lists always contain one value per channel.
-        // ResetCustomMinMax indexes them using selectedChannel.idx.
         let defaultMinValues =
             [
                 for channelIndex in 0 .. channelCount - 1 do
@@ -161,16 +134,7 @@ module TiffLoader =
                         name = wavelengthName
                     }
 
-                let sliderMinimum, sliderMaximum =
-                    match dataType with
-                    | DataType.Float ->
-                        minimum, maximum
-
-                    | DataType.UInt16 ->
-                        0.0, 65535.0
-
-                    | DataType.UInt32 ->
-                        0.0, float UInt32.MaxValue
+                let sliderMinimum, sliderMaximum = sliderRangeForDataType dataType minimum maximum
 
                 let inputMinimum =
                     {
@@ -188,106 +152,17 @@ module TiffLoader =
                             max = sliderMaximum
                     }
 
-                yield
-                    {
-                        initial with
-                            texture = fullPath
-                            selectedChannel = channel
-                            bandIndex = channelIndex
-                            wavelength = wavelength
-
-                            // This band entry represents exactly one channel.
-                            channelOptions = [channel]
-
-                            defaultMinValues = defaultMinValues
-                            defaultMaxValues = defaultMaxValues
-
-                            inputMinValue = inputMinimum
-                            inputMaxValue = inputMaximum
-
-                            dataType = dataType
-                            distance = distance
-                            time = time
-                    }
+                createBandImage
+                    texturePath
+                    channelIndex
+                    channel
+                    wavelength
+                    dataType
+                    minimum
+                    maximum
+                    minimum
+                    maximum
+                    distance
+                    time
         ]
    
-    let loadDataset (path : string) : list<Image> =
-        match tryResolveNcPathToLoad path with
-        | Some ncPath ->
-            loadNcBands ncPath
-
-        | None ->
-            match tryReadMbiBands path with
-            | Some _ ->
-                loadMbiBands path
-
-            | None ->
-                loadBands path
-
-    let loadFile (texturePath : string) =
-        // this could be a fallback
-        let ifUsefulThisIsHowToExtractInfos = MultiBandReader.tryGetChannels texturePath
-
-        let (tiffMbiJson, tiffJson) = InstrumentMetadata.tryParseMetadataForImagePath texturePath
-
-        let channels =
-            match tiffJson with
-            | Some tf -> tf.channels
-            | None -> 1
-
-        let channelOptions = [ 0 .. channels - 1 ] |> List.map (fun channel -> {idx = channel; name = None})
-
-        let selectedChannelIdx = 0
-
-        let defaultMinValues = 
-            match tiffJson with
-            | Some tf -> tf.image_statistics |> Array.toList |> List.map (fun x -> x.minimum)
-            | None -> [0.0]
-
-        let defaultMaxValues = 
-            match tiffJson with
-            | Some tf -> tf.image_statistics |> Array.toList|> List.map (fun x -> x.maximum)
-            | None -> [0.0]
-
-        let dataType = 
-            match tiffJson with
-            | Some tf -> 
-                match tf.data_type with
-                | "uint16" -> DataType.UInt16
-                | "uint32" -> DataType.UInt32
-                | "float" -> DataType.Float
-                | _ -> DataType.UInt16
-            | None -> DataType.UInt16
-
-        let (rangeMin, rangeMax) =
-            match dataType with
-            | DataType.Float -> (defaultMinValues[selectedChannelIdx], defaultMaxValues[selectedChannelIdx])
-            | DataType.UInt16 
-            | _ -> (0, 65536)
-
-        let inputMinValue = { minValue with value = defaultMinValues[selectedChannelIdx]; min = rangeMin; max = rangeMax}
-
-        let inputMaxValue = { minValue with value = defaultMaxValues[selectedChannelIdx]; min = rangeMin; max = rangeMax }
-
-        let distance =
-            match tiffMbiJson with
-            | Some mbi -> mbi.targetPos.Length
-            | None -> 0.0
-
-        let time =
-            match tiffMbiJson with
-            | Some mbi -> mbi.obs_date
-            | None -> System.DateTime.MinValue // which default time?
-
-        { initial with
-            texture = Path.GetFullPath(texturePath);
-            defaultMinValues = defaultMinValues;
-            defaultMaxValues = defaultMaxValues;
-            inputMinValue = inputMinValue;
-            inputMaxValue = inputMaxValue;
-            selectedChannel = channelOptions[selectedChannelIdx];
-            channelOptions = channelOptions;
-            dataType = dataType;
-            distance = distance;
-            time = time;
-        }

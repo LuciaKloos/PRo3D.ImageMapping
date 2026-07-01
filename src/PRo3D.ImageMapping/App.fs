@@ -49,7 +49,7 @@ module App =
                 Path.GetFullPath path
 
             let loadedBands =
-                TiffLoader.loadDataset fullPath
+                Image.loadDataset fullPath
 
             if List.isEmpty loadedBands then
                 Log.warn "No image bands were loaded from selected path: %s" fullPath
@@ -330,29 +330,103 @@ module App =
             }
 
 
-    
+    let numericInputFromAdaptive
+        (token : AdaptiveToken)
+        (input : AdaptiveNumericInput)
+        : NumericInput =
+        {
+            min = input.min.GetValue token
+            max = input.max.GetValue token
+            step = input.step.GetValue token
+            format = input.format.GetValue token
+            value = input.value.GetValue token
+        }
+
     let view (m : AdaptiveModel) (showDOM : AdaptiveImage -> DomNode<ImageMessage>) (showRelative2DImage : aval<ITexture> -> DomNode<Message>) (showAbsolute2DAnd3DImage : aval<Option<string>> -> aval<ITexture> -> DomNode<Message>) =
+    
+        let rgbCompositeRenderSettings : RgbCompositeRenderSettings =
+            {
+                redNumeratorBand =
+                    m.rgbComposite.redNumeratorBand
+
+                redDenominatorBand =
+                    m.rgbComposite.redDenominatorBand
+
+                greenNumeratorBand =
+                    m.rgbComposite.greenNumeratorBand
+
+                greenDenominatorBand =
+                    m.rgbComposite.greenDenominatorBand
+
+                blueNumeratorBand =
+                    m.rgbComposite.blueNumeratorBand
+
+                blueDenominatorBand =
+                    m.rgbComposite.blueDenominatorBand
+
+                gamma =
+                    m.rgbComposite.gamma.value
+
+                highlightAdjustments =
+                    AVal.custom (fun token ->
+                        {
+                            amount =
+                                numericInputFromAdaptive token m.highlightAdjustment.amount
+
+                            tone =
+                                numericInputFromAdaptive token m.highlightAdjustment.tone
+
+                            radius =
+                                numericInputFromAdaptive token m.highlightAdjustment.radius
+                        }
+                    )
+
+                shadowAdjustments =
+                    AVal.custom (fun token ->
+                        {
+                            amount =
+                                numericInputFromAdaptive token m.shadowAdjustment.amount
+
+                            tone =
+                                numericInputFromAdaptive token m.shadowAdjustment.tone
+
+                            radius =
+                                numericInputFromAdaptive token m.shadowAdjustment.radius
+                        }
+                    )
+
+                midtoneContrast =
+                    AVal.custom (fun token ->
+                        {
+                            gainFactor =
+                                numericInputFromAdaptive token m.midtoneContrastAdjustment.gainFactor
+                        }
+                    )
+
+                blackWhiteClip =
+                    AVal.custom (fun token ->
+                        {
+                            blackClipPercentile =
+                                numericInputFromAdaptive token m.blackWhiteClip.blackClipPercentile
+
+                            whiteClipPercentile =
+                                numericInputFromAdaptive token m.blackWhiteClip.whiteClipPercentile
+                        }
+                    )
+
+                saturation =
+                    AVal.custom (fun token ->
+                        {
+                            gainFactor =
+                                numericInputFromAdaptive token m.saturation.gainFactor
+                        }
+                    )
+            }
 
         let rgbTexture =
-            Image.createRgbCompositeTexture
+            Image.createRgbCompositeTextureWithHighlights
                 m.images
-                m.rgbComposite.redNumeratorBand
-                m.rgbComposite.redDenominatorBand
-                m.rgbComposite.greenNumeratorBand
-                m.rgbComposite.greenDenominatorBand
-                m.rgbComposite.blueNumeratorBand
-                m.rgbComposite.blueDenominatorBand
-                m.rgbComposite.gamma.value
-                m.highlightAdjustment.amount.value
-                m.highlightAdjustment.tone.value
-                m.highlightAdjustment.radius.value
-                m.shadowAdjustment.amount.value
-                m.shadowAdjustment.tone.value
-                m.shadowAdjustment.radius.value
-                m.midtoneContrastAdjustment.gainFactor.value
-                m.blackWhiteClip.blackClipPercentile.value
-                m.blackWhiteClip.whiteClipPercentile.value
-                m.saturation.gainFactor.value
+                rgbCompositeRenderSettings
 
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({title: 'Select multispectral image', filters: [{name: 'Multispectral TIFF', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open multispectral image dialog:', error);});"

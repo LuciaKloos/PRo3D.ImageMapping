@@ -2,25 +2,6 @@ namespace PRo3D.ImageMapping
 
 open System
 open Aardvark.Base
-open Aardvark.UI
-open Aardvark.UI.Primitives
-open Aardvark.Rendering
-open FSharp.Data.Adaptive
-open PRo3D.ImageMapping.Model
-
-open System.IO
-open System.Runtime.InteropServices
-
-open HDF.PInvoke
-
-open Aardvark.PixImage.LibTiff
-open PRo3D.InstrumentProjection
-open PRo3D.InstrumentVisualization
-open PRo3D.Core
-open PRo3D.SPICE
-
-open System.Text.Json
-open System.Collections.Concurrent
 
 module ImageMath =
 

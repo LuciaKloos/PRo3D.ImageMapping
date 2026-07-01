@@ -1,8 +1,6 @@
 namespace PRo3D.ImageMapping
 
-open System.IO
 open System.Text.Json
-open Aardvark.Base
 
 module ImageMetadata =
 

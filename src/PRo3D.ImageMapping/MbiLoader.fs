@@ -2,30 +2,18 @@ namespace PRo3D.ImageMapping
 
 open System
 open Aardvark.Base
-open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Rendering
-open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
 
 open System.IO
-open System.Runtime.InteropServices
 
-open HDF.PInvoke
-
-open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentProjection
-open PRo3D.InstrumentVisualization
 open PRo3D.Core
-open PRo3D.SPICE
 
 open System.Text.Json
-open System.Collections.Concurrent
 
-open PRo3D.ImageMapping.ImageMath
 open PRo3D.ImageMapping.ImageMetadata
 open PRo3D.ImageMapping.ImageDefaults
-open PRo3D.ImageMapping.NetCdfLoader
 
 module MbiLoader = 
 
@@ -105,6 +93,70 @@ module MbiLoader =
 
             None
 
+    let dataTypeFromMetadata (path : string) : DataType =
+        let _, tiffJson = InstrumentMetadata.tryParseMetadataForImagePath path
+        match tiffJson with
+        | Some meta ->
+            match meta.data_type.ToLowerInvariant() with
+            | "uint16" -> DataType.UInt16
+            | "uint32" -> DataType.UInt32
+            | "float" | "float32" | "double" | "float64" -> DataType.Float
+            | _ -> DataType.Float
+        | None ->
+            DataType.Float
+
+    let sliderRangeForDataType (dataType : DataType) (minimum : float) (maximum : float) : float * float =
+        match dataType with
+        | DataType.Float ->
+            minimum, maximum
+        | DataType.UInt16 ->
+            0.0, 65535.0
+        | DataType.UInt32 ->
+            0.0, float UInt32.MaxValue
+            
+    let createBandImage
+        (texturePath : string)
+        (logicalBandIndex : int)
+        (channel : Channel)
+        (wavelength : Option<float>)
+        (dataType : DataType)
+        (defaultMin : float)
+        (defaultMax : float)
+        (minimum : float)
+        (maximum : float)
+        (distance : float)
+        (time : DateTime)
+        : Image =
+
+        let sliderMinimum, sliderMaximum =
+            sliderRangeForDataType dataType minimum maximum
+        {
+            initial with
+                texture = texturePath
+                bandIndex = logicalBandIndex
+                wavelength = wavelength
+                selectedChannel = channel
+                channelOptions = [ channel ]
+                defaultMinValues = [ defaultMin ]
+                defaultMaxValues = [ defaultMax ]
+                inputMinValue =
+                    {
+                        minValue with
+                            value = minimum
+                            min = sliderMinimum
+                            max = sliderMaximum
+                    }
+                inputMaxValue =
+                    {
+                        maxValue with
+                            value = maximum
+                            min = sliderMinimum
+                            max = sliderMaximum
+                    }
+                dataType = dataType
+                distance = distance
+                time = time
+        }
 
     let loadMbiBands (mbiPath : string) : list<Image> =
             match tryReadMbiBands mbiPath with
@@ -117,19 +169,11 @@ module MbiLoader =
                     for band in mbiBands do
                         if File.Exists band.filePath then
 
+                            
                             let _, tiffJson =
                                 InstrumentMetadata.tryParseMetadataForImagePath band.filePath
 
-                            let dataType =
-                                match tiffJson with
-                                | Some metadata ->
-                                    match metadata.data_type.ToLowerInvariant() with
-                                    | "uint16" -> DataType.UInt16
-                                    | "uint32" -> DataType.UInt32
-                                    | "float"  -> DataType.Float
-                                    | _        -> DataType.UInt16
-                                | None ->
-                                    DataType.UInt16
+                            let dataType = dataTypeFromMetadata band.filePath
 
                             let minimum, maximum =
                                 match tiffJson with
@@ -138,15 +182,6 @@ module MbiLoader =
                                     metadata.image_statistics.[0].maximum
                                 | _ ->
                                     0.0, 1.0
-
-                            let sliderMinimum, sliderMaximum =
-                                match dataType with
-                                | DataType.Float ->
-                                    minimum, maximum
-                                | DataType.UInt16 ->
-                                    0.0, 65535.0
-                                | DataType.UInt32 ->
-                                    0.0, float UInt32.MaxValue
 
                             let bandName =
                                 match band.label, band.wavelength with
@@ -161,44 +196,22 @@ module MbiLoader =
 
                             let channel =
                                 {
-                                    // The TIFF itself is single-band.
                                     idx = 0
                                     name = bandName
                                 }
 
-                            yield
-                                {
-                                    initial with
-                                        texture = band.filePath
-
-                                        // This is the logical multiband index from the MBI file.
-                                        bandIndex = band.index
-                                        wavelength = band.wavelength
-
-                                        selectedChannel = channel
-                                        channelOptions = [ channel ]
-
-                                        defaultMinValues = [ minimum ]
-                                        defaultMaxValues = [ maximum ]
-
-                                        inputMinValue =
-                                            {
-                                                minValue with
-                                                    value = minimum
-                                                    min = sliderMinimum
-                                                    max = sliderMaximum
-                                            }
-
-                                        inputMaxValue =
-                                            {
-                                                maxValue with
-                                                    value = maximum
-                                                    min = sliderMinimum
-                                                    max = sliderMaximum
-                                            }
-
-                                        dataType = dataType
-                                }
+                            createBandImage
+                                band.filePath
+                                band.index
+                                channel
+                                band.wavelength
+                                dataType
+                                minimum
+                                maximum
+                                minimum
+                                maximum
+                                0.0
+                                (DateTime())
 
                         else
                             Log.warn "MBI band file does not exist: %s" band.filePath

@@ -2,30 +2,17 @@ namespace PRo3D.ImageMapping
 
 open System
 open Aardvark.Base
-open Aardvark.UI
-open Aardvark.UI.Primitives
-open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
 
 open System.IO
-open System.Runtime.InteropServices
-
-open HDF.PInvoke
 
 open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentProjection
-open PRo3D.InstrumentVisualization
-open PRo3D.Core
-open PRo3D.SPICE
 
 open ImageMath
-open ImageMetadata
-open NetCdfLoader
 open NetCdfLoader
 
-open PRo3D.ImageMapping.MbiLoader
-open PRo3D.ImageMapping.ImageDefaults
 open PRo3D.ImageMapping.TiffLoader
 
 module RgbComposite =
@@ -335,12 +322,12 @@ module RgbComposite =
                 sources
                 |> List.exists (fun source -> isNcFile source.filePath)
 
-            let averageRadius =
-                if usesNetCDF then 0 else 1
+            // i am pretty sure the results are better without averaging
+            let averageRadius = 1
+            //    if usesNetCDF then 0 else 1
 
-            let maxWavelengthDistanceNm =
-                if usesNetCDF then 0.0 else 35.0
-
+            let maxWavelengthDistanceNm = 0.0
+            //    if usesNetCDF then 0.0 else 35.0
 
             match
                 readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm redNumeratorIndex,

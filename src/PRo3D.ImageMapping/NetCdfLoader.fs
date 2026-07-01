@@ -2,10 +2,7 @@ namespace PRo3D.ImageMapping
 
 open System
 open Aardvark.Base
-open Aardvark.UI
 open Aardvark.UI.Primitives
-open Aardvark.Rendering
-open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
 
 open System.IO
@@ -13,16 +10,8 @@ open System.Runtime.InteropServices
 
 open HDF.PInvoke
 
-open Aardvark.PixImage.LibTiff
 open PRo3D.InstrumentProjection
-open PRo3D.InstrumentVisualization
-open PRo3D.Core
-open PRo3D.SPICE
-
-open System.Text.Json
 open System.Collections.Concurrent
-
-open ImageMetadata
 open PRo3D.ImageMapping.ImageDefaults
 
 module NetCdfLoader =
@@ -104,7 +93,6 @@ module NetCdfLoader =
 
         else    
             None
-
     
     let ncDatasetPathForKind kind =
         match kind with
@@ -168,13 +156,28 @@ module NetCdfLoader =
                 closeHdf5 H5D.close datasetId
                 closeHdf5 H5F.close fileId
 
+    let tryReadNcDatasetInfoCached (path : string) : Result<NcDatasetInfo, string> =
+        let fullPath = Path.GetFullPath path
+        let cacheKey = normalizedPath fullPath
+
+        match ncDatasetInfoCache.TryGetValue cacheKey with
+        | true, cached ->
+            Result.Ok cached
+        | false, _ ->
+            match tryReadNcDatasetInfoUncached cacheKey with
+            | Result.Error error ->
+                Result.Error error
+            | Result.Ok info ->
+                ncDatasetInfoCache.[cacheKey] <- info
+                Result.Ok info
+
     let readNcBandAsFloat
         (path : string)
         (datasetPath : string)
         (bandIndex : int)
         : Result<int * int * int * float[], string> =
 
-        match tryReadNcDatasetInfoUncached path with
+        match tryReadNcDatasetInfoCached path with
         | Result.Error error ->
             Result.Error error
 
@@ -372,7 +375,7 @@ module NetCdfLoader =
     let loadNcBands (ncPath : string) : list<Image> =
         let fullPath = Path.GetFullPath ncPath
 
-        match tryReadNcDatasetInfoUncached fullPath with
+        match tryReadNcDatasetInfoCached fullPath with
         | Result.Error error ->
             Log.warn "Could not read NetCDF file %s: %s" fullPath error
             []
@@ -416,8 +419,7 @@ module NetCdfLoader =
 
             [
                 // loads bands and creates list of images
-                //for bandIndex in 0 .. info.bands - 1 do
-                  for bandIndex in 0 .. info.bands - 1 do // only load half of bands for speed
+                for bandIndex in 0 .. info.bands - 1 do 
                     let minimum, maximum, sliderMinimum, sliderMaximum =
                         defaultRangeForProduct
 

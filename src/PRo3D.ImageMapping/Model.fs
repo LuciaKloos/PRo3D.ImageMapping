@@ -31,6 +31,25 @@ type RgbBandRole =
     | Denominator
 
 [<ModelType>]
+type Image =
+    {
+        colorMap        : ColorMap
+        useFalseColor   : bool
+        selectedChannel : Channel
+        channelOptions  : list<Channel>
+        dataType        : DataType
+        defaultMinValues : list<float>
+        defaultMaxValues : list<float>
+        inputMinValue : NumericInput
+        inputMaxValue : NumericInput
+        texture : string
+        bandIndex : int
+        wavelength : Option<float>
+        distance: float
+        time: System.DateTime
+    }
+
+[<ModelType>]
 type RgbComposite =
     {
         redNumeratorBand       : Option<int>
@@ -50,14 +69,6 @@ type HighlightAdjustment =
         radius  :   NumericInput
     }
 
-module HighlightAdjustment =
-    let init =
-        {
-            amount = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.0 }
-            tone = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.5 }
-            radius = { Numeric.init with min = 0.0; max = 100.0; step = 1.0; value = 50.0 }
-        }
-
 [<ModelType>]
 type ShadowAdjustment = 
     { 
@@ -66,25 +77,11 @@ type ShadowAdjustment =
         radius  :   NumericInput
     }
 
-module ShadowAdjustment =
-    let init =
-        {
-            amount = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.0 }
-            tone = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.5 }
-            radius = { Numeric.init with min = 0.0; max = 100.0; step = 1.0; value = 50.0 }
-        }
-
 [<ModelType>]
 type MidtoneContrastAdjustment =
     {
         gainFactor  : NumericInput
     }
-
-module MidtoneContrastAdjustment =
-    let init =
-        {
-            gainFactor = { Numeric.init with min = -1.0; max = 1.0; step = 0.01; value = 0.0 }
-        }
 
 [<ModelType>]
 type BlackWhiteClip =
@@ -93,25 +90,73 @@ type BlackWhiteClip =
         whiteClipPercentile : NumericInput
     }
 
-module BlackWhiteClip =
-    let init =
-        {
-            blackClipPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.01; value = 2.0 }
-            whiteClipPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.01; value = 2.0 }
-        }
-
 [<ModelType>]
 type Saturation =
     {
         gainFactor  : NumericInput
     }
 
-module Saturation =
-    let init =
+[<ModelType>]
+type BoresightAdjustment =
+    {
+        roll : NumericInput
+        pitch : NumericInput
+        yaw : NumericInput
+
+    }
+
+[<ModelType>]
+type Model =
+    {
+        images          : IndexList<Image>
+        selectedImage   : Option<Index>
+        sourceImagePath   : Option<string>
+        editImages      : Index list
+        projectionOpacity : NumericInput
+        boresightAdjustment : BoresightAdjustment
+        cameraState     : OrbitState
+        rgbComposite    : RgbComposite
+        highlightAdjustment : HighlightAdjustment
+        shadowAdjustment    : ShadowAdjustment
+        midtoneContrastAdjustment : MidtoneContrastAdjustment
+        blackWhiteClip  : BlackWhiteClip
+        saturation   : Saturation
+    }
+
+module HighlightAdjustment =
+    let init : HighlightAdjustment =
+        {
+            amount = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.0 }
+            tone = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.5 }
+            radius = { Numeric.init with min = 0.0; max = 100.0; step = 1.0; value = 50.0 }
+        }
+
+module ShadowAdjustment =
+    let init : ShadowAdjustment=
+        {
+            amount = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.0 }
+            tone = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.5 }
+            radius = { Numeric.init with min = 0.0; max = 100.0; step = 1.0; value = 50.0 }
+        }
+
+module MidtoneContrastAdjustment =
+    let init : MidtoneContrastAdjustment=
         {
             gainFactor = { Numeric.init with min = -1.0; max = 1.0; step = 0.01; value = 0.0 }
         }
-        
+
+module BlackWhiteClip =
+    let init : BlackWhiteClip =
+        {
+            blackClipPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.01; value = 2.0 }
+            whiteClipPercentile = { Numeric.init with min = 0.0; max = 100.0; step = 0.01; value = 2.0 }
+        }
+
+module Saturation =
+    let init : Saturation =
+        {
+            gainFactor = { Numeric.init with min = -1.0; max = 1.0; step = 0.01; value = 0.0 }
+        }
 
 module RgbComposite = 
     let empty = 
@@ -192,37 +237,6 @@ module ColorMap =
         | ColorMap.Vanimo -> "vanimo.png"
         | _ -> "magma.png"
 
-
-[<ModelType>]
-type Image =
-    {
-        colorMap        : ColorMap
-        useFalseColor   : bool
-        selectedChannel : Channel
-        channelOptions  : list<Channel>
-        dataType        : DataType
-        defaultMinValues : list<float>
-        defaultMaxValues : list<float>
-        inputMinValue : NumericInput
-        inputMaxValue : NumericInput
-        texture : string
-
-        bandIndex : int
-        wavelength : Option<float>
-
-        distance: float
-        time: System.DateTime
-    }
-
-[<ModelType>]
-type BoresightAdjustment =
-    {
-        roll : NumericInput
-        pitch : NumericInput
-        yaw : NumericInput
-
-    }
-
 module BoresightAdjustment =
     let identity =
         {
@@ -230,24 +244,6 @@ module BoresightAdjustment =
             pitch = { Numeric.init with min = -180.0; max = 180.0; value = 0.0 }
             yaw = { Numeric.init with min = -180.0; max = 180.0; value = 0.0 }
         }
-
-[<ModelType>]
-type Model =
-    {
-        images          : IndexList<Image>
-        selectedImage   : Option<Index>
-        sourceImagePath   : Option<string>
-        editImages      : Index list
-        projectionOpacity : NumericInput
-        boresightAdjustment : BoresightAdjustment
-        cameraState     : OrbitState
-        rgbComposite    : RgbComposite
-        highlightAdjustment : HighlightAdjustment
-        shadowAdjustment    : ShadowAdjustment
-        midtoneContrastAdjustment : MidtoneContrastAdjustment
-        blackWhiteClip  : BlackWhiteClip
-        saturation   : Saturation
-    }
 
 type ImageMessage =
     | SetCustomMin of float
