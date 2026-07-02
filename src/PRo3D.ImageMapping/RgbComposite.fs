@@ -116,65 +116,6 @@ module RgbComposite =
             Result.Error error.Message
 
 
-    let averageBandData
-        (bands : list<RgbBandData>)
-        : Result<RgbBandData, string> =
-
-        match bands with
-        | [] ->
-            Result.Error "Cannot average an empty band list."
-
-        | first :: rest ->
-
-            let mismatch =
-                rest
-                |> List.tryFind (fun band ->
-                    band.width <> first.width ||
-                    band.height <> first.height ||
-                    band.values.Length <> first.values.Length
-                )
-
-            match mismatch with
-            | Some band ->
-                Result.Error (
-                    sprintf
-                        "Cannot average bands with different dimensions. Band %d is %dx%d, but band %d is %dx%d."
-                        band.source.logicalIndex
-                        band.width
-                        band.height
-                        first.source.logicalIndex
-                        first.width
-                        first.height
-                )
-
-            | None ->
-                let pixelCount =
-                    first.values.Length
-
-                let averaged =
-                    Array.init pixelCount (fun i ->
-                        let mutable sum = 0.0
-                        let mutable count = 0
-
-                        for band in bands do
-                            let value = band.values.[i]
-
-                            if Double.IsFinite value then
-                                sum <- sum + value
-                                count <- count + 1
-
-                        if count > 0 then
-                            sum / float count
-                        else
-                            Double.NaN
-                    )
-
-                Result.Ok
-                    {
-                        first with
-                            values = averaged
-                    }
-
     let readLogicalBand
         (sources : list<RgbBandSource>)
         (logicalBandIndex : int)
@@ -192,68 +133,6 @@ module RgbComposite =
                     (availableLogicalBandsMessage sources)
             )
 
-    let readAverageLogicalBand
-        (sources : list<RgbBandSource>)
-        (averageRadius : int)
-        (maxWavelengthDistanceNm : float)
-        (centerLogicalIndex : int)
-        : Result<RgbBandData, string> =
-
-        match sources |> List.tryFind (fun source -> source.logicalIndex = centerLogicalIndex) with
-        | None ->
-            Result.Error (sprintf "Could not find logical band %d." centerLogicalIndex)
-
-        | Some centerSource ->
-
-            let candidates =
-                match centerSource.wavelength with
-                | Some centerWavelength ->
-
-                    sources
-                    |> List.filter (fun source ->
-                        match source.wavelength with
-                        | Some wavelength ->
-                            abs (wavelength - centerWavelength) <= maxWavelengthDistanceNm
-                        | None ->
-                            source.logicalIndex = centerLogicalIndex
-                    )
-                    |> List.sortBy (fun source ->
-                        match source.wavelength with
-                        | Some wavelength -> abs (wavelength - centerWavelength)
-                        | None -> Double.PositiveInfinity
-                    )
-                    |> List.truncate (2 * averageRadius + 1)
-
-                | None ->
-
-                    sources
-                    |> List.filter (fun source ->
-                        abs (source.logicalIndex - centerLogicalIndex) <= averageRadius
-                    )
-                    |> List.sortBy (fun source ->
-                        abs (source.logicalIndex - centerLogicalIndex)
-                    )
-
-            let bandsOrErrors =
-                candidates
-                |> List.map (fun source -> readLogicalBand sources source.logicalIndex)
-
-            let errors =
-                bandsOrErrors
-                |> List.choose (function
-                    | Result.Error error -> Some error
-                    | Result.Ok _ -> None
-                )
-
-            if not errors.IsEmpty then
-                Result.Error (String.concat "\n" errors)
-            else
-                bandsOrErrors
-                |> List.choose (function
-                    | Result.Ok band -> Some band
-                    | Result.Error _ -> None
-                )
-                |> averageBandData
 
     let private validateSameDimensions
         (bands : list<RgbBandData>)
@@ -288,6 +167,200 @@ module RgbComposite =
             | None ->
                 Result.Ok (first.width, first.height, first.values.Length)
 
+
+    let private loadSelectedRatioBands
+        (sources : list<RgbBandSource>)
+        (redNumeratorIndex : int)
+        (redDenominatorIndex : int)
+        (greenNumeratorIndex : int)
+        (greenDenominatorIndex : int)
+        (blueNumeratorIndex : int)
+        (blueDenominatorIndex : int)
+        : Result<RgbBandData * RgbBandData * RgbBandData * RgbBandData * RgbBandData * RgbBandData, string> =
+
+        match
+            readLogicalBand sources redNumeratorIndex,
+            readLogicalBand sources redDenominatorIndex,
+            readLogicalBand sources greenNumeratorIndex,
+            readLogicalBand sources greenDenominatorIndex,
+            readLogicalBand sources blueNumeratorIndex,
+            readLogicalBand sources blueDenominatorIndex
+        with
+        | Result.Ok redNumerator,
+            Result.Ok redDenominator,
+            Result.Ok greenNumerator,
+            Result.Ok greenDenominator,
+            Result.Ok blueNumerator,
+            Result.Ok blueDenominator ->
+
+            Result.Ok (
+                redNumerator,
+                redDenominator,
+                greenNumerator,
+                greenDenominator,
+                blueNumerator,
+                blueDenominator
+            )
+
+        | Result.Error error, _, _, _, _, _ ->
+            Result.Error error
+
+        | _, Result.Error error, _, _, _, _ ->
+            Result.Error error
+
+        | _, _, Result.Error error, _, _, _ ->
+            Result.Error error
+
+        | _, _, _, Result.Error error, _, _ ->
+            Result.Error error
+
+        | _, _, _, _, Result.Error error, _ ->
+            Result.Error error
+
+        | _, _, _, _, _, Result.Error error ->
+            Result.Error error
+
+
+    let private computeValidForeground
+        (pixelCount : int)
+        (minimumSignal : float)
+        (redNumerator : RgbBandData)
+        (redDenominator : RgbBandData)
+        (greenNumerator : RgbBandData)
+        (greenDenominator : RgbBandData)
+        (blueNumerator : RgbBandData)
+        (blueDenominator : RgbBandData)
+        : bool[] =
+
+        let hasSignal value =
+            Double.IsFinite value && value > minimumSignal
+
+        let validRatio numerator denominator =
+            hasSignal numerator && hasSignal denominator
+
+        Array.init pixelCount (fun i ->
+            validRatio redNumerator.values.[i] redDenominator.values.[i] ||
+            validRatio greenNumerator.values.[i] greenDenominator.values.[i] ||
+            validRatio blueNumerator.values.[i] blueDenominator.values.[i]
+        )
+
+
+    let private computeRatioImages
+        (minimumSignal : float)
+        (redNumerator : RgbBandData)
+        (redDenominator : RgbBandData)
+        (greenNumerator : RgbBandData)
+        (greenDenominator : RgbBandData)
+        (blueNumerator : RgbBandData)
+        (blueDenominator : RgbBandData)
+        : float[] * float[] * float[] =
+
+        let redBand =
+            safeRatio minimumSignal redNumerator.values redDenominator.values
+
+        let greenBand =
+            safeRatio minimumSignal greenNumerator.values greenDenominator.values
+
+        let blueBand =
+            safeRatio minimumSignal blueNumerator.values blueDenominator.values
+
+        redBand, greenBand, blueBand
+
+
+    let private computeDisplayRange
+        (validForeground : bool[])
+        (lowerPercentileFraction : float)
+        (upperPercentileFraction : float)
+        (values : float[])
+        : float * float =
+
+        let validValues =
+            values
+            |> Array.mapi (fun index value ->
+                if validForeground.[index] && Double.IsFinite value then
+                    Some value
+                else
+                    None
+            )
+            |> Array.choose id
+
+        Array.sortInPlace validValues
+
+        if validValues.Length = 0 then
+            0.0, 1.0
+        else
+            let minimum =
+                percentile lowerPercentileFraction validValues
+
+            let maximum =
+                percentile upperPercentileFraction validValues
+
+            if maximum <= minimum then
+                minimum, minimum + 1.0
+            else
+                minimum, maximum
+
+
+    let private normalizeToRgbBytes
+        (pixelCount : int)
+        (gamma : float)
+        (validForeground : bool[])
+        (redMin : float)
+        (redMax : float)
+        (greenMin : float)
+        (greenMax : float)
+        (blueMin : float)
+        (blueMax : float)
+        (redBand : float[])
+        (greenBand : float[])
+        (blueBand : float[])
+        : byte[] * byte[] * byte[] * byte[] * float[] =
+
+        let redBytes =
+            Array.zeroCreate<byte> pixelCount
+
+        let greenBytes =
+            Array.zeroCreate<byte> pixelCount
+
+        let blueBytes =
+            Array.zeroCreate<byte> pixelCount
+
+        let alphaBytes =
+            Array.zeroCreate<byte> pixelCount
+
+        let luminance =
+            Array.zeroCreate<float> pixelCount
+
+        for index in 0 .. pixelCount - 1 do
+            if validForeground.[index] then
+                let r =
+                    valueToByte gamma redMin redMax redBand.[index]
+
+                let g =
+                    valueToByte gamma greenMin greenMax greenBand.[index]
+
+                let b =
+                    valueToByte gamma blueMin blueMax blueBand.[index]
+
+                redBytes.[index] <- r
+                greenBytes.[index] <- g
+                blueBytes.[index] <- b
+                alphaBytes.[index] <- 255uy
+
+                let rf =
+                    float r / 255.0
+
+                let gf =
+                    float g / 255.0
+
+                let bf =
+                    float b / 255.0
+
+                luminance.[index] <-
+                    0.2126 * rf + 0.7152 * gf + 0.0722 * bf
+
+        redBytes, greenBytes, blueBytes, alphaBytes, luminance
+
     // raw band ratio values
     //-> percentile stretch / black-white clip
     //-> gamma
@@ -307,10 +380,8 @@ module RgbComposite =
         (gamma : float)
         (highlightAmount : float)
         (highlightTone   : float)
-        (highlightRadius : float)
         (shadowAmount : float)
         (shadowTone   : float)
-        (shadowRadius : float)
         (midtoneContrastGainFactor : float)
         (blackClipPercentile : float)
         (whiteClipPercentile : float)
@@ -318,31 +389,25 @@ module RgbComposite =
         : Result<PixImage<byte>, string> =
 
         try
-            let usesNetCDF =
-                sources
-                |> List.exists (fun source -> isNcFile source.filePath)
-
-            // i am pretty sure the results are better without averaging
-            let averageRadius = 1
-            //    if usesNetCDF then 0 else 1
-
-            let maxWavelengthDistanceNm = 0.0
-            //    if usesNetCDF then 0.0 else 35.0
-
+            
             match
-                readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm redNumeratorIndex,
-                readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm redDenominatorIndex,
-                readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm greenNumeratorIndex,
-                readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm greenDenominatorIndex,
-                readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm blueNumeratorIndex,
-                readAverageLogicalBand sources averageRadius maxWavelengthDistanceNm blueDenominatorIndex
+                loadSelectedRatioBands
+                    sources
+                    redNumeratorIndex
+                    redDenominatorIndex
+                    greenNumeratorIndex
+                    greenDenominatorIndex
+                    blueNumeratorIndex
+                    blueDenominatorIndex
             with
-            | Result.Ok redNumerator,
-              Result.Ok redDenominator,
-              Result.Ok greenNumerator,
-              Result.Ok greenDenominator,
-              Result.Ok blueNumerator,
-              Result.Ok blueDenominator ->
+            | Result.Ok (
+                redNumerator,
+                redDenominator,
+                greenNumerator,
+                greenDenominator,
+                blueNumerator,
+                blueDenominator
+             ) -> 
 
                 let selectedBands =
                     [
@@ -364,33 +429,26 @@ module RgbComposite =
                     // a too-high threshold can make the whole RGB result transparent.
                     let minimumSignal = 1.0e-8
 
-                    let hasSignal value =
-                        Double.IsFinite value && value > minimumSignal
-
-                    let validRatio numerator denominator =
-                        hasSignal numerator && hasSignal denominator
-
                     let validForeground =
-                        Array.init pixelCount (fun i ->
-                            // Do not require all six selected bands to be valid. One bad channel
-                            // should not make the whole pixel transparent; valueToByte already maps
-                            // invalid channel values to 0.
-                            validRatio redNumerator.values.[i] redDenominator.values.[i] ||
-                            validRatio greenNumerator.values.[i] greenDenominator.values.[i] ||
-                            validRatio blueNumerator.values.[i] blueDenominator.values.[i]
-                        )
+                        computeValidForeground
+                            pixelCount
+                            minimumSignal
+                            redNumerator
+                            redDenominator
+                            greenNumerator
+                            greenDenominator
+                            blueNumerator
+                            blueDenominator
 
-                    let makeRatio = safeRatio
-
-                    let redBand =
-                        makeRatio minimumSignal redNumerator.values redDenominator.values
-
-                    let greenBand =
-                        makeRatio minimumSignal greenNumerator.values greenDenominator.values
-
-                    let blueBand =
-                        makeRatio minimumSignal blueNumerator.values blueDenominator.values
-
+                    let redBand, greenBand, blueBand =
+                        computeRatioImages
+                            minimumSignal
+                            redNumerator
+                            redDenominator
+                            greenNumerator
+                            greenDenominator
+                            blueNumerator
+                            blueDenominator
 
                     let blackClipFraction =
                         if Double.IsFinite blackClipPercentile then
@@ -421,41 +479,26 @@ module RgbComposite =
                         else
                             lowerPercentileFraction, upperPercentileFraction
 
-                    let displayRangeForValidPixels values =
-                        let validValues =
-                            values
-                            |> Array.mapi (fun index value ->
-                                if validForeground.[index] && Double.IsFinite value then
-                                    Some value
-                                else
-                                    None
-                            )
-                            |> Array.choose id
-
-                        Array.sortInPlace validValues
-
-                        if validValues.Length = 0 then
-                            0.0, 1.0
-                        else
-                            let minimum =
-                                percentile lowerPercentileFraction validValues
-
-                            let maximum =
-                                percentile upperPercentileFraction validValues
-
-                            if maximum <= minimum then
-                                minimum, minimum + 1.0
-                            else
-                                minimum, maximum
-
                     let redMin, redMax =
-                        displayRangeForValidPixels redBand
+                        computeDisplayRange
+                            validForeground
+                            lowerPercentileFraction
+                            upperPercentileFraction
+                            redBand
 
                     let greenMin, greenMax =
-                        displayRangeForValidPixels greenBand
+                        computeDisplayRange
+                            validForeground
+                            lowerPercentileFraction
+                            upperPercentileFraction
+                            greenBand
 
                     let blueMin, blueMax =
-                        displayRangeForValidPixels blueBand
+                        computeDisplayRange
+                            validForeground
+                            lowerPercentileFraction
+                            upperPercentileFraction
+                            blueBand
 
                     let rgbImage =
                         PixImage<byte>(
@@ -463,68 +506,20 @@ module RgbComposite =
                             V2i(width, height)
                         )
 
-                    let debugRgbBytes =
-                        if usesNetCDF then
-                            Some (Array.zeroCreate<byte> (pixelCount * 3))
-                        else
-
-                            None
-
-                    let redBytes =
-                        Array.zeroCreate<byte> pixelCount
-
-                    let greenBytes =
-                        Array.zeroCreate<byte> pixelCount
-
-                    let blueBytes =
-                        Array.zeroCreate<byte> pixelCount
-
-                    let alphaBytes =
-                        Array.zeroCreate<byte> pixelCount
-
-                    let luminance =
-                        Array.zeroCreate<float> pixelCount
-
-                    // First pass: create display RGB bytes and luminance once for the whole image.
-                    for index in 0 .. pixelCount - 1 do
-                        if validForeground.[index] then
-                            let r =
-                                valueToByte gamma redMin redMax redBand.[index]
-
-                            let g =
-                                valueToByte gamma greenMin greenMax greenBand.[index]
-
-                            let b =
-                                valueToByte gamma blueMin blueMax blueBand.[index]
-
-                            redBytes.[index] <- r
-                            greenBytes.[index] <- g
-                            blueBytes.[index] <- b
-                            alphaBytes.[index] <- 255uy
-
-                            let rf =
-                                float r / 255.0
-
-                            let gf =
-                                float g / 255.0
-
-                            let bf =
-                                float b / 255.0
-
-                            luminance.[index] <-
-                                0.2126 * rf + 0.7152 * gf + 0.0722 * bf
-
-                            match debugRgbBytes with
-                            | Some bytes ->
-                                let offset =
-                                    index * 3
-
-                                bytes.[offset + 0] <- r
-                                bytes.[offset + 1] <- g
-                                bytes.[offset + 2] <- b
-
-                            | None ->
-                                ()
+                    let redBytes, greenBytes, blueBytes, alphaBytes, luminance =
+                        normalizeToRgbBytes
+                            pixelCount
+                            gamma
+                            validForeground
+                            redMin
+                            redMax
+                            greenMin
+                            greenMax
+                            blueMin
+                            blueMax
+                            redBand
+                            greenBand
+                            blueBand
 
                     let highlightStart =
                         1.0 - clamp01 highlightTone
@@ -547,80 +542,6 @@ module RgbComposite =
                             else
                                 0.0
                         )
-
-                    let boxBlurMask
-                        (width : int)
-                        (height : int)
-                        (radius : int)
-                        (mask : float[])
-                        : float[] =
-
-                        if radius <= 0 then
-                            Array.copy mask
-                        else
-                            let temp =
-                                Array.zeroCreate<float> mask.Length
-
-                            let result =
-                                Array.zeroCreate<float> mask.Length
-
-                            // Horizontal pass.
-                            for y in 0 .. height - 1 do
-                                for x in 0 .. width - 1 do
-                                    let mutable sum = 0.0
-                                    let mutable count = 0
-                                    let x0 = max 0 (x - radius)
-                                    let x1 = min (width - 1) (x + radius)
-
-                                    for xx in x0 .. x1 do
-                                        let index =
-                                            y * width + xx
-
-                                        if alphaBytes.[index] > 0uy then
-                                            sum <- sum + mask.[index]
-                                            count <- count + 1
-
-                                    temp.[y * width + x] <-
-                                        if count > 0 then sum / float count else 0.0
-
-                            // Vertical pass.
-                            for y in 0 .. height - 1 do
-                                for x in 0 .. width - 1 do
-                                    let mutable sum = 0.0
-                                    let mutable count = 0
-                                    let y0 = max 0 (y - radius)
-                                    let y1 = min (height - 1) (y + radius)
-
-                                    for yy in y0 .. y1 do
-                                        let index =
-                                            yy * width + x
-
-                                        if alphaBytes.[index] > 0uy then
-                                            sum <- sum + temp.[index]
-                                            count <- count + 1
-
-                                    result.[y * width + x] <-
-                                        if count > 0 then sum / float count else 0.0
-
-                            result
-
-                    let radiusHighlightPixels =
-                        if Double.IsFinite highlightRadius then
-                            int (round highlightRadius) |> max 0
-                        else
-                            0
-
-                    let radiusShadowPixels =
-                        if Double.IsFinite shadowRadius then
-                            int (round shadowRadius) |> max 0
-                        else    
-                            0
-
-                    let localHighlightMask =
-                        boxBlurMask width height radiusHighlightPixels highlightMask
-
-                    let localShadowMask =
-                        boxBlurMask width height radiusShadowPixels shadowMask
 
                     let clampedAmountHighlight =
                         clamp01 highlightAmount
@@ -682,7 +603,6 @@ module RgbComposite =
                         else
                             1.0
 
-
                     let adjustedRedBytes =
                         Array.zeroCreate<byte> pixelCount
 
@@ -695,11 +615,9 @@ module RgbComposite =
                     // Third pass: darken highlights according to Amount * local highlight mask.
                     for index in 0 .. pixelCount - 1 do
                         if alphaBytes.[index] > 0uy then
-                            let highlightMaskValue = 
-                                localHighlightMask.[index]
+                            let highlightMaskValue = highlightMask.[index] //localHighlightMask.[index]
 
-                            let shadowMaskValue =
-                                localShadowMask.[index]
+                            let shadowMaskValue = shadowMask.[index] // localShadowMask.[index]
 
                             let midtoneMaskValue =
                                 midtoneMask.[index]
@@ -782,23 +700,8 @@ module RgbComposite =
                     Result.Ok rgbImage
 
 
-            | Result.Error error, _, _, _, _, _ ->
+            | Result.Error error ->
                 Result.Error error
-
-            | _, Result.Error error, _, _, _, _ ->
-                Result.Error error
-
-            | _, _, Result.Error error, _, _, _ ->
-                Result.Error error
-
-            | _, _, _, Result.Error error, _, _ ->
-                Result.Error error
-
-            | _, _, _, _, Result.Error error, _ ->
-                Result.Error error
-
-            | _, _, _, _, _, Result.Error error ->
-                Result.Error error
-
+    
         with error ->
             Result.Error error.Message
