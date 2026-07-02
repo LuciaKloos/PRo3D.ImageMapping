@@ -133,25 +133,7 @@ module TiffLoader =
                         idx = channelIndex
                         name = wavelengthName
                     }
-
-                let sliderMinimum, sliderMaximum = sliderRangeForDataType dataType minimum maximum
-
-                let inputMinimum =
-                    {
-                        minValue with
-                            value = minimum
-                            min = sliderMinimum
-                            max = sliderMaximum
-                    }
-
-                let inputMaximum =
-                    {
-                        maxValue with
-                            value = maximum
-                            min = sliderMinimum
-                            max = sliderMaximum
-                    }
-
+              
                 createBandImage
                     texturePath
                     channelIndex

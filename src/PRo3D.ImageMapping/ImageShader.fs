@@ -59,7 +59,6 @@ module Shaders =
             return remapClampNormalize
         }
 
-    // only displays the finished RGB texture. Only samples at current texture coordinate
     let displayRgbComposite (v : Vertex) =
         fragment {
             return rgbCompositeSampler.Sample(v.tc)

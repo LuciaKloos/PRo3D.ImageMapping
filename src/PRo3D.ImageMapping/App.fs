@@ -7,7 +7,6 @@ open Aardvark.UI.Primitives
 open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
-open PRo3D.ImageMapping.TiffLoader
 
 open System.IO
 
@@ -431,20 +430,6 @@ module App =
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({title: 'Select multispectral image', filters: [{name: 'Multispectral TIFF', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open multispectral image dialog:', error);});"
 
-        let selectedAdaptiveImage (selected : aval<Option<Index>>) =
-            adaptive {
-                let! selectedImage = selected
-                match selectedImage with
-                | Some sel -> 
-                    let! img = AList.tryGet sel m.images
-                    match img with
-                    | Some img' -> return Some img'
-                    | None -> return None
-                | None ->
-                    return None
-            }
-
-       
         let accordion text' icon active styling content' =
                 let title = if active then "title active inverted" else "title inverted"
                 let content = if active then "content active" else "content"

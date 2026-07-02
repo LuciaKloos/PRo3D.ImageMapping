@@ -8,8 +8,6 @@ open Suave
 open Aardvark.Base
 open PRo3D.SPICE
 
-
-
 let private tryGetCommandLineValue (name : string) (argv : string[]) =
     let equalsPrefix = name + "="
 

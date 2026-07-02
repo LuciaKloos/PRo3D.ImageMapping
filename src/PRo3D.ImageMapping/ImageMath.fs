@@ -47,7 +47,6 @@ module ImageMath =
 
             sortedValues.[index]
 
-    // important, otherwise black
     let valueToByte
         (gamma : float)
         (minimum : float)
@@ -70,7 +69,6 @@ module ImageMath =
                     1.0
 
             // Brightens darker values. Makes dark scientific values more visible.
-            // todo make this interactive
             let gammaCorrected = 
                 Math.Pow(normalized, safeGamma) // gamma < 1 -> brightens; gamma > 1 -> darkens
 
