@@ -112,35 +112,32 @@ module Image =
             let saturationGainFactorValue =
                 saturationValue.gainFactor.value
 
+            let brightnessValue = 
+                rgbCompositeRenderSettings.brightness.GetValue token
+
+            let brightnessGainFactorValue =
+                brightnessValue.gainFactor.value
+
             match
                 sources,
                 redNumeratorValue,
-                redDenominatorValue,
                 greenNumeratorValue,
-                greenDenominatorValue,
-                blueNumeratorValue,
-                blueDenominatorValue
+                blueNumeratorValue
             with
-            | [], _, _, _, _, _, _ ->
+            | [], _, _, _ ->
                 DefaultTextures.checkerboard.GetValue()
 
-            | _,
-              Some redNumerator,
-              Some redDenominator,
-              Some greenNumerator,
-              Some greenDenominator,
-              Some blueNumerator,
-              Some blueDenominator ->
+            | _, Some redNumerator, Some greenNumerator, Some blueNumerator ->
 
                 match
                     createRgbCompositePixImageFromSources
                         sources
                         redNumerator
-                        redDenominator
+                        redDenominatorValue
                         greenNumerator
-                        greenDenominator
+                        greenDenominatorValue
                         blueNumerator
-                        blueDenominator
+                        blueDenominatorValue
                         gammaValue
                         highlightAmountValue
                         highlightToneValue
@@ -150,6 +147,7 @@ module Image =
                         blackClipPercentileValue
                         whiteClipPercentileValue
                         saturationGainFactorValue
+                        brightnessGainFactorValue
                 with
                 | Result.Ok image ->
                     PixTexture2d(

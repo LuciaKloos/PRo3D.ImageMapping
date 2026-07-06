@@ -97,6 +97,12 @@ type Saturation =
     }
 
 [<ModelType>]
+type Brightness =
+    {
+        gainFactor  : NumericInput
+    }
+
+[<ModelType>]
 type BoresightAdjustment =
     {
         roll : NumericInput
@@ -121,6 +127,7 @@ type Model =
         midtoneContrastAdjustment : MidtoneContrastAdjustment
         blackWhiteClip  : BlackWhiteClip
         saturation   : Saturation
+        brightness   : Brightness
     }
 
 module HighlightAdjustment =
@@ -158,6 +165,12 @@ module Saturation =
             gainFactor = { Numeric.init with min = -1.0; max = 1.0; step = 0.01; value = 0.0 }
         }
 
+module Brightness = 
+    let init : Brightness =
+        {
+            gainFactor = { Numeric.init with min = -1.0; max = 1.0; step = 0.01; value = 0.0 }
+        }
+
 module RgbComposite = 
     let empty = 
         {
@@ -188,42 +201,49 @@ module RgbComposite =
             // These defaults avoid R = band0 / band0 when possible.
             // The user can overwrite all six choices in the UI.
             redNumeratorBand =
-                preferredBand 10 1 bandCount
+                preferredBand 34 1 bandCount
             redDenominatorBand =
-                preferredBand 7 0 bandCount
+                preferredBand 30 0 bandCount
 
             greenNumeratorBand =
-                preferredBand 6 1 bandCount
+                preferredBand 21 1 bandCount
             greenDenominatorBand =
-                preferredBand 3 0 bandCount
+                preferredBand 17 0 bandCount
 
             blueNumeratorBand =
-                preferredBand 3 1 bandCount
+                preferredBand 10 1 bandCount
             blueDenominatorBand =
-                preferredBand 0 0 bandCount
+                preferredBand 5 0 bandCount
 
             gamma = settings.gamma
         }
 
     let set channel role bandIndex composite =
+        let toggleDenominator current =
+            match current with
+            | Some currentBandIndex when currentBandIndex = bandIndex ->
+                None
+            | _ ->
+                Some bandIndex
+
         match channel, role with
         | RgbChannel.Red, RgbBandRole.Numerator ->
             { composite with redNumeratorBand = Some bandIndex }
 
         | RgbChannel.Red, RgbBandRole.Denominator ->
-            { composite with redDenominatorBand = Some bandIndex }
+            { composite with redDenominatorBand = toggleDenominator composite.redDenominatorBand }
 
         | RgbChannel.Green, RgbBandRole.Numerator ->
             { composite with greenNumeratorBand = Some bandIndex }
 
         | RgbChannel.Green, RgbBandRole.Denominator ->
-            { composite with greenDenominatorBand = Some bandIndex }
+            { composite with greenDenominatorBand = toggleDenominator composite.greenDenominatorBand }
 
         | RgbChannel.Blue, RgbBandRole.Numerator ->
             { composite with blueNumeratorBand = Some bandIndex }
 
         | RgbChannel.Blue, RgbBandRole.Denominator ->
-            { composite with blueDenominatorBand = Some bandIndex }
+            { composite with blueDenominatorBand = toggleDenominator composite.blueDenominatorBand }
 
 
 module ColorMap =
@@ -280,4 +300,5 @@ type Message =
     | SetBlackClipPercentile of Numeric.Action
     | SetWhiteClipPercentile of Numeric.Action
     | SetSaturationGainFactor of Numeric.Action
+    | SetBrightnessGainFactor of Numeric.Action
     | Nop

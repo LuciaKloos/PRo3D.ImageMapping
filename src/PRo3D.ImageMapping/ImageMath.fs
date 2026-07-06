@@ -101,3 +101,77 @@ module ImageMath =
             numerator
             denominator
 
+    type HistogramBin =
+        {
+            lower    : float
+            upper    : float
+            count    : int
+            fraction : float
+        }
+
+    let computeHistogram
+        (binCount : int)
+        (minimumSignal : float)
+        (values : float[])
+        : HistogramBin[] =
+
+        let validValues =
+            values
+            |> Array.filter (fun value ->
+                Double.IsFinite value &&
+                value > minimumSignal
+            )
+
+        if validValues.Length = 0 || binCount <= 0 then
+            [||]
+        else
+            let minimum =
+                validValues |> Array.min
+
+            let maximum =
+                validValues |> Array.max
+
+            if maximum <= minimum then
+                [|
+                    {
+                        lower = minimum
+                        upper = maximum
+                        count = validValues.Length
+                        fraction = 1.0
+                    }
+                |]
+            else
+                let counts =
+                    Array.zeroCreate<int> binCount
+
+                let range =
+                    maximum - minimum
+
+                for value in validValues do
+                    let normalized =
+                        (value - minimum) / range
+
+                    let binIndex =
+                        int (normalized * float binCount)
+                        |> max 0
+                        |> min (binCount - 1)
+
+                    counts.[binIndex] <- counts.[binIndex] + 1
+
+                let maxCount =
+                    counts |> Array.max |> max 1
+
+                Array.init binCount (fun index ->
+                    let lower =
+                        minimum + range * float index / float binCount
+
+                    let upper =
+                        minimum + range * float (index + 1) / float binCount
+
+                    {
+                        lower = lower
+                        upper = upper
+                        count = counts.[index]
+                        fraction = float counts.[index] / float maxCount
+                    }
+                )

@@ -168,30 +168,44 @@ module RgbComposite =
                 Result.Ok (first.width, first.height, first.values.Length)
 
 
-    let private loadSelectedRatioBands
+    let private readOptionalLogicalBand
+        (sources : list<RgbBandSource>)
+        (bandIndex : Option<int>)
+        : Result<Option<RgbBandData>, string> =
+
+        match bandIndex with
+        | Some index ->
+            readLogicalBand sources index
+            |> Result.map Some
+
+        | None ->
+            Result.Ok None
+
+
+    let private loadSelectedCompositeBands
         (sources : list<RgbBandSource>)
         (redNumeratorIndex : int)
-        (redDenominatorIndex : int)
+        (redDenominatorIndex : Option<int>)
         (greenNumeratorIndex : int)
-        (greenDenominatorIndex : int)
+        (greenDenominatorIndex : Option<int>)
         (blueNumeratorIndex : int)
-        (blueDenominatorIndex : int)
-        : Result<RgbBandData * RgbBandData * RgbBandData * RgbBandData * RgbBandData * RgbBandData, string> =
+        (blueDenominatorIndex : Option<int>)
+        : Result<RgbBandData * Option<RgbBandData> * RgbBandData * Option<RgbBandData> * RgbBandData * Option<RgbBandData>, string> =
 
         match
             readLogicalBand sources redNumeratorIndex,
-            readLogicalBand sources redDenominatorIndex,
+            readOptionalLogicalBand sources redDenominatorIndex,
             readLogicalBand sources greenNumeratorIndex,
-            readLogicalBand sources greenDenominatorIndex,
+            readOptionalLogicalBand sources greenDenominatorIndex,
             readLogicalBand sources blueNumeratorIndex,
-            readLogicalBand sources blueDenominatorIndex
+            readOptionalLogicalBand sources blueDenominatorIndex
         with
         | Result.Ok redNumerator,
-            Result.Ok redDenominator,
-            Result.Ok greenNumerator,
-            Result.Ok greenDenominator,
-            Result.Ok blueNumerator,
-            Result.Ok blueDenominator ->
+          Result.Ok redDenominator,
+          Result.Ok greenNumerator,
+          Result.Ok greenDenominator,
+          Result.Ok blueNumerator,
+          Result.Ok blueDenominator ->
 
             Result.Ok (
                 redNumerator,
@@ -220,49 +234,97 @@ module RgbComposite =
         | _, _, _, _, _, Result.Error error ->
             Result.Error error
 
+    let private erodeMask3x3
+        (width : int)
+        (height : int)
+        (mask : bool[])
+        : bool[] =
+
+        Array.init mask.Length (fun index ->
+            let x = index % width
+            let y = index / width
+
+            if x = 0 || y = 0 || x = width - 1 || y = height - 1 then
+                false
+            else
+                let mutable allNeighboursValid = true
+
+                for yy in y - 1 .. y + 1 do
+                    for xx in x - 1 .. x + 1 do
+                        let neighbourIndex = yy * width + xx
+
+                        if not mask.[neighbourIndex] then
+                            allNeighboursValid <- false
+
+                allNeighboursValid
+        )
 
     let private computeValidForeground
         (pixelCount : int)
         (minimumSignal : float)
         (redNumerator : RgbBandData)
-        (redDenominator : RgbBandData)
+        (redDenominator : Option<RgbBandData>)
         (greenNumerator : RgbBandData)
-        (greenDenominator : RgbBandData)
+        (greenDenominator : Option<RgbBandData>)
         (blueNumerator : RgbBandData)
-        (blueDenominator : RgbBandData)
+        (blueDenominator : Option<RgbBandData>)
         : bool[] =
 
         let hasSignal value =
             Double.IsFinite value && value > minimumSignal
 
-        let validRatio numerator denominator =
-            hasSignal numerator && hasSignal denominator
+        let optionalHasSignal (band : Option<RgbBandData>) index =
+            match band with
+            | Some band ->
+                hasSignal band.values.[index]
+
+            | None ->
+                true
 
         Array.init pixelCount (fun i ->
-            validRatio redNumerator.values.[i] redDenominator.values.[i] ||
-            validRatio greenNumerator.values.[i] greenDenominator.values.[i] ||
-            validRatio blueNumerator.values.[i] blueDenominator.values.[i]
+            hasSignal redNumerator.values.[i] &&
+            optionalHasSignal redDenominator i &&
+
+            hasSignal greenNumerator.values.[i] &&
+            optionalHasSignal greenDenominator i &&
+
+            hasSignal blueNumerator.values.[i] &&
+            optionalHasSignal blueDenominator i
         )
 
 
-    let private computeRatioImages
+    let private computeChannelImage
+        (minimumSignal : float)
+        (numerator : RgbBandData)
+        (denominator : Option<RgbBandData>)
+        : float[] =
+
+        match denominator with
+        | Some denominator ->
+            safeRatio minimumSignal numerator.values denominator.values
+
+        | None ->
+            Array.copy numerator.values
+
+
+    let private computeCompositeChannelImages
         (minimumSignal : float)
         (redNumerator : RgbBandData)
-        (redDenominator : RgbBandData)
+        (redDenominator : Option<RgbBandData>)
         (greenNumerator : RgbBandData)
-        (greenDenominator : RgbBandData)
+        (greenDenominator : Option<RgbBandData>)
         (blueNumerator : RgbBandData)
-        (blueDenominator : RgbBandData)
+        (blueDenominator : Option<RgbBandData>)
         : float[] * float[] * float[] =
 
         let redBand =
-            safeRatio minimumSignal redNumerator.values redDenominator.values
+            computeChannelImage minimumSignal redNumerator redDenominator
 
         let greenBand =
-            safeRatio minimumSignal greenNumerator.values greenDenominator.values
+            computeChannelImage minimumSignal greenNumerator greenDenominator
 
         let blueBand =
-            safeRatio minimumSignal blueNumerator.values blueDenominator.values
+            computeChannelImage minimumSignal blueNumerator blueDenominator
 
         redBand, greenBand, blueBand
 
@@ -372,11 +434,11 @@ module RgbComposite =
     let createRgbCompositePixImageFromSources
         (sources : list<RgbBandSource>)
         (redNumeratorIndex : int)
-        (redDenominatorIndex : int)
+        (redDenominatorIndex : Option<int>)
         (greenNumeratorIndex : int)
-        (greenDenominatorIndex : int)
+        (greenDenominatorIndex : Option<int>)
         (blueNumeratorIndex : int)
-        (blueDenominatorIndex : int)
+        (blueDenominatorIndex : Option<int>)
         (gamma : float)
         (highlightAmount : float)
         (highlightTone   : float)
@@ -386,12 +448,13 @@ module RgbComposite =
         (blackClipPercentile : float)
         (whiteClipPercentile : float)
         (saturation : float)
+        (brightness : float)
         : Result<PixImage<byte>, string> =
 
         try
             
             match
-                loadSelectedRatioBands
+                loadSelectedCompositeBands
                     sources
                     redNumeratorIndex
                     redDenominatorIndex
@@ -407,17 +470,18 @@ module RgbComposite =
                 greenDenominator,
                 blueNumerator,
                 blueDenominator
-             ) -> 
+             ) ->
 
                 let selectedBands =
                     [
-                        redNumerator
+                        Some redNumerator
                         redDenominator
-                        greenNumerator
+                        Some greenNumerator
                         greenDenominator
-                        blueNumerator
+                        Some blueNumerator
                         blueDenominator
                     ]
+                    |> List.choose id
 
                 match validateSameDimensions selectedBands with
                 | Result.Error error ->
@@ -427,9 +491,9 @@ module RgbComposite =
 
                     // EMIT reflectance is floating-point data. Keep this threshold very small:
                     // a too-high threshold can make the whole RGB result transparent.
-                    let minimumSignal = 1.0e-8
+                    let minimumSignal = 1.0e-5
 
-                    let validForeground =
+                    let rawValidForeground =
                         computeValidForeground
                             pixelCount
                             minimumSignal
@@ -440,8 +504,11 @@ module RgbComposite =
                             blueNumerator
                             blueDenominator
 
+                    let validForeground =
+                        erodeMask3x3 width height rawValidForeground
+
                     let redBand, greenBand, blueBand =
-                        computeRatioImages
+                        computeCompositeChannelImages
                             minimumSignal
                             redNumerator
                             redDenominator
@@ -603,6 +670,12 @@ module RgbComposite =
                         else
                             1.0
 
+                    let brightnessGain =
+                        if Double.IsFinite brightness then
+                            1.0 + (brightness |> max -1.0 |> min 1.0)
+                        else
+                            1.0
+
                     let adjustedRedBytes =
                         Array.zeroCreate<byte> pixelCount
 
@@ -612,12 +685,12 @@ module RgbComposite =
                     let adjustedBlueBytes =
                         Array.zeroCreate<byte> pixelCount
 
-                    // Third pass: darken highlights according to Amount * local highlight mask.
+                    // Third pass: darken highlights according to Amount * highlight mask.
                     for index in 0 .. pixelCount - 1 do
                         if alphaBytes.[index] > 0uy then
-                            let highlightMaskValue = highlightMask.[index] //localHighlightMask.[index]
+                            let highlightMaskValue = highlightMask.[index] 
 
-                            let shadowMaskValue = shadowMask.[index] // localShadowMask.[index]
+                            let shadowMaskValue = shadowMask.[index] 
 
                             let midtoneMaskValue =
                                 midtoneMask.[index]
@@ -664,14 +737,23 @@ module RgbComposite =
                             let saturatedBlue =
                                 luminanceAfterAdjustments + saturationGain * ( b - luminanceAfterAdjustments )
 
+                            let brightenedRed =
+                                clamp01 (saturatedRed * brightnessGain)
+
+                            let brightenedGreen =
+                                clamp01 (saturatedGreen * brightnessGain)
+
+                            let brightenedBlue =
+                                clamp01 (saturatedBlue * brightnessGain)
+
                             adjustedRedBytes.[index] <-
-                                byte (round (255.0 * saturatedRed))
+                                byte (round (255.0 * brightenedRed))
 
                             adjustedGreenBytes.[index] <-
-                                byte (round (255.0 * saturatedGreen))
+                                byte (round (255.0 * brightenedGreen))
 
                             adjustedBlueBytes.[index] <-
-                                byte (round (255.0 * saturatedBlue))
+                                byte (round (255.0 * brightenedBlue))
 
                     rgbImage
                         .GetMatrix<C4b>()

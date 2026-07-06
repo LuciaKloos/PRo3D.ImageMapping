@@ -30,6 +30,7 @@ module App =
         midtoneContrastAdjustment = MidtoneContrastAdjustment.init
         blackWhiteClip = BlackWhiteClip.init
         saturation = Saturation.init
+        brightness = Brightness.init
     }
 
     let update (m : Model) (msg : Message) = 
@@ -327,6 +328,16 @@ module App =
                                     Numeric.update m.saturation.gainFactor action
                         }
             }
+        | SetBrightnessGainFactor action ->
+            {
+                m with
+                    brightness =
+                        {
+                            m.brightness with
+                                gainFactor =
+                                    Numeric.update m.brightness.gainFactor action
+                        }
+            }
 
 
     let numericInputFromAdaptive
@@ -340,6 +351,182 @@ module App =
             format = input.format.GetValue token
             value = input.value.GetValue token
         }
+
+    // !! histogram Calc is AI !!
+    type RgbSelectedBandHistogram =
+        {
+            label     : string
+            bandIndex : Option<int>
+            histogram : ImageMath.HistogramBin[]
+        }
+
+
+    let private computeRgbSelectedBandHistograms
+        (m : AdaptiveModel)
+        (binCount : int)
+        : aval<RgbSelectedBandHistogram list> =
+
+        AVal.custom (fun token ->
+
+            let images =
+                m.images
+                |> AList.force
+
+            let sources =
+                RgbComposite.readAdaptiveBandSources images token
+
+            let computeOne
+                (label : string)
+                (bandIndex : Option<int>)
+                : RgbSelectedBandHistogram =
+
+                match bandIndex with
+                | None ->
+                    {
+                        label = label
+                        bandIndex = None
+                        histogram = [||]
+                    }
+
+                | Some selectedBandIndex ->
+
+                    match sources |> List.tryFind (fun source -> source.logicalIndex = selectedBandIndex) with
+                    | None ->
+                        Log.warn "Could not find selected RGB histogram band %d for %s" selectedBandIndex label
+
+                        {
+                            label = label
+                            bandIndex = Some selectedBandIndex
+                            histogram = [||]
+                        }
+
+                    | Some source ->
+
+                        match RgbComposite.readBandSourceAsFloat source with
+                        | Result.Ok band ->
+                            {
+                                label = label
+                                bandIndex = Some selectedBandIndex
+                                histogram =
+                                    ImageMath.computeHistogram
+                                        binCount
+                                        1.0e-4
+                                        band.values
+                            }
+
+                        | Result.Error error ->
+                            Log.warn "Could not compute histogram for %s band %d: %s" label selectedBandIndex error
+
+                            {
+                                label = label
+                                bandIndex = Some selectedBandIndex
+                                histogram = [||]
+                            }
+
+            [
+                computeOne "R numerator"   (m.rgbComposite.redNumeratorBand.GetValue token)
+                computeOne "R denominator" (m.rgbComposite.redDenominatorBand.GetValue token)
+
+                computeOne "G numerator"   (m.rgbComposite.greenNumeratorBand.GetValue token)
+                computeOne "G denominator" (m.rgbComposite.greenDenominatorBand.GetValue token)
+
+                computeOne "B numerator"   (m.rgbComposite.blueNumeratorBand.GetValue token)
+                computeOne "B denominator" (m.rgbComposite.blueDenominatorBand.GetValue token)
+            ]
+        )
+
+    let private histogramItemView
+        (item : RgbSelectedBandHistogram)
+        : DomNode<Message> =
+
+        let titleText =
+            match item.bandIndex with
+            | Some bandIndex ->
+                sprintf "%s, band %d" item.label bandIndex
+            | None ->
+                sprintf "%s, not selected" item.label
+
+        div [
+            clazz "ui inverted segment"
+            style "margin-top: 8px;"
+        ] [
+            div [
+                style "font-weight: bold; margin-bottom: 6px;"
+            ] [
+                text titleText
+            ]
+
+            if item.histogram.Length = 0 then
+                div [
+                    style "opacity: 0.7;"
+                ] [
+                    text "No histogram available."
+                ]
+            else
+                let maxCount =
+                    item.histogram
+                    |> Array.map (fun b -> b.count)
+                    |> Array.max
+                    |> max 1
+
+                div [
+                    style "height: 90px; display: flex; align-items: flex-end; gap: 1px; border-left: 1px solid #666; border-bottom: 1px solid #666; padding-left: 2px;"
+                ] [
+                    for bin in item.histogram do
+                        let heightPercent =
+                            100.0 * float bin.count / float maxCount
+
+                        let titleHist =
+                            sprintf "%.6g – %.6g: %d" bin.lower bin.upper bin.count
+
+                        div [
+                            attribute "title" titleHist
+                            style (
+                                sprintf
+                                    "width: 4px; height: %.2f%%; background: #aaa;"
+                                    heightPercent
+                            )
+                        ] []
+                ]
+
+                let first =
+                    item.histogram.[0]
+
+                let last =
+                    item.histogram.[item.histogram.Length - 1]
+
+                div [
+                    style "display: flex; justify-content: space-between; font-size: 11px; opacity: 0.8; margin-top: 4px;"
+                ] [
+                    div [] [text (sprintf "%.6g" first.lower)]
+                    div [] [text (sprintf "%.6g" last.upper)]
+                ]
+        ]
+
+
+    let private rgbSelectedHistogramsView
+        (histograms : aval<RgbSelectedBandHistogram list>)
+        : DomNode<Message> =
+
+        Incremental.div
+            (AttributeMap.ofList [
+                clazz "ui inverted segment"
+                style "margin-top: 10px;"
+            ])
+            (
+                alist {
+                    yield div [
+                        style "font-weight: bold; margin-bottom: 8px;"
+                    ] [
+                        text "Currently selected RGB band histograms"
+                    ]
+
+                    let! items = histograms
+
+                    for item in items do
+                        yield histogramItemView item
+                }
+            )
 
     let view (m : AdaptiveModel) (showDOM : AdaptiveImage -> DomNode<ImageMessage>) (showRelative2DImage : aval<ITexture> -> DomNode<Message>) (showAbsolute2DAnd3DImage : aval<Option<string>> -> aval<ITexture> -> DomNode<Message>) =
     
@@ -420,12 +607,23 @@ module App =
                                 numericInputFromAdaptive token m.saturation.gainFactor
                         }
                     )
+
+                brightness =
+                    AVal.custom (fun token ->
+                        {
+                            gainFactor =
+                                numericInputFromAdaptive token m.brightness.gainFactor
+                        }
+                    )
             }
 
         let rgbTexture =
             Image.createRgbCompositeTextureWithHighlights
                 m.images
                 rgbCompositeRenderSettings
+
+        let rgbSelectedBandHistograms =
+            computeRgbSelectedBandHistograms m 64
 
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({title: 'Select multispectral image', filters: [{name: 'Multispectral TIFF', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open multispectral image dialog:', error);});"
@@ -678,6 +876,13 @@ module App =
                                 Numeric.view' [NumericInputType.InputBox] m.saturation.gainFactor
                                 |> UI.map SetSaturationGainFactor
                             ]
+                            Html.row "Brightness:" [
+                                Numeric.view' [NumericInputType.Slider] m.brightness.gainFactor  
+                                |> UI.map SetBrightnessGainFactor
+
+                                Numeric.view' [NumericInputType.InputBox] m.brightness.gainFactor
+                                |> UI.map SetBrightnessGainFactor
+                            ]
                             Html.row "Midtone Contrast:" [
                                 Numeric.view' [NumericInputType.Slider] m.midtoneContrastAdjustment.gainFactor  
                                 |> UI.map SetMidtoneContrastGainFactor
@@ -708,6 +913,7 @@ module App =
                 ]
 
                 div [] [
+                    rgbSelectedHistogramsView rgbSelectedBandHistograms
                     div [] [showRelative2DImage rgbTexture]   
                     div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages

@@ -62,6 +62,7 @@ type RgbCompositeRenderSettings =
             midtoneContrast : aval<MidtoneContrastAdjustment>
             blackWhiteClip : aval<BlackWhiteClip>
             saturation : aval<Saturation>
+            brightness : aval<Brightness>
         }
 
 module ImageDefaults =
