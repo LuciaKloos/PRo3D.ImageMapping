@@ -50,7 +50,7 @@ type Image =
     }
 
 [<ModelType>]
-type RgbComposite =
+type RgbRatioComposite =
     {
         redNumeratorBand       : Option<int>
         greenNumeratorBand     : Option<int>
@@ -59,6 +59,23 @@ type RgbComposite =
         greenDenominatorBand   : Option<int>
         blueDenominatorBand    : Option<int>
         gamma                  : NumericInput
+    }
+
+    
+[<ModelType>]
+type BandMapping =
+    {
+        redBand : Option<int>
+        greenBand : Option<int>
+        blueBand : Option<int>
+        gamma : NumericInput
+    }
+
+[<ModelType>]
+type TransferFunctionMapping =
+    {
+        selectedBand : Option<int>
+        gamma : NumericInput
     }
 
 [<ModelType>]
@@ -111,6 +128,11 @@ type BoresightAdjustment =
 
     }
 
+type VisualizationMode =
+    | RgbComposite
+    | RgbRatioComposite
+    | SingleBandTransferFunction    
+
 [<ModelType>]
 type Model =
     {
@@ -121,13 +143,16 @@ type Model =
         projectionOpacity : NumericInput
         boresightAdjustment : BoresightAdjustment
         cameraState     : OrbitState
-        rgbComposite    : RgbComposite
+        rgbRatioComposite    : RgbRatioComposite
+        bandMapping : BandMapping
+        transferFunctionMapping : TransferFunctionMapping
         highlightAdjustment : HighlightAdjustment
         shadowAdjustment    : ShadowAdjustment
         midtoneContrastAdjustment : MidtoneContrastAdjustment
         blackWhiteClip  : BlackWhiteClip
         saturation   : Saturation
         brightness   : Brightness
+        visualizationMode : VisualizationMode
     }
 
 module HighlightAdjustment =
@@ -171,7 +196,7 @@ module Brightness =
             gainFactor = { Numeric.init with min = -1.0; max = 1.0; step = 0.01; value = 0.0 }
         }
 
-module RgbComposite = 
+module RgbRatioComposite = 
     let empty = 
         {
             redNumeratorBand = None
@@ -219,32 +244,52 @@ module RgbComposite =
         }
 
     let set channel role bandIndex composite =
-        let toggleDenominator current =
-            match current with
-            | Some currentBandIndex when currentBandIndex = bandIndex ->
-                None
-            | _ ->
-                Some bandIndex
 
         match channel, role with
         | RgbChannel.Red, RgbBandRole.Numerator ->
             { composite with redNumeratorBand = Some bandIndex }
 
         | RgbChannel.Red, RgbBandRole.Denominator ->
-            { composite with redDenominatorBand = toggleDenominator composite.redDenominatorBand }
+            { composite with redDenominatorBand = Some bandIndex }
 
         | RgbChannel.Green, RgbBandRole.Numerator ->
             { composite with greenNumeratorBand = Some bandIndex }
 
         | RgbChannel.Green, RgbBandRole.Denominator ->
-            { composite with greenDenominatorBand = toggleDenominator composite.greenDenominatorBand }
+            { composite with greenDenominatorBand = Some bandIndex }
 
         | RgbChannel.Blue, RgbBandRole.Numerator ->
             { composite with blueNumeratorBand = Some bandIndex }
 
         | RgbChannel.Blue, RgbBandRole.Denominator ->
-            { composite with blueDenominatorBand = toggleDenominator composite.blueDenominatorBand }
+            { composite with blueDenominatorBand = Some bandIndex }
 
+module BandMapping =
+    let empty = 
+        {
+            redBand = None
+            greenBand = None
+            blueBand = None
+            gamma = { Numeric.init with min = 0.01; max = 5.0; step = 0.01; value = 1.0 }
+        }
+
+    let set channel bandIndex mapping =
+        match channel with
+        | RgbChannel.Red ->
+            { mapping with redBand = Some bandIndex }
+        | RgbChannel.Green ->
+            { mapping with greenBand = Some bandIndex }
+        | RgbChannel.Blue ->
+            { mapping with blueBand = Some bandIndex }
+
+module TransferFunctionMapping =
+    let empty : TransferFunctionMapping =
+        {
+            selectedBand = None
+            gamma = { Numeric.init with min = 0.01; max = 5.0; step = 0.01; value = 1.0 }
+        }
+    let set bandIndex mapping =
+        { mapping with selectedBand = Some bandIndex }
 
 module ColorMap =
     let getColorMapFileName (map: ColorMap) =
@@ -288,7 +333,10 @@ type Message =
     | SetRoll of Numeric.Action
     | SetYaw of Numeric.Action
     | SetPitch of Numeric.Action
-    | SetRgbBand of RgbChannel * RgbBandRole * Index
+    | SetVisualizationMode of VisualizationMode
+    | SetBandRatioBand of RgbChannel * RgbBandRole * Index
+    | SetRgbMappingBand of RgbChannel * Index
+    | SetTransferFunctionBand of Index
     | SetRgbGamma of Numeric.Action
     | SetAmountHighlight of Numeric.Action
     | SetToneHighlight of Numeric.Action
@@ -301,4 +349,7 @@ type Message =
     | SetWhiteClipPercentile of Numeric.Action
     | SetSaturationGainFactor of Numeric.Action
     | SetBrightnessGainFactor of Numeric.Action
+    | ResetHighlights
+    | ResetShadows
+    | ResetAdjustments
     | Nop

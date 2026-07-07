@@ -77,6 +77,25 @@ module ImageMath =
             |> Math.Round
             |> byte
 
+    let safeRatioClamped
+        (minimumDenominator : float)
+        (numeratorValues : float[])
+        (denominatorValues : float[])
+        : float[] =
+
+        if numeratorValues.Length <> denominatorValues.Length then
+            invalidArg "denominatorValues" "Ratio bands must contain the same number of pixels."
+
+        Array.init numeratorValues.Length (fun i ->
+            let n = numeratorValues.[i]
+            let d = denominatorValues.[i]
+
+            if Double.IsFinite n && Double.IsFinite d then
+                n / max d minimumDenominator
+            else
+                0.0
+        )
+
     let safeRatio
         (minimumSignal : float)
         (numerator : float[])

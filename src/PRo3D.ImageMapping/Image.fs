@@ -36,11 +36,210 @@ module Image =
             | None ->
                 loadTiffBands path
 
+
+    let createBandRatioTexture
+        (images : alist<AdaptiveImage>)
+        (bandRatioRenderSettings : BandRatioRenderSettings)
+        (shadowsHighlightsAdjustmentsRenderSettings : ShadowsHighlightsAdjustmentsRenderSettings)
+        : aval<ITexture> =
+
+        let adaptiveImages =
+            AList.toAVal images
+
+        AVal.custom (fun token ->
+
+            let sources =
+                adaptiveImages.GetValue token
+                |> fun images -> readAdaptiveBandSources images token
+
+            let redNumeratorValue =
+                bandRatioRenderSettings.redNumeratorBand.GetValue token
+
+            let redDenominatorValue =
+                bandRatioRenderSettings.redDenominatorBand.GetValue token
+
+            let greenNumeratorValue =
+                bandRatioRenderSettings.greenNumeratorBand.GetValue token
+
+            let greenDenominatorValue =
+                bandRatioRenderSettings.greenDenominatorBand.GetValue token
+
+            let blueNumeratorValue =
+                bandRatioRenderSettings.blueNumeratorBand.GetValue token
+
+            let blueDenominatorValue =
+                bandRatioRenderSettings.blueDenominatorBand.GetValue token
+
+            let gammaValue =
+                bandRatioRenderSettings.gamma.GetValue token
+
+            let highlightAdjustmentValue =
+                shadowsHighlightsAdjustmentsRenderSettings.highlightAdjustments.GetValue token
+
+            let highlightAmountValue =
+                highlightAdjustmentValue.amount.value
+
+            let highlightToneValue =
+                highlightAdjustmentValue.tone.value
+
+            let shadowAdjustmentValue =
+                shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
+
+            let shadowAmountValue =
+                shadowAdjustmentValue.amount.value
+
+            let shadowToneValue =
+                shadowAdjustmentValue.tone.value
+
+            let midtoneContrastValue =
+                shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
+
+            let midtoneContrastGainFactorValue =
+                midtoneContrastValue.gainFactor.value
+
+            let blackWhiteClipValue =
+                shadowsHighlightsAdjustmentsRenderSettings.blackWhiteClip.GetValue token
+
+            let blackClipPercentileValue =
+                blackWhiteClipValue.blackClipPercentile.value
+
+            let whiteClipPercentileValue = 
+                blackWhiteClipValue.whiteClipPercentile.value
+
+            let saturationValue = 
+                shadowsHighlightsAdjustmentsRenderSettings.saturation.GetValue token
+
+            let saturationGainFactorValue =
+                saturationValue.gainFactor.value
+
+            let brightnessValue = 
+                shadowsHighlightsAdjustmentsRenderSettings.brightness.GetValue token
+
+            let brightnessGainFactorValue =
+                brightnessValue.gainFactor.value
+
+            match
+                sources,
+                redNumeratorValue,
+                greenNumeratorValue,
+                blueNumeratorValue
+            with
+            | [], _, _, _ ->
+                DefaultTextures.checkerboard.GetValue()
+
+            | _, Some redNumerator, Some greenNumerator, Some blueNumerator ->
+
+                match
+                    createRgbCompositePixImageFromSources
+                        sources
+                        redNumerator
+                        redDenominatorValue
+                        greenNumerator
+                        greenDenominatorValue
+                        blueNumerator
+                        blueDenominatorValue
+                        gammaValue
+                        highlightAmountValue
+                        highlightToneValue
+                        shadowAmountValue
+                        shadowToneValue                        
+                        midtoneContrastGainFactorValue
+                        blackClipPercentileValue
+                        whiteClipPercentileValue
+                        saturationGainFactorValue
+                        brightnessGainFactorValue
+                with
+                | Result.Ok image ->
+                    PixTexture2d(
+                        PixImageMipMap [|
+                            image :> PixImage
+                        |],
+                        false
+                    ) :> ITexture
+
+                | Result.Error error ->
+                    Log.warn
+                        "Could not create RGB composite: %s"
+                        error
+
+                    DefaultTextures.checkerboard.GetValue()
+
+            | _ ->
+                DefaultTextures.checkerboard.GetValue()
+        )
+
+    let createRgbMappingTexture
+        (images : alist<AdaptiveImage>)
+        (rgbMappingRenderSettings : RgbMappingRenderSettings)
+        (shadowsHighlightsAdjustmentsRenderSettings : ShadowsHighlightsAdjustmentsRenderSettings)
+        : aval<ITexture> =
+        let adaptiveImages =
+            AList.toAVal images
+        AVal.custom (fun token ->
+            let sources =
+                adaptiveImages.GetValue token
+                |> fun images -> readAdaptiveBandSources images token
+            let redNumeratorValue =
+                rgbMappingRenderSettings.redBand.GetValue token
+            let greenNumeratorValue =
+                rgbMappingRenderSettings.greenBand.GetValue token
+            let blueNumeratorValue =
+                rgbMappingRenderSettings.blueBand.GetValue token
+            match
+                sources,
+                redNumeratorValue,
+                greenNumeratorValue,
+                blueNumeratorValue
+            with
+            | [], _, _, _ ->
+                DefaultTextures.checkerboard.GetValue()
+            //| _, Some redNumerator, Some greenNumerator, Some blueNumerator ->
+            //    match
+            //        createRgbMappingPixImageFromSources
+            //            sources
+            //            redNumerator
+            //            greenNumerator
+            //            blueNumerator
+            //    with
+            //    | Result.Ok image ->
+            //        PixTexture2d(
+            //            PixImageMipMap [|
+            //                image :> PixImage
+            //            |],
+            //            false
+            //        ) :> ITexture
+            //    | Result.Error error ->
+            //        Log.warn
+            //            "Could not create RGB mapping: %s"
+            //            error
+            //        DefaultTextures.checkerboard.GetValue()
+            | _ ->
+                DefaultTextures.checkerboard.GetValue()
+        )
+
+    let createTransferFunctionTexture 
+        (images : alist<AdaptiveImage>)
+        (transferFunctionRenderSettings : TransferFunctionRenderSettings)
+        (shadowsHighlightsAdjustmentsRenderSettings : ShadowsHighlightsAdjustmentsRenderSettings)
+        : aval<ITexture> =
+        let adaptiveImages =
+            AList.toAVal images
+        AVal.custom (fun token ->
+            let sources =
+                adaptiveImages.GetValue token
+                |> fun images -> readAdaptiveBandSources images token
+            match sources with
+            | [] ->
+                DefaultTextures.checkerboard.GetValue()
+        )
+
+
     // Makes the RGB texture adaptive. It is recalculated when the loaded image rows,
     // RGB band selections, contrast/gamma controls, or highlight controls change.
     let createRgbCompositeTextureWithHighlights
         (images : alist<AdaptiveImage>)
-        (rgbCompositeRenderSettings : RgbCompositeRenderSettings)
+        (rgbCompositeRenderSettings : BandRatioRenderSettings)
+        (shadowsHighlightsAdjustmentsRenderSettings : ShadowsHighlightsAdjustmentsRenderSettings)
         : aval<ITexture> =
 
         let adaptiveImages =
@@ -74,7 +273,7 @@ module Image =
                 rgbCompositeRenderSettings.gamma.GetValue token
 
             let highlightAdjustmentValue =
-                rgbCompositeRenderSettings.highlightAdjustments.GetValue token
+                shadowsHighlightsAdjustmentsRenderSettings.highlightAdjustments.GetValue token
 
             let highlightAmountValue =
                 highlightAdjustmentValue.amount.value
@@ -83,7 +282,7 @@ module Image =
                 highlightAdjustmentValue.tone.value
 
             let shadowAdjustmentValue =
-                rgbCompositeRenderSettings.shadowAdjustments.GetValue token
+                shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
 
             let shadowAmountValue =
                 shadowAdjustmentValue.amount.value
@@ -92,13 +291,13 @@ module Image =
                 shadowAdjustmentValue.tone.value
 
             let midtoneContrastValue =
-                rgbCompositeRenderSettings.midtoneContrast.GetValue token
+                shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
 
             let midtoneContrastGainFactorValue =
                 midtoneContrastValue.gainFactor.value
 
             let blackWhiteClipValue =
-                rgbCompositeRenderSettings.blackWhiteClip.GetValue token
+                shadowsHighlightsAdjustmentsRenderSettings.blackWhiteClip.GetValue token
 
             let blackClipPercentileValue =
                 blackWhiteClipValue.blackClipPercentile.value
@@ -107,13 +306,13 @@ module Image =
                 blackWhiteClipValue.whiteClipPercentile.value
 
             let saturationValue = 
-                rgbCompositeRenderSettings.saturation.GetValue token
+                shadowsHighlightsAdjustmentsRenderSettings.saturation.GetValue token
 
             let saturationGainFactorValue =
                 saturationValue.gainFactor.value
 
             let brightnessValue = 
-                rgbCompositeRenderSettings.brightness.GetValue token
+                shadowsHighlightsAdjustmentsRenderSettings.brightness.GetValue token
 
             let brightnessGainFactorValue =
                 brightnessValue.gainFactor.value

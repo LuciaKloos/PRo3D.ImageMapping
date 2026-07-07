@@ -234,62 +234,62 @@ module RgbComposite =
         | _, _, _, _, _, Result.Error error ->
             Result.Error error
 
-    let private erodeMask3x3
-        (width : int)
-        (height : int)
-        (mask : bool[])
-        : bool[] =
+    //let private computeValidForeground
+    //    (pixelCount : int)
+    //    (minimumSignal : float)
+    //    (redNumerator : RgbBandData)
+    //    (redDenominator : Option<RgbBandData>)
+    //    (greenNumerator : RgbBandData)
+    //    (greenDenominator : Option<RgbBandData>)
+    //    (blueNumerator : RgbBandData)
+    //    (blueDenominator : Option<RgbBandData>)
+    //    : bool[] =
 
-        Array.init mask.Length (fun index ->
-            let x = index % width
-            let y = index / width
+    //    let hasSignal value =
+    //        Double.IsFinite value && value > minimumSignal
 
-            if x = 0 || y = 0 || x = width - 1 || y = height - 1 then
-                false
-            else
-                let mutable allNeighboursValid = true
+    //    let optionalHasSignal (band : Option<RgbBandData>) index =
+    //        match band with
+    //        | Some band ->
+    //            hasSignal band.values.[index]
 
-                for yy in y - 1 .. y + 1 do
-                    for xx in x - 1 .. x + 1 do
-                        let neighbourIndex = yy * width + xx
+    //        | None ->
+    //            true
 
-                        if not mask.[neighbourIndex] then
-                            allNeighboursValid <- false
+    //    Array.init pixelCount (fun i ->
+    //        hasSignal redNumerator.values.[i] &&
+    //        optionalHasSignal redDenominator i &&
 
-                allNeighboursValid
-        )
+    //        hasSignal greenNumerator.values.[i] &&
+    //        optionalHasSignal greenDenominator i &&
+
+    //        hasSignal blueNumerator.values.[i] &&
+    //        optionalHasSignal blueDenominator i
+    //    )
 
     let private computeValidForeground
         (pixelCount : int)
-        (minimumSignal : float)
+        (minimumObjectSignal : float)
         (redNumerator : RgbBandData)
-        (redDenominator : Option<RgbBandData>)
         (greenNumerator : RgbBandData)
-        (greenDenominator : Option<RgbBandData>)
         (blueNumerator : RgbBandData)
-        (blueDenominator : Option<RgbBandData>)
         : bool[] =
 
-        let hasSignal value =
-            Double.IsFinite value && value > minimumSignal
-
-        let optionalHasSignal (band : Option<RgbBandData>) index =
-            match band with
-            | Some band ->
-                hasSignal band.values.[index]
-
-            | None ->
-                true
+        let isFinite value =
+            Double.IsFinite value
 
         Array.init pixelCount (fun i ->
-            hasSignal redNumerator.values.[i] &&
-            optionalHasSignal redDenominator i &&
+            let r = redNumerator.values.[i]
+            let g = greenNumerator.values.[i]
+            let b = blueNumerator.values.[i]
 
-            hasSignal greenNumerator.values.[i] &&
-            optionalHasSignal greenDenominator i &&
+            if isFinite r && isFinite g && isFinite b then
+                let averageSignal =
+                    (r + g + b) / 3.0
 
-            hasSignal blueNumerator.values.[i] &&
-            optionalHasSignal blueDenominator i
+                averageSignal > minimumObjectSignal
+            else
+                false
         )
 
 
@@ -301,7 +301,7 @@ module RgbComposite =
 
         match denominator with
         | Some denominator ->
-            safeRatio minimumSignal numerator.values denominator.values
+            safeRatioClamped minimumSignal numerator.values denominator.values
 
         | None ->
             Array.copy numerator.values
@@ -491,25 +491,34 @@ module RgbComposite =
 
                     // EMIT reflectance is floating-point data. Keep this threshold very small:
                     // a too-high threshold can make the whole RGB result transparent.
-                    let minimumSignal = 1.0e-5
+                    //let minimumSignal = 1.0e-5
+
+                    // Object/background separation.
+                    // alhpha backround removal threshold.
+                    let minimumObjectSignal =
+                        0.002
+
+                    // Ratio clamp.
+                    // Prevents denominator division explosions but does not create alpha holes.
+                    let minimumDenominator =
+                        1.0e-3
 
                     let rawValidForeground =
                         computeValidForeground
                             pixelCount
-                            minimumSignal
+                            minimumObjectSignal
                             redNumerator
-                            redDenominator
+                           // redDenominator
                             greenNumerator
-                            greenDenominator
+                           // greenDenominator
                             blueNumerator
-                            blueDenominator
+                           // blueDenominator
 
-                    let validForeground =
-                        erodeMask3x3 width height rawValidForeground
+                    let validForeground = rawValidForeground
 
                     let redBand, greenBand, blueBand =
                         computeCompositeChannelImages
-                            minimumSignal
+                            minimumDenominator
                             redNumerator
                             redDenominator
                             greenNumerator

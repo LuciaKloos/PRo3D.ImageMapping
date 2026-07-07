@@ -48,7 +48,7 @@ type MbiBandInfo =
             exposure   : Option<float>
         }
 
-type RgbCompositeRenderSettings =
+type BandRatioRenderSettings =
         {
             redNumeratorBand : aval<Option<int>>
             redDenominatorBand : aval<Option<int>>
@@ -57,13 +57,31 @@ type RgbCompositeRenderSettings =
             blueNumeratorBand : aval<Option<int>>
             blueDenominatorBand : aval<Option<int>>
             gamma : aval<float>
-            highlightAdjustments : aval<HighlightAdjustment>
-            shadowAdjustments : aval<ShadowAdjustment>
-            midtoneContrast : aval<MidtoneContrastAdjustment>
-            blackWhiteClip : aval<BlackWhiteClip>
-            saturation : aval<Saturation>
-            brightness : aval<Brightness>
         }
+
+type RgbMappingRenderSettings = 
+    {
+        redBand : aval<Option<int>>
+        greenBand : aval<Option<int>>
+        blueBand : aval<Option<int>>
+        gamma : aval<float>
+    }
+
+type TransferFunctionRenderSettings =
+    {
+        selectedBand : aval<Option<int>>
+        gamma : aval<float>
+    }
+
+type ShadowsHighlightsAdjustmentsRenderSettings =
+    {
+        highlightAdjustments : aval<HighlightAdjustment>
+        shadowAdjustments : aval<ShadowAdjustment>
+        midtoneContrast : aval<MidtoneContrastAdjustment>
+        blackWhiteClip : aval<BlackWhiteClip>
+        saturation : aval<Saturation>
+        brightness : aval<Brightness>
+    }
 
 module ImageDefaults =
 

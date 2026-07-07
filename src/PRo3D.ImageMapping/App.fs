@@ -24,13 +24,16 @@ module App =
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))  
-        rgbComposite = RgbComposite.empty
+        rgbRatioComposite = RgbRatioComposite.empty
+        bandMapping = BandMapping.empty
+        transferFunctionMapping = TransferFunctionMapping.empty
         highlightAdjustment = HighlightAdjustment.init
         shadowAdjustment = ShadowAdjustment.init
         midtoneContrastAdjustment = MidtoneContrastAdjustment.init
         blackWhiteClip = BlackWhiteClip.init
         saturation = Saturation.init
         brightness = Brightness.init
+        visualizationMode = VisualizationMode.RgbComposite
     }
 
     let update (m : Model) (msg : Message) = 
@@ -86,7 +89,7 @@ module App =
 
                 let defaultRgbComposite =
                     let genericDefaults =
-                        RgbComposite.fromBandCount bandCount
+                        RgbRatioComposite.fromBandCount bandCount
 
                     if isNetCdf then
                         {
@@ -122,7 +125,7 @@ module App =
                         selectedImage = firstBand
                         sourceImagePath = Some fullPath
                         editImages = []
-                        rgbComposite = defaultRgbComposite
+                        rgbRatioComposite = defaultRgbComposite
                 }
         | SelectImage idx ->
             { m with selectedImage = Some idx }
@@ -198,7 +201,7 @@ module App =
                 images = images' |> IndexList.map (fun (idx, img) -> img);
                 selectedImage = newSelectedIdx;
                 editImages = editImages'}
-        | SetRgbBand (rgbChannel, rgbBandRole, rowIndex) ->
+        | SetBandRatioBand   (rgbChannel, rgbBandRole, rowIndex) ->
 
             let selectedBandIndex =
                 m.images
@@ -211,21 +214,56 @@ module App =
             | Some bandIndex ->
                 {
                     m with
-                        rgbComposite =
-                            m.rgbComposite
-                            |> RgbComposite.set rgbChannel rgbBandRole bandIndex
+                        rgbRatioComposite =
+                            m.rgbRatioComposite
+                            |> RgbRatioComposite.set rgbChannel rgbBandRole bandIndex
                 }
 
             | None ->        
                 m
+        | SetRgbMappingBand (rgbChannel, rowIndex) ->
+            let selectedBandIndex =
+                m.images
+                |> IndexList.mapi (fun index img -> index, img)
+                |> IndexList.toList
+                |> List.tryFind (fun (index, _) -> index = rowIndex)
+                |> Option.map (fun (_, img) -> img.bandIndex)
+            match selectedBandIndex with
+            | Some bandIndex ->
+                {
+                    m with
+                        bandMapping =
+                            m.bandMapping
+                            |> BandMapping.set rgbChannel bandIndex
+                }
+            | None ->        
+                m
+        | SetTransferFunctionBand (rowIndex) ->
+            let selectedBandIndex =
+                m.images
+                |> IndexList.mapi (fun index img -> index, img)
+                |> IndexList.toList
+                |> List.tryFind (fun (index, _) -> index = rowIndex)
+                |> Option.map (fun (_, img) -> img.bandIndex)
+            match selectedBandIndex with
+            | Some bandIndex ->
+                {
+                    m with
+                        transferFunctionMapping =
+                            m.transferFunctionMapping
+                            |> TransferFunctionMapping.set bandIndex 
+                }
+            | None ->        
+                m
+
         | SetRgbGamma action ->
             {
                 m with
-                    rgbComposite =
+                    rgbRatioComposite =
                         {
-                            m.rgbComposite with
+                            m.rgbRatioComposite with
                                 gamma =
-                                    Numeric.update m.rgbComposite.gamma action
+                                    Numeric.update m.rgbRatioComposite.gamma action
                         }
             }
         | SetAmountHighlight action ->
@@ -338,6 +376,35 @@ module App =
                                     Numeric.update m.brightness.gainFactor action
                         }
             }
+        | ResetHighlights ->
+            {
+                m with
+                    highlightAdjustment = HighlightAdjustment.init
+            }
+        | ResetShadows ->
+            {
+                m with
+                    shadowAdjustment = ShadowAdjustment.init
+            }
+        | ResetAdjustments ->
+            {
+                m with
+                    midtoneContrastAdjustment = MidtoneContrastAdjustment.init
+                    blackWhiteClip = BlackWhiteClip.init
+                    saturation = Saturation.init
+                    brightness = Brightness.init
+            }
+        | SetVisualizationMode mode ->
+            {
+                m with
+                    visualizationMode = mode
+                    editImages =
+                        match mode with
+                        | VisualizationMode.SingleBandTransferFunction -> m.editImages
+                        | VisualizationMode.RgbRatioComposite
+                        | VisualizationMode.RgbComposite -> []
+            }
+
 
 
     let numericInputFromAdaptive
@@ -424,14 +491,14 @@ module App =
                             }
 
             [
-                computeOne "R numerator"   (m.rgbComposite.redNumeratorBand.GetValue token)
-                computeOne "R denominator" (m.rgbComposite.redDenominatorBand.GetValue token)
+                computeOne "R numerator"   (m.rgbRatioComposite.redNumeratorBand.GetValue token)
+                computeOne "R denominator" (m.rgbRatioComposite.redDenominatorBand.GetValue token)
 
-                computeOne "G numerator"   (m.rgbComposite.greenNumeratorBand.GetValue token)
-                computeOne "G denominator" (m.rgbComposite.greenDenominatorBand.GetValue token)
+                computeOne "G numerator"   (m.rgbRatioComposite.greenNumeratorBand.GetValue token)
+                computeOne "G denominator" (m.rgbRatioComposite.greenDenominatorBand.GetValue token)
 
-                computeOne "B numerator"   (m.rgbComposite.blueNumeratorBand.GetValue token)
-                computeOne "B denominator" (m.rgbComposite.blueDenominatorBand.GetValue token)
+                computeOne "B numerator"   (m.rgbRatioComposite.blueNumeratorBand.GetValue token)
+                computeOne "B denominator" (m.rgbRatioComposite.blueDenominatorBand.GetValue token)
             ]
         )
 
@@ -528,59 +595,108 @@ module App =
                 }
             )
 
+    let headerForMode mode =
+        match mode with
+        | VisualizationMode.RgbRatioComposite ->
+            [
+                "R Num"; "R Den"
+                "G Num"; "G Den"
+                "B Num"; "B Den"
+                "Wavelengths"
+                "Dist. to Planet"
+                "OBS Date"
+            ]
+
+        | VisualizationMode.RgbComposite ->
+            [
+                "R"
+                "G"
+                "B"
+                "Wavelengths"
+                "Dist. to Planet"
+                "OBS Date"
+            ]
+
+        | VisualizationMode.SingleBandTransferFunction ->
+            [
+                "Use"
+                "Edit"
+                "Wavelengths"
+                "Dist. to Planet"
+                "OBS Date"
+            ]
+
     let view (m : AdaptiveModel) (showDOM : AdaptiveImage -> DomNode<ImageMessage>) (showRelative2DImage : aval<ITexture> -> DomNode<Message>) (showAbsolute2DAnd3DImage : aval<Option<string>> -> aval<ITexture> -> DomNode<Message>) =
     
-        let rgbCompositeRenderSettings : RgbCompositeRenderSettings =
+        let bandRatioRenderSettings : BandRatioRenderSettings =
             {
                 redNumeratorBand =
-                    m.rgbComposite.redNumeratorBand
+                    m.rgbRatioComposite.redNumeratorBand
 
                 redDenominatorBand =
-                    m.rgbComposite.redDenominatorBand
+                    m.rgbRatioComposite.redDenominatorBand
 
                 greenNumeratorBand =
-                    m.rgbComposite.greenNumeratorBand
+                    m.rgbRatioComposite.greenNumeratorBand
 
                 greenDenominatorBand =
-                    m.rgbComposite.greenDenominatorBand
+                    m.rgbRatioComposite.greenDenominatorBand
 
                 blueNumeratorBand =
-                    m.rgbComposite.blueNumeratorBand
+                    m.rgbRatioComposite.blueNumeratorBand
 
                 blueDenominatorBand =
-                    m.rgbComposite.blueDenominatorBand
+                    m.rgbRatioComposite.blueDenominatorBand
 
                 gamma =
-                    m.rgbComposite.gamma.value
+                    m.rgbRatioComposite.gamma.value
 
+            }
+
+        let rgbMappingRenderSettings : RgbMappingRenderSettings =
+            {
+                redBand =
+                    m.bandMapping.redBand
+                greenBand =
+                    m.bandMapping.greenBand
+                blueBand =
+                    m.bandMapping.blueBand
+                gamma =
+                    m.bandMapping.gamma.value
+            }
+
+        let transferFunctionRenderSettings : TransferFunctionRenderSettings =
+            {
+                selectedBand =
+                    m.transferFunctionMapping.selectedBand
+                gamma =
+                    m.transferFunctionMapping.gamma.value
+            }
+
+        let shadowsHighlightsAdjustmentsRenderSettings : ShadowsHighlightsAdjustmentsRenderSettings =
+            {
                 highlightAdjustments =
                     AVal.custom (fun token ->
                         {
                             amount =
                                 numericInputFromAdaptive token m.highlightAdjustment.amount
-
                             tone =
                                 numericInputFromAdaptive token m.highlightAdjustment.tone
-
                             radius =
                                 numericInputFromAdaptive token m.highlightAdjustment.radius
                         }
                     )
-
                 shadowAdjustments =
                     AVal.custom (fun token ->
                         {
                             amount =
                                 numericInputFromAdaptive token m.shadowAdjustment.amount
-
                             tone =
                                 numericInputFromAdaptive token m.shadowAdjustment.tone
-
                             radius =
                                 numericInputFromAdaptive token m.shadowAdjustment.radius
                         }
                     )
-
                 midtoneContrast =
                     AVal.custom (fun token ->
                         {
@@ -588,18 +704,15 @@ module App =
                                 numericInputFromAdaptive token m.midtoneContrastAdjustment.gainFactor
                         }
                     )
-
                 blackWhiteClip =
                     AVal.custom (fun token ->
                         {
                             blackClipPercentile =
                                 numericInputFromAdaptive token m.blackWhiteClip.blackClipPercentile
-
                             whiteClipPercentile =
                                 numericInputFromAdaptive token m.blackWhiteClip.whiteClipPercentile
                         }
                     )
-
                 saturation =
                     AVal.custom (fun token ->
                         {
@@ -607,7 +720,6 @@ module App =
                                 numericInputFromAdaptive token m.saturation.gainFactor
                         }
                     )
-
                 brightness =
                     AVal.custom (fun token ->
                         {
@@ -620,7 +732,30 @@ module App =
         let rgbTexture =
             Image.createRgbCompositeTextureWithHighlights
                 m.images
-                rgbCompositeRenderSettings
+                bandRatioRenderSettings
+
+        let outputTexture : aval<ITexture> =
+            m.visualizationMode
+            |> AVal.bind (fun mode ->
+                match mode with
+                | VisualizationMode.RgbRatioComposite ->
+                    Image.createBandRatioTexture
+                        m.images
+                        bandRatioRenderSettings
+                        shadowsHighlightsAdjustmentsRenderSettings
+
+                | VisualizationMode.RgbComposite ->
+                    Image.createRgbMappingTexture
+                        m.images
+                        rgbMappingRenderSettings
+                        shadowsHighlightsAdjustmentsRenderSettings
+
+                | VisualizationMode.SingleBandTransferFunction ->
+                    Image.createTransferFunctionTexture
+                        m.images
+                        transferFunctionRenderSettings
+                        shadowsHighlightsAdjustmentsRenderSettings
+            )
 
         let rgbSelectedBandHistograms =
             computeRgbSelectedBandHistograms m 64
@@ -646,6 +781,65 @@ module App =
                     ]
                 )
 
+        let accordionLists text' icon active styling resetMessage content' =
+            let title = if active then "title active inverted" else "title inverted"
+            let content = if active then "content active" else "content"
+
+            onBoot "$('#__ID__ > .ui.accordion').accordion({ exclusive: false, selector: { title: '> .title', content: '> .content' } });" (
+                div styling [
+                    div [clazz "ui inverted accordion fluid"] [
+                        div [clazz title; style "background-color: #282828"] [
+                            i [clazz "dropdown icon"] []
+                            text text'
+                            div [style "float:right"] [
+                                i [clazz (icon + " icon")] []
+                            ]
+                        ]
+
+                        div [clazz content; style "overflow-y : auto; "] (
+                            [
+                                div [style "display: flex; justify-content: flex-end; padding: 5px;"] [
+                                    button [
+                                        clazz "ui tiny inverted button"
+                                        onClick (fun _ -> resetMessage)
+                                    ] [
+                                        text "Reset"
+                                    ]
+                                ]
+                            ] @ content'
+                        )
+                    ]
+                ]
+            )
+
+        let accordionHist text' icon active styling content' =
+            let title = if active then "title active inverted" else "title inverted"
+            let content = if active then "content active" else "content"
+
+            onBoot "$('#__ID__ > .ui.accordion').accordion({ exclusive: false, selector: { title: '> .title', content: '> .content' } });" (
+                div styling [
+                        div [clazz "ui inverted accordion fluid"] [
+                            div [clazz title; style "background-color: #282828"] [
+                                    i [clazz ("dropdown icon")] []
+                                    text text'                                
+                                    div [style "float:right"] [i [clazz (icon + " icon")] []]
+                                
+                            ]
+                            div [clazz content;  style "overflow-y : auto; "] (
+                                [
+                                    div [style "display: flex; justify-content: flex-end; padding: 5px;"] [
+                                        button [
+                                            clazz "ui tiny inverted button"
+                                        ] [
+                                            text "Reset"
+                                        ]
+                                    ]
+                                ] @ content'
+                            )
+                        ]
+                ]
+            )
+
         let contentImages = 
             let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
@@ -654,27 +848,48 @@ module App =
             let attributesAttr2 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; display: flex; justify-content: center; align-items: center;"
 
             let header =
-                div [ 
-                    // attribute "clazz" "title active inverted"
-                    attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black" 
-                ] [
-                    div [attributesSelect] [text "R Num"]
-                    div [attributesSelect] [text "R Den"]
-                    div [attributesSelect] [text "G Num"]
-                    div [attributesSelect] [text "G Den"]
-                    div [attributesSelect] [text "B Num"]
-                    div [attributesSelect] [text "B Den"]
-                    div [ attributesEdit ] [text "Edit"]
-                    div [ attributesWavelength ] [text "Wavelengths"]
-                    div [ attributesAttr1 ] [
-                        i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance);] []
-                        text "Dist. to Planet"
-                    ]
-                    div [ attributesAttr2 ] [
-                        i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDate);] []
-                        text "OBS Date"
-                    ]
-                ]
+                Incremental.div
+                    (AttributeMap.ofList [
+                        attribute "style" $"display: flex; font-weight: bold; border-bottom: 2px solid black; background: black"
+                    ])
+                    (
+                        alist {
+                            let! mode = m.visualizationMode
+
+                            let selectHeader label =
+                                div [attributesSelect] [text label]
+
+                            match mode with
+                            | VisualizationMode.RgbRatioComposite ->
+                                yield selectHeader "R Num"
+                                yield selectHeader "R Den"
+                                yield selectHeader "G Num"
+                                yield selectHeader "G Den"
+                                yield selectHeader "B Num"
+                                yield selectHeader "B Den"
+
+                            | VisualizationMode.RgbComposite ->
+                                yield selectHeader "R"
+                                yield selectHeader "G"
+                                yield selectHeader "B"
+
+                            | VisualizationMode.SingleBandTransferFunction ->
+                                yield selectHeader "Use"
+                                yield div [attributesEdit] [text "Edit"]
+
+                            yield div [attributesWavelength] [text "Wavelengths"]
+
+                            yield div [attributesAttr1] [
+                                i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance)] []
+                                text "Dist. to Planet"
+                            ]
+
+                            yield div [attributesAttr2] [
+                                i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDate)] []
+                                text "OBS Date"
+                            ]
+                        }
+                    )
             Incremental.div (AttributeMap.ofList [ attribute "class" "table-container" ]) (
                 alist {
                     yield header
@@ -701,81 +916,134 @@ module App =
                                                         )
                                                     )
                                                 ]
-                                            div [attribute "style" "display: flex; font-weight: bold"] 
-                                                [
-                                                    let selectedBandIndex =
-                                                        img.bandIndex
+                                            Incremental.div
+                                                (AttributeMap.ofList [
+                                                    attribute "style" "display: flex; font-weight: bold"
+                                                ])
+                                                (
+                                                    alist {
+                                                        let! mode = m.visualizationMode
 
-                                                    let rgbSelector
-                                                        (selected : aval<Option<int>>)
-                                                        (channel : RgbChannel)
-                                                        (role : RgbBandRole) =
+                                                        let selectedBandIndex =
+                                                            img.bandIndex
 
-                                                        div [attributesSelect] [
-                                                            Html.SemUi.iconCheckBox
-                                                                (
-                                                                    (selected, selectedBandIndex)
-                                                                    ||> AVal.map2 (fun selected bandIndex ->
-                                                                        selected = Some bandIndex
+                                                        let bandRatioSelector
+                                                            (selected : aval<Option<int>>)
+                                                            (channel : RgbChannel)
+                                                            (role : RgbBandRole) =
+
+                                                            div [attributesSelect] [
+                                                                Html.SemUi.iconCheckBox
+                                                                    (
+                                                                        (selected, selectedBandIndex)
+                                                                        ||> AVal.map2 (fun selected bandIndex ->
+                                                                            selected = Some bandIndex
+                                                                        )
                                                                     )
+                                                                    (SetBandRatioBand (channel, role, index))
+                                                            ]
+
+                                                        let rgbMappingSelector
+                                                            (selected : aval<Option<int>>)
+                                                            (channel : RgbChannel) =
+
+                                                            div [attributesSelect] [
+                                                                Html.SemUi.iconCheckBox
+                                                                    (
+                                                                        (selected, selectedBandIndex)
+                                                                        ||> AVal.map2 (fun selected bandIndex ->
+                                                                            selected = Some bandIndex
+                                                                        )
+                                                                    )
+                                                                    (SetRgbMappingBand (channel, index))
+                                                            ]
+
+                                                        let transferFunctionSelector
+                                                            (selected : aval<Option<int>>) =
+
+                                                            div [attributesSelect] [
+                                                                Html.SemUi.iconCheckBox
+                                                                    (
+                                                                        (selected, selectedBandIndex)
+                                                                        ||> AVal.map2 (fun selected bandIndex ->
+                                                                            selected = Some bandIndex
+                                                                        )
+                                                                    )
+                                                                    (SetTransferFunctionBand index)
+                                                            ]
+
+                                                        let editSelector =
+                                                            div [attributesEdit] [
+                                                                Html.SemUi.iconCheckBox
+                                                                    (
+                                                                        m.editImages
+                                                                        |> AVal.map (fun editImages ->
+                                                                            List.contains index editImages
+                                                                        )
+                                                                    )
+                                                                    (EditImage index)
+                                                            ]
+
+                                                        match mode with
+                                                        | VisualizationMode.RgbRatioComposite ->
+                                                            yield bandRatioSelector m.rgbRatioComposite.redNumeratorBand RgbChannel.Red RgbBandRole.Numerator
+                                                            yield bandRatioSelector m.rgbRatioComposite.redDenominatorBand RgbChannel.Red RgbBandRole.Denominator
+                                                            yield bandRatioSelector m.rgbRatioComposite.greenNumeratorBand RgbChannel.Green RgbBandRole.Numerator
+                                                            yield bandRatioSelector m.rgbRatioComposite.greenDenominatorBand RgbChannel.Green RgbBandRole.Denominator
+                                                            yield bandRatioSelector m.rgbRatioComposite.blueNumeratorBand RgbChannel.Blue RgbBandRole.Numerator
+                                                            yield bandRatioSelector m.rgbRatioComposite.blueDenominatorBand RgbChannel.Blue RgbBandRole.Denominator
+
+                                                        | VisualizationMode.RgbComposite ->
+                                                            yield rgbMappingSelector m.bandMapping.redBand RgbChannel.Red
+                                                            yield rgbMappingSelector m.bandMapping.greenBand RgbChannel.Green
+                                                            yield rgbMappingSelector m.bandMapping.blueBand RgbChannel.Blue
+
+                                                        | VisualizationMode.SingleBandTransferFunction ->
+                                                            yield transferFunctionSelector m.transferFunctionMapping.selectedBand
+                                                            yield editSelector
+
+                                                        yield div [attributesWavelength] [
+                                                            Incremental.text (
+                                                                img.selectedChannel
+                                                                |> AVal.map (fun channel ->
+                                                                    match channel.name with
+                                                                    | Some wavelength -> wavelength
+                                                                    | None -> "-"
                                                                 )
-                                                                (SetRgbBand (channel, role, index))
+                                                            )
                                                         ]
 
-                                                    rgbSelector
-                                                        m.rgbComposite.redNumeratorBand
-                                                        RgbChannel.Red
-                                                        RgbBandRole.Numerator
-
-                                                    rgbSelector
-                                                        m.rgbComposite.redDenominatorBand
-                                                        RgbChannel.Red
-                                                        RgbBandRole.Denominator
-
-                                                    rgbSelector
-                                                        m.rgbComposite.greenNumeratorBand
-                                                        RgbChannel.Green
-                                                        RgbBandRole.Numerator
-
-                                                    rgbSelector
-                                                        m.rgbComposite.greenDenominatorBand
-                                                        RgbChannel.Green
-                                                        RgbBandRole.Denominator
-
-                                                    rgbSelector
-                                                        m.rgbComposite.blueNumeratorBand
-                                                        RgbChannel.Blue
-                                                        RgbBandRole.Numerator
-
-                                                    rgbSelector
-                                                        m.rgbComposite.blueDenominatorBand
-                                                        RgbChannel.Blue
-                                                        RgbBandRole.Denominator
-
-                                                    div [attributesEdit] [ Html.SemUi.iconCheckBox (m.editImages |> AVal.map (fun editImages -> List.contains index editImages)) (EditImage index)]
-                                                    div [attributesWavelength] [
-                                                        Incremental.text (
-                                                            img.selectedChannel
-                                                            |> AVal.map (fun channel ->
-                                                                match channel.name with
-                                                                | Some wavelength -> wavelength
-                                                                | None -> "-"
+                                                        yield div [attributesAttr1] [
+                                                            Incremental.text (
+                                                                img.distance
+                                                                |> AVal.map (fun f -> sprintf "%.2f" f)
                                                             )
-                                                        )
-                                                    ]
-                                                    div [attributesAttr1] [ Incremental.text (img.distance |> AVal.map (fun f -> sprintf "%.2f" f)) ]
-                                                    div [attributesAttr2] [ Incremental.text (img.time |> AVal.map string) ]
-                                                ]
+                                                        ]
+
+                                                        yield div [attributesAttr2] [
+                                                            Incremental.text (
+                                                                img.time
+                                                                |> AVal.map string
+                                                            )
+                                                        ]
+                                                    }
+                                                )
                                         
                                             Incremental.div AttributeMap.empty (
-                                                alist { 
-                                                    let! isInEditMode = m.editImages |> AVal.map (fun editEntries -> List.contains index editEntries)
-                                                    if isInEditMode then
-                                                        div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
-                                                            showDOM img |> UI.map (fun msg -> Message.ImageMessage (index, msg))
+                                                alist {
+                                                    let! mode = m.visualizationMode
+
+                                                    let! isInEditMode =
+                                                        m.editImages
+                                                        |> AVal.map (fun editEntries ->
+                                                            List.contains index editEntries
+                                                        )
+
+                                                    if mode = VisualizationMode.SingleBandTransferFunction && isInEditMode then
+                                                        yield div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
+                                                            showDOM img
+                                                            |> UI.map (fun msg -> Message.ImageMessage (index, msg))
                                                         ]
-                                                    else
-                                                        div [] []
                                                 }
                                             )
                                         ]
@@ -807,9 +1075,8 @@ module App =
                             Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
                         ]
                     ]
-                   
-                    div [clazz "item"; style "margin-top: 10px;"] [
-                        div [style "padding-left: 5px"] [text "Highlights:"]
+
+                    accordionLists "Highlights" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] ResetHighlights [
                         Html.table [
                             Html.row "Amount:" [
                                 Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.amount  
@@ -837,8 +1104,7 @@ module App =
                         ]
                     ]
 
-                    div [clazz "item"; style "margin-top: 10px;"] [
-                        div [style "padding-left: 5px"] [text "Shadows:"]
+                    accordionLists "Shadows" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] ResetShadows [
                         Html.table [
                             Html.row "Amount:" [
                                 Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.amount  
@@ -866,8 +1132,7 @@ module App =
                         ]
                     ]
 
-                    div [clazz "item"; style "margin-top: 10px;"] [
-                        div [style "padding-left: 5px"] [text "Adjustments:"]
+                    accordionLists "Adjustments" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] ResetAdjustments [
                         Html.table [
                             Html.row "Color (Saturation):" [
                                 Numeric.view' [NumericInputType.Slider] m.saturation.gainFactor  
@@ -876,6 +1141,7 @@ module App =
                                 Numeric.view' [NumericInputType.InputBox] m.saturation.gainFactor
                                 |> UI.map SetSaturationGainFactor
                             ]
+
                             Html.row "Brightness:" [
                                 Numeric.view' [NumericInputType.Slider] m.brightness.gainFactor  
                                 |> UI.map SetBrightnessGainFactor
@@ -883,6 +1149,7 @@ module App =
                                 Numeric.view' [NumericInputType.InputBox] m.brightness.gainFactor
                                 |> UI.map SetBrightnessGainFactor
                             ]
+
                             Html.row "Midtone Contrast:" [
                                 Numeric.view' [NumericInputType.Slider] m.midtoneContrastAdjustment.gainFactor  
                                 |> UI.map SetMidtoneContrastGainFactor
@@ -890,20 +1157,20 @@ module App =
                                 Numeric.view' [NumericInputType.InputBox] m.midtoneContrastAdjustment.gainFactor
                                 |> UI.map SetMidtoneContrastGainFactor
                             ]
+
                             Html.row "Black Clip:" [
                                 Numeric.view' [NumericInputType.InputBox] m.blackWhiteClip.blackClipPercentile
                                 |> UI.map SetBlackClipPercentile
                             ]
+
                             Html.row "White Clip:" [
                                 Numeric.view' [NumericInputType.InputBox] m.blackWhiteClip.whiteClipPercentile
                                 |> UI.map SetWhiteClipPercentile
                             ]
-
                         ]
                     ]
 
-                    div [clazz "item"; style "margin-top: 10px;"] [
-                        div [style "padding-left: 5px"] [text "Registration:"]
+                    accordionHist "Registration" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
                         Html.table [  
                             Html.row "Roll:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll |> UI.map SetRoll]
                             Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]
@@ -913,8 +1180,10 @@ module App =
                 ]
 
                 div [] [
-                    rgbSelectedHistogramsView rgbSelectedBandHistograms
-                    div [] [showRelative2DImage rgbTexture]   
+                    
+                    accordionHist "Histograms" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [ rgbSelectedHistogramsView rgbSelectedBandHistograms ]
+                    
+                    div [] [showRelative2DImage outputTexture]   
                     div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages
                     ]
@@ -926,7 +1195,7 @@ module App =
             body [] [
 
                 div [] [
-                    showAbsolute2DAnd3DImage m.sourceImagePath rgbTexture   
+                    showAbsolute2DAnd3DImage m.sourceImagePath outputTexture   
                 ]
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
                     accordion "Texture Mapping" "file image outline" false (clazz "ui inverted segment") [ content ]
