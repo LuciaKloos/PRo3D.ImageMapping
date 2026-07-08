@@ -182,7 +182,7 @@ module RgbComposite =
             Result.Ok None
 
 
-    let private loadSelectedCompositeBands
+    let private loadSelectedCompositeRatioBands
         (sources : list<RgbBandSource>)
         (redNumeratorIndex : int)
         (redDenominatorIndex : Option<int>)
@@ -233,39 +233,382 @@ module RgbComposite =
 
         | _, _, _, _, _, Result.Error error ->
             Result.Error error
+    
+    let private loadSelectedRgbMappingBands
+        (sources : list<RgbBandSource>)
+        (redBandIndex : int)
+        (greenBandIndex : int)
+        (blueBandIndex : int)
+        : Result<RgbBandData * RgbBandData * RgbBandData, string> =
 
-    //let private computeValidForeground
-    //    (pixelCount : int)
-    //    (minimumSignal : float)
-    //    (redNumerator : RgbBandData)
-    //    (redDenominator : Option<RgbBandData>)
-    //    (greenNumerator : RgbBandData)
-    //    (greenDenominator : Option<RgbBandData>)
-    //    (blueNumerator : RgbBandData)
-    //    (blueDenominator : Option<RgbBandData>)
-    //    : bool[] =
+        match
+            readLogicalBand sources redBandIndex,
+            readLogicalBand sources greenBandIndex,
+            readLogicalBand sources blueBandIndex
+        with
+        | Result.Ok redBand,
+          Result.Ok greenBand,
+          Result.Ok blueBand ->
 
-    //    let hasSignal value =
-    //        Double.IsFinite value && value > minimumSignal
+            Result.Ok (
+                redBand,
+                greenBand,
+                blueBand
+            )
 
-    //    let optionalHasSignal (band : Option<RgbBandData>) index =
-    //        match band with
-    //        | Some band ->
-    //            hasSignal band.values.[index]
+        | Result.Error error, _, _ ->
+            Result.Error error
 
-    //        | None ->
-    //            true
+        | _, Result.Error error, _ ->
+            Result.Error error
 
-    //    Array.init pixelCount (fun i ->
-    //        hasSignal redNumerator.values.[i] &&
-    //        optionalHasSignal redDenominator i &&
+        | _, _, Result.Error error ->
+            Result.Error error
 
-    //        hasSignal greenNumerator.values.[i] &&
-    //        optionalHasSignal greenDenominator i &&
 
-    //        hasSignal blueNumerator.values.[i] &&
-    //        optionalHasSignal blueDenominator i
-    //    )
+    let private loadSelectedTransferFunctionBand
+        (sources : list<RgbBandSource>)
+        (bandIndex : int)
+        : Result<RgbBandData, string> =
+
+        readLogicalBand sources bandIndex
+
+    let private byteFrom01 value =
+        value
+        |> clamp01
+        |> fun v -> byte (round (v * 255.0))
+
+
+    let private sampleColorMap
+        (colorMap : ColorMap)
+        (normalizedValue : float)
+        : C4b =
+
+        let t =
+            clamp01 normalizedValue
+
+        let r, g, b =
+            match colorMap with
+            | ColorMap.Magma ->
+                1.5 * t,
+                t * t * 0.8,
+                0.25 + 0.75 * t * t * t
+
+            | ColorMap.Plasma ->
+                0.2 + 0.8 * t,
+                0.1 + 0.8 * (1.0 - abs (t - 0.5) * 2.0),
+                1.0 - 0.7 * t
+
+            | ColorMap.Viridis ->
+                0.25 + 0.55 * t,
+                0.15 + 0.85 * t,
+                0.75 - 0.55 * t
+
+            | ColorMap.PiYG ->
+                1.0 - t,
+                0.2 + 0.8 * (1.0 - abs (t - 0.5) * 2.0),
+                t
+
+            | ColorMap.TwilightShifted ->
+                0.5 + 0.5 * sin (6.28318530718 * t),
+                0.5 + 0.5 * sin (6.28318530718 * (t + 0.33)),
+                0.5 + 0.5 * sin (6.28318530718 * (t + 0.66))
+
+            | ColorMap.Vanimo ->
+                t,
+                1.0 - abs (t - 0.5) * 2.0,
+                1.0 - t
+
+            | _ ->
+                t, t, t
+
+        C4b(
+            byteFrom01 r,
+            byteFrom01 g,
+            byteFrom01 b,
+            255uy
+        )
+
+    let createTransferFunctionPixImageFromSource
+        (sources : list<RgbBandSource>)
+        (bandIndex : int)
+        (minimum : float)
+        (maximum : float)
+        (gamma : float)
+        (useFalseColor : bool)
+        (colorMap : ColorMap)
+        (highlightAmount : float)
+        (highlightTone : float)
+        (shadowAmount : float)
+        (shadowTone : float)
+        (midtoneContrastGainFactor : float)
+        (saturation : float)
+        (brightness : float)
+        : Result<PixImage<byte>, string> =
+
+        try
+            match loadSelectedTransferFunctionBand sources bandIndex with
+            | Result.Error error ->
+                Result.Error error
+
+            | Result.Ok band ->
+
+                let width =
+                    band.width
+
+                let height =
+                    band.height
+
+                let pixelCount =
+                    band.values.Length
+
+                let image =
+                    PixImage<byte>(
+                        Col.Format.RGBA,
+                        V2i(width, height)
+                    )
+
+                let redBytes =
+                    Array.zeroCreate<byte> pixelCount
+
+                let greenBytes =
+                    Array.zeroCreate<byte> pixelCount
+
+                let blueBytes =
+                    Array.zeroCreate<byte> pixelCount
+
+                let alphaBytes =
+                    Array.zeroCreate<byte> pixelCount
+
+                let luminance =
+                    Array.zeroCreate<float> pixelCount
+
+                // First pass:
+                // raw single band -> transfer function / grayscale RGB bytes.
+                for index in 0 .. pixelCount - 1 do
+                    let value =
+                        band.values.[index]
+
+                    if Double.IsFinite value then
+                        let byteValue =
+                            valueToByte gamma minimum maximum value
+
+                        let color =
+                            if useFalseColor then
+                                let normalizedValue =
+                                    float byteValue / 255.0
+
+                                sampleColorMap colorMap normalizedValue
+                            else
+                                C4b(
+                                    byteValue,
+                                    byteValue,
+                                    byteValue,
+                                    255uy
+                                )
+
+                        redBytes.[index] <- color.R
+                        greenBytes.[index] <- color.G
+                        blueBytes.[index] <- color.B
+                        alphaBytes.[index] <- 255uy
+
+                        let rf =
+                            float color.R / 255.0
+
+                        let gf =
+                            float color.G / 255.0
+
+                        let bf =
+                            float color.B / 255.0
+
+                        luminance.[index] <-
+                            0.2126 * rf + 0.7152 * gf + 0.0722 * bf
+
+                let highlightStart =
+                    1.0 - clamp01 highlightTone
+
+                let highlightMask =
+                    Array.init pixelCount (fun index ->
+                        if alphaBytes.[index] > 0uy then
+                            smoothstep highlightStart 1.0 luminance.[index]
+                        else
+                            0.0
+                    )
+
+                let shadowEnd =
+                    clamp01 shadowTone
+
+                let shadowMask =
+                    Array.init pixelCount (fun index ->
+                        if alphaBytes.[index] > 0uy then
+                            1.0 - smoothstep 0.0 shadowEnd luminance.[index]
+                        else
+                            0.0
+                    )
+
+                let clampedAmountHighlight =
+                    clamp01 highlightAmount
+
+                let clampedAmountShadow =
+                    clamp01 shadowAmount
+
+                let clampedMidtoneContrastGainFactor =
+                    if Double.IsFinite midtoneContrastGainFactor then
+                        midtoneContrastGainFactor |> max -1.0 |> min 1.0
+                    else
+                        0.0
+
+                let midtoneGainFactor =
+                    if clampedMidtoneContrastGainFactor >= 0.0 then
+                        1.0 + 2.0 * clampedMidtoneContrastGainFactor
+                    else
+                        1.0 + clampedMidtoneContrastGainFactor
+
+                let midtoneLow =
+                    0.25
+
+                let midtoneHigh =
+                    0.75
+
+                let midtoneMidpoint =
+                    (midtoneLow + midtoneHigh) * 0.5
+
+                let midtoneMask =
+                    Array.init pixelCount (fun index ->
+                        if alphaBytes.[index] > 0uy then
+                            let l =
+                                luminance.[index]
+
+                            if l >= midtoneLow && l <= midtoneHigh then
+                                1.0
+                            else
+                                0.0
+                        else
+                            0.0
+                    )
+
+                let saturationGain =
+                    if Double.IsFinite saturation then
+                        1.0 + (saturation |> max -1.0 |> min 1.0)
+                    else
+                        1.0
+
+                let brightnessGain =
+                    if Double.IsFinite brightness then
+                        1.0 + (brightness |> max -1.0 |> min 1.0)
+                    else
+                        1.0
+
+                let adjustedRedBytes =
+                    Array.zeroCreate<byte> pixelCount
+
+                let adjustedGreenBytes =
+                    Array.zeroCreate<byte> pixelCount
+
+                let adjustedBlueBytes =
+                    Array.zeroCreate<byte> pixelCount
+
+                // Second pass:
+                // transfer-function RGB -> highlights/shadows/midtones/saturation/brightness.
+                for index in 0 .. pixelCount - 1 do
+                    if alphaBytes.[index] > 0uy then
+                        let highlightMaskValue =
+                            highlightMask.[index]
+
+                        let shadowMaskValue =
+                            shadowMask.[index]
+
+                        let midtoneMaskValue =
+                            midtoneMask.[index]
+
+                        let applyAdjustments (channel : byte) =
+                            let c =
+                                float channel / 255.0
+
+                            let afterHighlight =
+                                c * (1.0 - clampedAmountHighlight * highlightMaskValue)
+
+                            let afterShadow =
+                                afterHighlight + (1.0 - afterHighlight) * clampedAmountShadow * shadowMaskValue
+
+                            let afterMidtoneContrast =
+                                contrastPointOperation midtoneGainFactor midtoneMidpoint afterShadow
+
+                            let result =
+                                if midtoneMaskValue > 0.0 then
+                                    afterMidtoneContrast
+                                else
+                                    afterShadow
+
+                            clamp01 result
+
+                        let r =
+                            applyAdjustments redBytes.[index]
+
+                        let g =
+                            applyAdjustments greenBytes.[index]
+
+                        let b =
+                            applyAdjustments blueBytes.[index]
+
+                        let luminanceAfterAdjustments =
+                            0.2126 * r + 0.7152 * g + 0.0722 * b
+
+                        let saturatedRed =
+                            luminanceAfterAdjustments + saturationGain * (r - luminanceAfterAdjustments)
+
+                        let saturatedGreen =
+                            luminanceAfterAdjustments + saturationGain * (g - luminanceAfterAdjustments)
+
+                        let saturatedBlue =
+                            luminanceAfterAdjustments + saturationGain * (b - luminanceAfterAdjustments)
+
+                        let brightenedRed =
+                            clamp01 (saturatedRed * brightnessGain)
+
+                        let brightenedGreen =
+                            clamp01 (saturatedGreen * brightnessGain)
+
+                        let brightenedBlue =
+                            clamp01 (saturatedBlue * brightnessGain)
+
+                        adjustedRedBytes.[index] <-
+                            byte (round (255.0 * brightenedRed))
+
+                        adjustedGreenBytes.[index] <-
+                            byte (round (255.0 * brightenedGreen))
+
+                        adjustedBlueBytes.[index] <-
+                            byte (round (255.0 * brightenedBlue))
+
+                image
+                    .GetMatrix<C4b>()
+                    .SetByCoord(fun (position : V2l) ->
+                        let x =
+                            int position.X
+
+                        let y =
+                            int position.Y
+
+                        let index =
+                            y * width + x
+
+                        if alphaBytes.[index] > 0uy then
+                            C4b(
+                                adjustedRedBytes.[index],
+                                adjustedGreenBytes.[index],
+                                adjustedBlueBytes.[index],
+                                255uy
+                            )
+                        else
+                            C4b(0uy, 0uy, 0uy, 0uy)
+                    )
+                |> ignore
+
+                Result.Ok image
+
+        with error ->
+            Result.Error error.Message
 
     let private computeValidForeground
         (pixelCount : int)
@@ -431,7 +774,7 @@ module RgbComposite =
     //-> highlight / shadow / midtone contrast adjustment
     //-> saturation adjustment
     //-> final RGBA image
-    let createRgbCompositePixImageFromSources
+    let createRgbRatioCompositePixImageFromSources
         (sources : list<RgbBandSource>)
         (redNumeratorIndex : int)
         (redDenominatorIndex : Option<int>)
@@ -454,7 +797,7 @@ module RgbComposite =
         try
             
             match
-                loadSelectedCompositeBands
+                loadSelectedCompositeRatioBands
                     sources
                     redNumeratorIndex
                     redDenominatorIndex
@@ -525,6 +868,360 @@ module RgbComposite =
                             greenDenominator
                             blueNumerator
                             blueDenominator
+
+                    let blackClipFraction =
+                        if Double.IsFinite blackClipPercentile then
+                            blackClipPercentile / 100.0
+                            |> max 0.0
+                            |> min 1.0
+                        else
+                            0.0
+
+                    let whiteClipFraction =
+                        if Double.IsFinite whiteClipPercentile then
+                            whiteClipPercentile / 100.0
+                            |> max 0.0
+                            |> min 1.0
+                        else
+                            0.0
+
+                    let lowerPercentileFraction =
+                        blackClipFraction
+
+                    let upperPercentileFraction =
+                        1.0 - whiteClipFraction
+
+                    // safety check
+                    let lowerPercentileFraction, upperPercentileFraction =
+                        if upperPercentileFraction <= lowerPercentileFraction then
+                            lowerPercentileFraction, min 1.0 (lowerPercentileFraction + 0.01)
+                        else
+                            lowerPercentileFraction, upperPercentileFraction
+
+                    let redMin, redMax =
+                        computeDisplayRange
+                            validForeground
+                            lowerPercentileFraction
+                            upperPercentileFraction
+                            redBand
+
+                    let greenMin, greenMax =
+                        computeDisplayRange
+                            validForeground
+                            lowerPercentileFraction
+                            upperPercentileFraction
+                            greenBand
+
+                    let blueMin, blueMax =
+                        computeDisplayRange
+                            validForeground
+                            lowerPercentileFraction
+                            upperPercentileFraction
+                            blueBand
+
+                    let rgbImage =
+                        PixImage<byte>(
+                            Col.Format.RGBA,
+                            V2i(width, height)
+                        )
+
+                    let redBytes, greenBytes, blueBytes, alphaBytes, luminance =
+                        normalizeToRgbBytes
+                            pixelCount
+                            gamma
+                            validForeground
+                            redMin
+                            redMax
+                            greenMin
+                            greenMax
+                            blueMin
+                            blueMax
+                            redBand
+                            greenBand
+                            blueBand
+
+                    let highlightStart =
+                        1.0 - clamp01 highlightTone
+
+                    let highlightMask =
+                        Array.init pixelCount (fun index ->
+                            if alphaBytes.[index] > 0uy then
+                                smoothstep highlightStart 1.0 luminance.[index]
+                            else
+                                0.0
+                        )
+
+                    let shadowEnd =
+                        clamp01 shadowTone
+
+                    let shadowMask =
+                        Array.init pixelCount (fun index ->
+                            if alphaBytes.[index] > 0uy then
+                                1.0 - smoothstep 0.0 shadowEnd luminance.[index]
+                            else
+                                0.0
+                        )
+
+                    let clampedAmountHighlight =
+                        clamp01 highlightAmount
+                    
+                    let clampedAmountShadow =
+                        clamp01 shadowAmount
+
+                    let clampedMidtoneContrastGainFactor =
+                        if Double.IsFinite midtoneContrastGainFactor then  
+                            midtoneContrastGainFactor |> max -1.0 |> min 1.0
+                        else 
+                            0.0
+
+                    let midtoneGainFactor =
+                        if clampedMidtoneContrastGainFactor >= 0.0 then
+                            1.0 + 2.0 * clampedMidtoneContrastGainFactor
+                        else 
+                            1.0 + clampedMidtoneContrastGainFactor
+
+                    let fixedMidtoneLow =
+                        0.25
+
+                    let fixedMidtoneHigh =
+                        0.75
+
+                    let midtoneLow =
+                        clamp01 fixedMidtoneLow
+
+                    let midtoneHigh =
+                        clamp01 fixedMidtoneHigh
+
+                    let midtoneMidpoint =
+                        (midtoneLow + midtoneHigh) * 0.5
+
+                    let validMidtoneRange =
+                        midtoneHigh > midtoneLow
+
+                    let midtoneMask =
+                        Array.init pixelCount (fun index ->
+                            if alphaBytes.[index] > 0uy && validMidtoneRange then
+                                let l =
+                                    luminance.[index]
+
+                                if l >= midtoneLow && l <= midtoneHigh then
+                                    1.0
+                                else
+                                    0.0
+                            else
+                                0.0
+                        )
+
+                    // UI saturation is centered around 0:
+                    // -1.0 -> grayscale, 0.0 -> unchanged, +1.0 -> oversaturated.
+                    // Internally this is a chroma multiplier:
+                    //  0.0 -> grayscale, 1.0 -> unchanged, 2.0 -> oversaturated.
+                    let saturationGain =
+                        if Double.IsFinite saturation then
+                            1.0 + (saturation |> max -1.0 |> min 1.0)
+                        else
+                            1.0
+
+                    let brightnessGain =
+                        if Double.IsFinite brightness then
+                            1.0 + (brightness |> max -1.0 |> min 1.0)
+                        else
+                            1.0
+
+                    let adjustedRedBytes =
+                        Array.zeroCreate<byte> pixelCount
+
+                    let adjustedGreenBytes =
+                        Array.zeroCreate<byte> pixelCount
+
+                    let adjustedBlueBytes =
+                        Array.zeroCreate<byte> pixelCount
+
+                    // Third pass: darken highlights according to Amount * highlight mask.
+                    for index in 0 .. pixelCount - 1 do
+                        if alphaBytes.[index] > 0uy then
+                            let highlightMaskValue = highlightMask.[index] 
+
+                            let shadowMaskValue = shadowMask.[index] 
+
+                            let midtoneMaskValue =
+                                midtoneMask.[index]
+
+                            let applyAdjustments (channel : byte) =
+                                let c =
+                                    float channel / 255.0
+
+                                let afterHighlight =
+                                    c * (1.0 - clampedAmountHighlight * highlightMaskValue)
+
+                                let afterShadow =
+                                    afterHighlight + (1.0 - afterHighlight) * clampedAmountShadow * shadowMaskValue
+
+                                let afterMidtoneContrast =
+                                    contrastPointOperation midtoneGainFactor midtoneMidpoint afterShadow
+
+                                let result =
+                                    if midtoneMaskValue > 0.0 then
+                                        afterMidtoneContrast
+                                    else
+                                        afterShadow
+
+                                clamp01 result
+                                
+                            let r =
+                                applyAdjustments redBytes.[index]
+
+                            let g =
+                                applyAdjustments greenBytes.[index]
+
+                            let b =
+                                applyAdjustments blueBytes.[index]
+
+                            let luminanceAfterAdjustments =
+                                0.2126 * r + 0.7152 * g + 0.0722 * b
+
+                            let saturatedRed =
+                                luminanceAfterAdjustments + saturationGain * ( r - luminanceAfterAdjustments )
+
+                            let saturatedGreen =
+                                luminanceAfterAdjustments + saturationGain * ( g - luminanceAfterAdjustments )
+
+                            let saturatedBlue =
+                                luminanceAfterAdjustments + saturationGain * ( b - luminanceAfterAdjustments )
+
+                            let brightenedRed =
+                                clamp01 (saturatedRed * brightnessGain)
+
+                            let brightenedGreen =
+                                clamp01 (saturatedGreen * brightnessGain)
+
+                            let brightenedBlue =
+                                clamp01 (saturatedBlue * brightnessGain)
+
+                            adjustedRedBytes.[index] <-
+                                byte (round (255.0 * brightenedRed))
+
+                            adjustedGreenBytes.[index] <-
+                                byte (round (255.0 * brightenedGreen))
+
+                            adjustedBlueBytes.[index] <-
+                                byte (round (255.0 * brightenedBlue))
+
+                    rgbImage
+                        .GetMatrix<C4b>()
+                        .SetByCoord(fun (position : V2l) ->
+                            let x =
+                                int position.X
+
+                            let y =
+                                int position.Y
+
+                            let index =
+                                y * width + x
+
+                            if alphaBytes.[index] > 0uy then
+                                C4b(
+                                    adjustedRedBytes.[index],
+                                    adjustedGreenBytes.[index],
+                                    adjustedBlueBytes.[index],
+                                    255uy
+                                )
+                            else
+                                C4b(0uy, 0uy, 0uy, 0uy)
+                        )
+                    |> ignore
+
+                    Result.Ok rgbImage
+
+
+            | Result.Error error ->
+                Result.Error error
+    
+        with error ->
+            Result.Error error.Message
+    
+    
+    // raw band ratio values
+    //-> percentile stretch / black-white clip
+    //-> gamma
+    //-> RGB bytes
+    //-> luminance masks for highlights/shadows/midtones
+    //-> highlight / shadow / midtone contrast adjustment
+    //-> saturation adjustment
+    //-> final RGBA image
+    let createRgbMappingPixImageFromSources
+        (sources : list<RgbBandSource>)
+        (redBandIndex : int)
+        (greenBandIndex : int)
+        (blueBandIndex : int)
+        (gamma : float)
+        (highlightAmount : float)
+        (highlightTone   : float)
+        (shadowAmount : float)
+        (shadowTone   : float)
+        (midtoneContrastGainFactor : float)
+        (blackClipPercentile : float)
+        (whiteClipPercentile : float)
+        (saturation : float)
+        (brightness : float)
+        : Result<PixImage<byte>, string> =
+
+        try
+            
+            match
+                loadSelectedRgbMappingBands
+                    sources
+                    redBandIndex
+                    greenBandIndex
+                    blueBandIndex
+            with
+            | Result.Ok (
+                redBandData,
+                greenBandData,
+                blueBandData
+             ) ->
+
+                let selectedBands =
+                    [
+                        redBandData
+                        greenBandData
+                        blueBandData
+                    ]
+
+                match validateSameDimensions selectedBands with
+                | Result.Error error ->
+                    Result.Error error
+
+                | Result.Ok (width, height, pixelCount) ->
+
+                    // EMIT reflectance is floating-point data. Keep this threshold very small:
+                    // a too-high threshold can make the whole RGB result transparent.
+                    //let minimumSignal = 1.0e-5
+
+                    // Object/background separation.
+                    // alhpha backround removal threshold.
+                    let minimumObjectSignal =
+                        0.002
+
+                    let rawValidForeground =
+                        computeValidForeground
+                            pixelCount
+                            minimumObjectSignal
+                            redBandData
+                            greenBandData
+                            blueBandData
+
+
+                    let validForeground = rawValidForeground
+
+                    let redBand =
+                        Array.copy redBandData.values
+
+                    let greenBand =
+                        Array.copy greenBandData.values
+
+                    let blueBand =
+                        Array.copy blueBandData.values
 
                     let blackClipFraction =
                         if Double.IsFinite blackClipPercentile then

@@ -33,8 +33,58 @@ module App =
         blackWhiteClip = BlackWhiteClip.init
         saturation = Saturation.init
         brightness = Brightness.init
-        visualizationMode = VisualizationMode.RgbComposite
+        visualizationMode = VisualizationMode.RgbRatioComposite
     }
+
+    let private loadedLogicalBandIndices (images : IndexList<Image>) =
+        images
+        |> IndexList.toList
+        |> List.map (fun img -> img.bandIndex)
+        |> List.sort
+
+    let private pickBand preferredIndex fallbackIndex bands =
+        match List.tryItem preferredIndex bands with
+        | Some band -> Some band
+        | None ->
+            match List.tryItem fallbackIndex bands with
+            | Some band -> Some band
+            | None -> List.tryHead bands
+
+    let private defaultRgbRatioCompositeForImages images =
+        let bands =
+            loadedLogicalBandIndices images
+
+        {
+            RgbRatioComposite.empty with
+                redNumeratorBand      = pickBand 5 1 bands
+                redDenominatorBand    = pickBand 4 0 bands
+
+                greenNumeratorBand    = pickBand 3 1 bands
+                greenDenominatorBand  = pickBand 2 0 bands
+
+                blueNumeratorBand     = pickBand 1 1 bands
+                blueDenominatorBand   = pickBand 0 0 bands
+        }
+
+    let private defaultBandMappingForImages images =
+        let bands =
+            loadedLogicalBandIndices images
+
+        {
+            BandMapping.empty with
+                redBand   = pickBand 2 0 bands
+                greenBand = pickBand 1 0 bands
+                blueBand  = pickBand 0 0 bands
+        }
+
+    let private defaultTransferFunctionMappingForImages images =
+        let bands =
+            loadedLogicalBandIndices images
+
+        {
+            TransferFunctionMapping.empty with
+                selectedBand = pickBand 0 0 bands
+        }
 
     let update (m : Model) (msg : Message) = 
         match msg with
@@ -126,6 +176,9 @@ module App =
                         sourceImagePath = Some fullPath
                         editImages = []
                         rgbRatioComposite = defaultRgbComposite
+                        bandMapping = defaultBandMappingForImages bands
+                        transferFunctionMapping = defaultTransferFunctionMappingForImages bands
+                        visualizationMode = VisualizationMode.RgbRatioComposite
                 }
         | SelectImage idx ->
             { m with selectedImage = Some idx }
@@ -394,16 +447,34 @@ module App =
                     saturation = Saturation.init
                     brightness = Brightness.init
             }
+        | SetVisualizationMode mode when m.visualizationMode = mode ->
+            m
+
         | SetVisualizationMode mode ->
-            {
-                m with
-                    visualizationMode = mode
-                    editImages =
-                        match mode with
-                        | VisualizationMode.SingleBandTransferFunction -> m.editImages
-                        | VisualizationMode.RgbRatioComposite
-                        | VisualizationMode.RgbComposite -> []
-            }
+            match mode with
+            | VisualizationMode.RgbRatioComposite ->
+                {
+                    m with
+                        visualizationMode = mode
+                        rgbRatioComposite = defaultRgbRatioCompositeForImages m.images
+                        editImages = []
+                }
+
+            | VisualizationMode.RgbComposite ->
+                {
+                    m with
+                        visualizationMode = mode
+                        bandMapping = defaultBandMappingForImages m.images
+                        editImages = []
+                }
+
+            | VisualizationMode.SingleBandTransferFunction ->
+                {
+                    m with
+                        visualizationMode = mode
+                        transferFunctionMapping = defaultTransferFunctionMappingForImages m.images
+                        editImages = []
+                }
 
 
 
@@ -827,6 +898,34 @@ module App =
                             ]
                             div [clazz content;  style "overflow-y : auto; "] (
                                 [
+                                    //div [style "display: flex; justify-content: flex-end; padding: 5px;"] [
+                                    //    button [
+                                    //        clazz "ui tiny inverted button"
+                                    //    ] [
+                                    //        text "Reset"
+                                    //    ]
+                                    //]
+                                ] @ content'
+                            )
+                        ]
+                ]
+            )
+        
+        let accordionRegi text' icon active styling content' =
+            let title = if active then "title active inverted" else "title inverted"
+            let content = if active then "content active" else "content"
+
+            onBoot "$('#__ID__ > .ui.accordion').accordion({ exclusive: false, selector: { title: '> .title', content: '> .content' } });" (
+                div styling [
+                        div [clazz "ui inverted accordion fluid"] [
+                            div [clazz title; style "background-color: #282828"] [
+                                    i [clazz ("dropdown icon")] []
+                                    text text'                                
+                                    div [style "float:right"] [i [clazz (icon + " icon")] []]
+                                
+                            ]
+                            div [clazz content;  style "overflow-y : auto; "] (
+                                [
                                     div [style "display: flex; justify-content: flex-end; padding: 5px;"] [
                                         button [
                                             clazz "ui tiny inverted button"
@@ -839,6 +938,53 @@ module App =
                         ]
                 ]
             )
+
+        let visualizationModeOption label mode =
+            div [
+                style "display: flex; align-items: center; gap: 6px; margin-right: 12px; cursor: pointer;"
+            ] [
+                Html.SemUi.iconCheckBox
+                    (
+                        m.visualizationMode
+                        |> AVal.map (fun currentMode -> currentMode = mode)
+                    )
+                    (SetVisualizationMode mode)
+
+                span [
+                    onClick (fun _ -> SetVisualizationMode mode)
+                ] [
+                    text label
+                ]
+            ]
+
+        let visualizationModeSelector =
+            div [
+                clazz "item"
+                style "border-bottom: solid 1px black; padding: 5px;"
+            ] [
+                div [
+                    style "margin-bottom: 6px;"
+                ] [
+                    text "Mode:"
+                ]
+
+                div [
+                    style "display: flex; align-items: center; flex-wrap: wrap;"
+                ] [
+                    visualizationModeOption
+                        "Band ratio"
+                        VisualizationMode.RgbRatioComposite
+
+                    visualizationModeOption
+                        "RGB mapping"
+                        VisualizationMode.RgbComposite
+
+                    visualizationModeOption
+                        "Transfer function"
+                        VisualizationMode.SingleBandTransferFunction
+                ]
+            ]
+
 
         let contentImages = 
             let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
@@ -1076,6 +1222,16 @@ module App =
                         ]
                     ]
 
+                    div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
+                        div [] [text "Visualization:"]
+                        div [style "margin-left: auto;"] [
+                            Numeric.view' [NumericInputType.Slider] m.projectionOpacity
+                            |> UI.map SetProjectionOpacity
+                        ]
+                    ]
+
+                    visualizationModeSelector
+
                     accordionLists "Highlights" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] ResetHighlights [
                         Html.table [
                             Html.row "Amount:" [
@@ -1170,7 +1326,7 @@ module App =
                         ]
                     ]
 
-                    accordionHist "Registration" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
+                    accordionRegi "Registration" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
                         Html.table [  
                             Html.row "Roll:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll |> UI.map SetRoll]
                             Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]

@@ -36,7 +36,6 @@ module Image =
             | None ->
                 loadTiffBands path
 
-
     let createBandRatioTexture
         (images : alist<AdaptiveImage>)
         (bandRatioRenderSettings : BandRatioRenderSettings)
@@ -121,16 +120,25 @@ module Image =
             match
                 sources,
                 redNumeratorValue,
+                redDenominatorValue,
                 greenNumeratorValue,
-                blueNumeratorValue
+                greenDenominatorValue,
+                blueNumeratorValue,
+                blueDenominatorValue
             with
-            | [], _, _, _ ->
+            | [], _, _, _, _, _, _ ->
                 DefaultTextures.checkerboard.GetValue()
 
-            | _, Some redNumerator, Some greenNumerator, Some blueNumerator ->
+            | _,
+              Some redNumerator,
+              Some redDenominator,
+              Some greenNumerator,
+              Some greenDenominator,
+              Some blueNumerator,
+              Some blueDenominator ->
 
                 match
-                    createRgbCompositePixImageFromSources
+                    createRgbRatioCompositePixImageFromSources
                         sources
                         redNumerator
                         redDenominatorValue
@@ -179,40 +187,90 @@ module Image =
             let sources =
                 adaptiveImages.GetValue token
                 |> fun images -> readAdaptiveBandSources images token
-            let redNumeratorValue =
+
+            let redBandValue =
                 rgbMappingRenderSettings.redBand.GetValue token
-            let greenNumeratorValue =
+            let greenBandValue =
                 rgbMappingRenderSettings.greenBand.GetValue token
-            let blueNumeratorValue =
+            let blueBandValue =
                 rgbMappingRenderSettings.blueBand.GetValue token
+            let gammaValue =
+                rgbMappingRenderSettings.gamma.GetValue token
+
+            let highlightAdjustmentValue =
+                shadowsHighlightsAdjustmentsRenderSettings.highlightAdjustments.GetValue token
+            let highlightAmountValue =
+                highlightAdjustmentValue.amount.value
+            let highlightToneValue =
+                highlightAdjustmentValue.tone.value
+
+            let shadowAdjustmentValue =
+                shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
+            let shadowAmountValue =
+                shadowAdjustmentValue.amount.value
+            let shadowToneValue =
+                shadowAdjustmentValue.tone.value
+
+            let midtoneContrastValue =
+                shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
+            let midtoneContrastGainFactorValue =
+                midtoneContrastValue.gainFactor.value
+
+            let blackWhiteClipValue =
+                shadowsHighlightsAdjustmentsRenderSettings.blackWhiteClip.GetValue token
+            let blackClipPercentileValue =
+                blackWhiteClipValue.blackClipPercentile.value
+            let whiteClipPercentileValue = 
+                blackWhiteClipValue.whiteClipPercentile.value
+
+            let saturationValue = 
+                shadowsHighlightsAdjustmentsRenderSettings.saturation.GetValue token
+            let saturationGainFactorValue =
+                saturationValue.gainFactor.value
+
+            let brightnessValue = 
+                shadowsHighlightsAdjustmentsRenderSettings.brightness.GetValue token
+            let brightnessGainFactorValue =
+                brightnessValue.gainFactor.value
+
             match
                 sources,
-                redNumeratorValue,
-                greenNumeratorValue,
-                blueNumeratorValue
+                redBandValue,
+                greenBandValue,
+                blueBandValue
             with
             | [], _, _, _ ->
                 DefaultTextures.checkerboard.GetValue()
-            //| _, Some redNumerator, Some greenNumerator, Some blueNumerator ->
-            //    match
-            //        createRgbMappingPixImageFromSources
-            //            sources
-            //            redNumerator
-            //            greenNumerator
-            //            blueNumerator
-            //    with
-            //    | Result.Ok image ->
-            //        PixTexture2d(
-            //            PixImageMipMap [|
-            //                image :> PixImage
-            //            |],
-            //            false
-            //        ) :> ITexture
-            //    | Result.Error error ->
-            //        Log.warn
-            //            "Could not create RGB mapping: %s"
-            //            error
-            //        DefaultTextures.checkerboard.GetValue()
+            | _, Some redBand, Some greenBand, Some blueBand ->
+                match
+                    createRgbMappingPixImageFromSources
+                        sources
+                        redBand
+                        greenBand
+                        blueBand
+                        gammaValue
+                        highlightAmountValue
+                        highlightToneValue
+                        shadowAmountValue
+                        shadowToneValue
+                        midtoneContrastGainFactorValue
+                        blackClipPercentileValue
+                        whiteClipPercentileValue
+                        saturationGainFactorValue
+                        brightnessGainFactorValue
+                with
+                | Result.Ok image ->
+                    PixTexture2d(
+                        PixImageMipMap [|
+                            image :> PixImage
+                        |],
+                        false
+                    ) :> ITexture
+                | Result.Error error ->
+                    Log.warn
+                        "Could not create RGB mapping: %s"
+                        error
+                    DefaultTextures.checkerboard.GetValue()
             | _ ->
                 DefaultTextures.checkerboard.GetValue()
         )
@@ -222,17 +280,126 @@ module Image =
         (transferFunctionRenderSettings : TransferFunctionRenderSettings)
         (shadowsHighlightsAdjustmentsRenderSettings : ShadowsHighlightsAdjustmentsRenderSettings)
         : aval<ITexture> =
+
         let adaptiveImages =
             AList.toAVal images
-        AVal.custom (fun token ->
-            let sources =
-                adaptiveImages.GetValue token
-                |> fun images -> readAdaptiveBandSources images token
-            match sources with
-            | [] ->
-                DefaultTextures.checkerboard.GetValue()
-        )
 
+        AVal.custom (fun token ->
+
+            let currentImages =
+                adaptiveImages.GetValue token
+
+            let sources =
+                readAdaptiveBandSources currentImages token
+
+            let selectedBandValue =
+                transferFunctionRenderSettings.selectedBand.GetValue token
+
+            let gammaValue =
+                transferFunctionRenderSettings.gamma.GetValue token
+
+            let highlightAdjustmentValue =
+                shadowsHighlightsAdjustmentsRenderSettings.highlightAdjustments.GetValue token
+            let highlightAmountValue =
+                highlightAdjustmentValue.amount.value
+            let highlightToneValue =
+                highlightAdjustmentValue.tone.value
+
+            let shadowAdjustmentValue =
+                shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
+            let shadowAmountValue =
+                shadowAdjustmentValue.amount.value
+            let shadowToneValue =
+                shadowAdjustmentValue.tone.value
+
+            let midtoneContrastValue =
+                shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
+            let midtoneContrastGainFactorValue =
+                midtoneContrastValue.gainFactor.value
+
+            let blackWhiteClipValue =
+                shadowsHighlightsAdjustmentsRenderSettings.blackWhiteClip.GetValue token
+            let blackClipPercentileValue =
+                blackWhiteClipValue.blackClipPercentile.value
+            let whiteClipPercentileValue = 
+                blackWhiteClipValue.whiteClipPercentile.value
+
+            let saturationValue = 
+                shadowsHighlightsAdjustmentsRenderSettings.saturation.GetValue token
+            let saturationGainFactorValue =
+                saturationValue.gainFactor.value
+
+            let brightnessValue = 
+                shadowsHighlightsAdjustmentsRenderSettings.brightness.GetValue token
+            let brightnessGainFactorValue =
+                brightnessValue.gainFactor.value
+
+            match sources, selectedBandValue with
+            | [], _ ->
+                DefaultTextures.checkerboard.GetValue()
+
+            | _, None ->
+                DefaultTextures.checkerboard.GetValue()
+
+            | _, Some selectedBand ->
+
+                let selectedImage =
+                    currentImages
+                    |> IndexList.toList
+                    |> List.tryFind (fun image ->
+                        image.bandIndex.GetValue token = selectedBand
+                    )
+
+                match selectedImage with
+                | None ->
+                    DefaultTextures.checkerboard.GetValue()
+
+                | Some image ->
+
+                    let minimumValue =
+                        image.inputMinValue.value.GetValue token
+
+                    let maximumValue =
+                        image.inputMaxValue.value.GetValue token
+
+                    let useFalseColorValue =
+                        image.useFalseColor.GetValue token
+
+                    let colorMapValue =
+                        image.colorMap.GetValue token
+
+                    match
+                        createTransferFunctionPixImageFromSource
+                            sources
+                            selectedBand
+                            minimumValue
+                            maximumValue
+                            gammaValue
+                            useFalseColorValue
+                            colorMapValue
+                            highlightAmountValue
+                            highlightToneValue
+                            shadowAmountValue
+                            shadowToneValue
+                            midtoneContrastGainFactorValue
+                            saturationGainFactorValue
+                            brightnessGainFactorValue
+                    with
+                    | Result.Ok pixImage ->
+                        PixTexture2d(
+                            PixImageMipMap [|
+                                pixImage :> PixImage
+                            |],
+                            false
+                        ) :> ITexture
+
+                    | Result.Error error ->
+                        Log.warn
+                            "Could not create transfer-function image: %s"
+                            error
+
+                        DefaultTextures.checkerboard.GetValue()
+        )
 
     // Makes the RGB texture adaptive. It is recalculated when the loaded image rows,
     // RGB band selections, contrast/gamma controls, or highlight controls change.
@@ -329,7 +496,7 @@ module Image =
             | _, Some redNumerator, Some greenNumerator, Some blueNumerator ->
 
                 match
-                    createRgbCompositePixImageFromSources
+                    createRgbRatioCompositePixImageFromSources
                         sources
                         redNumerator
                         redDenominatorValue
@@ -426,9 +593,7 @@ module Image =
                     ]
                 ]
                 Html.row "False Color:" [
-                    text "Activate: " 
-                    Html.SemUi.toggleBox m.useFalseColor ToggleFalseColor
-                    br []
+                    
                     Html.SemUi.dropDown m.colorMap SetColorMap
                 ]
                 Html.row "Minimum:" [
