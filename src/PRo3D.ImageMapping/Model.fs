@@ -133,12 +133,17 @@ type VisualizationMode =
     | RgbRatioComposite
     | SingleBandTransferFunction    
 
+type SourceImageKind =
+    | Multispectral
+    | PlainRgbImage
+
 [<ModelType>]
 type Model =
     {
         images          : IndexList<Image>
         selectedImage   : Option<Index>
         sourceImagePath   : Option<string>
+        sourceImageKind : SourceImageKind
         editImages      : Index list
         projectionOpacity : NumericInput
         boresightAdjustment : BoresightAdjustment

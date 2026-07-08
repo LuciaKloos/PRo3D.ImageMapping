@@ -20,6 +20,7 @@ module App =
         images = IndexList.Empty;
         selectedImage = None;
         sourceImagePath = None;
+        sourceImageKind = SourceImageKind.Multispectral
         editImages = List.Empty;
         projectionOpacity = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 1.0 }
         boresightAdjustment = BoresightAdjustment.identity
@@ -86,6 +87,22 @@ module App =
                 selectedBand = pickBand 0 0 bands
         }
 
+    let private isPlainRgbImagePath (path : string) =
+            match Path.GetExtension(path).ToLowerInvariant() with
+            | ".png"
+            | ".jpg"
+            | ".jpeg" -> true
+            | _ -> false
+
+    let private noBlackWhiteClip =
+        {
+            blackClipPercentile =
+                { BlackWhiteClip.init.blackClipPercentile with value = 0.0 }
+
+            whiteClipPercentile =
+                { BlackWhiteClip.init.whiteClipPercentile with value = 0.0 }
+        }
+
     let update (m : Model) (msg : Message) = 
         match msg with
         | Nop -> m
@@ -101,85 +118,97 @@ module App =
             let fullPath =
                 Path.GetFullPath path
 
-            let loadedBands =
-                Image.loadDataset fullPath
-
-            if List.isEmpty loadedBands then
-                Log.warn "No image bands were loaded from selected path: %s" fullPath
-                m
-            else
-                let bands =
-                    loadedBands
-                    |> IndexList.ofList
-
-                let indices =
-                    bands
-                    |> IndexList.mapi (fun index _ -> index)
-                    |> IndexList.toList
-
-                let firstBand =
-                    indices
-                    |> List.tryHead
-
-                let bandCount = 
-                    loadedBands.Length
-
-                let isNetCdf =
-                    String.Equals(Path.GetExtension fullPath, ".nc", StringComparison.OrdinalIgnoreCase)
-
-                let privateLowBand preferred fallback =
-                    if bandCount > preferred then
-                        Some preferred
-                    elif bandCount > fallback then
-                        Some fallback
-                    elif bandCount > 0 then
-                        Some 0
-                    else
-                        None
-
-                let defaultRgbComposite =
-                    let genericDefaults =
-                        RgbRatioComposite.fromBandCount bandCount
-
-                    if isNetCdf then
-                        {
-                            genericDefaults with
-                                redNumeratorBand = privateLowBand 5 1
-                                redDenominatorBand = privateLowBand 4 0
-
-                                greenNumeratorBand = privateLowBand 3 1
-                                greenDenominatorBand = privateLowBand 2 0
-
-                                blueNumeratorBand = privateLowBand 1 1
-                                blueDenominatorBand = privateLowBand 0 0
-                        }
-                    else
-                        genericDefaults
-
-                if isNetCdf then
-                    Log.warn
-                        "Default NetCDF RGB ratio bands: R=%A/%A, G=%A/%A, B=%A/%A"
-                        defaultRgbComposite.redNumeratorBand
-                        defaultRgbComposite.redDenominatorBand
-                        defaultRgbComposite.greenNumeratorBand
-                        defaultRgbComposite.greenDenominatorBand
-                        defaultRgbComposite.blueNumeratorBand
-                        defaultRgbComposite.blueDenominatorBand
-
-
-                Log.warn "Loaded %d image bands from %s" bandCount fullPath
-
+            if isPlainRgbImagePath fullPath then
                 {
                     m with
-                        images = bands
-                        selectedImage = firstBand
+                        images = IndexList.Empty
+                        selectedImage = None
                         sourceImagePath = Some fullPath
+                        sourceImageKind = SourceImageKind.PlainRgbImage
                         editImages = []
-                        rgbRatioComposite = defaultRgbComposite
-                        bandMapping = defaultBandMappingForImages bands
-                        transferFunctionMapping = defaultTransferFunctionMappingForImages bands
-                        visualizationMode = VisualizationMode.RgbRatioComposite
+                        blackWhiteClip = noBlackWhiteClip
                 }
+            else
+
+                let loadedBands =
+                    Image.loadDataset fullPath
+
+                if List.isEmpty loadedBands then
+                    Log.warn "No image bands were loaded from selected path: %s" fullPath
+                    m
+                else
+                    let bands =
+                        loadedBands
+                        |> IndexList.ofList
+
+                    let indices =
+                        bands
+                        |> IndexList.mapi (fun index _ -> index)
+                        |> IndexList.toList
+
+                    let firstBand =
+                        indices
+                        |> List.tryHead
+
+                    let bandCount = 
+                        loadedBands.Length
+
+                    let isNetCdf =
+                        String.Equals(Path.GetExtension fullPath, ".nc", StringComparison.OrdinalIgnoreCase)
+
+                    let privateLowBand preferred fallback =
+                        if bandCount > preferred then
+                            Some preferred
+                        elif bandCount > fallback then
+                            Some fallback
+                        elif bandCount > 0 then
+                            Some 0
+                        else
+                            None
+
+                    let defaultRgbComposite =
+                        let genericDefaults =
+                            RgbRatioComposite.fromBandCount bandCount
+
+                        if isNetCdf then
+                            {
+                                genericDefaults with
+                                    redNumeratorBand = privateLowBand 5 1
+                                    redDenominatorBand = privateLowBand 4 0
+
+                                    greenNumeratorBand = privateLowBand 3 1
+                                    greenDenominatorBand = privateLowBand 2 0
+
+                                    blueNumeratorBand = privateLowBand 1 1
+                                    blueDenominatorBand = privateLowBand 0 0
+                            }
+                        else
+                            genericDefaults
+
+                    if isNetCdf then
+                        Log.warn
+                            "Default NetCDF RGB ratio bands: R=%A/%A, G=%A/%A, B=%A/%A"
+                            defaultRgbComposite.redNumeratorBand
+                            defaultRgbComposite.redDenominatorBand
+                            defaultRgbComposite.greenNumeratorBand
+                            defaultRgbComposite.greenDenominatorBand
+                            defaultRgbComposite.blueNumeratorBand
+                            defaultRgbComposite.blueDenominatorBand
+
+
+                    Log.warn "Loaded %d image bands from %s" bandCount fullPath
+                    {
+                        m with
+                            images = bands
+                            selectedImage = firstBand
+                            sourceImagePath = Some fullPath
+                            sourceImageKind = SourceImageKind.Multispectral
+                            editImages = []
+                            rgbRatioComposite = defaultRgbComposite
+                            bandMapping = defaultBandMappingForImages bands
+                            transferFunctionMapping = defaultTransferFunctionMappingForImages bands
+                            visualizationMode = VisualizationMode.RgbRatioComposite
+                    }                    
         | SelectImage idx ->
             { m with selectedImage = Some idx }
         | EditImage idx ->
@@ -699,6 +728,18 @@ module App =
 
     let view (m : AdaptiveModel) (showDOM : AdaptiveImage -> DomNode<ImageMessage>) (showRelative2DImage : aval<ITexture> -> DomNode<Message>) (showAbsolute2DAnd3DImage : aval<Option<string>> -> aval<ITexture> -> DomNode<Message>) =
     
+        let onlyForMultispectral (node : DomNode<Message>) =
+            Incremental.div
+                AttributeMap.empty
+                (
+                    alist {
+                        let! sourceKind = m.sourceImageKind
+
+                        if sourceKind = SourceImageKind.Multispectral then
+                            yield node
+                    }
+                )
+
         let bandRatioRenderSettings : BandRatioRenderSettings =
             {
                 redNumeratorBand =
@@ -806,34 +847,44 @@ module App =
                 bandRatioRenderSettings
 
         let outputTexture : aval<ITexture> =
-            m.visualizationMode
-            |> AVal.bind (fun mode ->
-                match mode with
-                | VisualizationMode.RgbRatioComposite ->
-                    Image.createBandRatioTexture
-                        m.images
-                        bandRatioRenderSettings
+            m.sourceImageKind
+            |> AVal.bind (fun sourceKind ->
+                match sourceKind with
+                | SourceImageKind.PlainRgbImage ->
+                    RgbComposite.createPlainRgbTexture
+                        m.sourceImagePath
                         shadowsHighlightsAdjustmentsRenderSettings
 
-                | VisualizationMode.RgbComposite ->
-                    Image.createRgbMappingTexture
-                        m.images
-                        rgbMappingRenderSettings
-                        shadowsHighlightsAdjustmentsRenderSettings
+                | SourceImageKind.Multispectral ->
+                    m.visualizationMode
+                    |> AVal.bind (fun mode ->
+                        match mode with
+                        | VisualizationMode.RgbRatioComposite ->
+                            Image.createBandRatioTexture
+                                m.images
+                                bandRatioRenderSettings
+                                shadowsHighlightsAdjustmentsRenderSettings
 
-                | VisualizationMode.SingleBandTransferFunction ->
-                    Image.createTransferFunctionTexture
-                        m.images
-                        transferFunctionRenderSettings
-                        shadowsHighlightsAdjustmentsRenderSettings
+                        | VisualizationMode.RgbComposite ->
+                            Image.createRgbMappingTexture
+                                m.images
+                                rgbMappingRenderSettings
+                                shadowsHighlightsAdjustmentsRenderSettings
+
+                        | VisualizationMode.SingleBandTransferFunction ->
+                            Image.createTransferFunctionTexture
+                                m.images
+                                transferFunctionRenderSettings
+                                shadowsHighlightsAdjustmentsRenderSettings
+                    )
             )
 
         let rgbSelectedBandHistograms =
             computeRgbSelectedBandHistograms m 64
 
         let jsImportDialog =
-            "top.aardvark.dialog.showOpenDialog({title: 'Select multispectral image', filters: [{name: 'Multispectral TIFF', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open multispectral image dialog:', error);});"
-
+            "top.aardvark.dialog.showOpenDialog({title: 'Select image', filters: [{name: 'Images', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc', 'png', 'jpg', 'jpeg']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open image dialog:', error);});"
+        
         let accordion text' icon active styling content' =
                 let title = if active then "title active inverted" else "title inverted"
                 let content = if active then "content active" else "content"
@@ -1212,7 +1263,7 @@ module App =
                                 style "margin-left: auto;"
                                 Dialogs.onChooseDirectory (Guid.NewGuid()) (fun (guid, chosen) -> LoadMultispectralImage (chosen) );
                                 clientEvent "onclick" (jsImportDialog) ] [
-                                text "Import Multispectral Image"
+                                text "Import Image"
                         ]
                     ]
                     div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
@@ -1336,13 +1387,17 @@ module App =
                 ]
 
                 div [] [
-                    
-                    accordionHist "Histograms" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [ rgbSelectedHistogramsView rgbSelectedBandHistograms ]
-                    
+                    onlyForMultispectral (
+                        accordionHist "Histograms" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
+                            rgbSelectedHistogramsView rgbSelectedBandHistograms
+                        ]
+                    )
                     div [] [showRelative2DImage outputTexture]   
-                    div [style $"border: 2px solid black; margin-top: 10px"] [
+                    onlyForMultispectral (
+                        div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages
-                    ]
+                        ]
+                    )
                 ]
             ]
             
