@@ -57,14 +57,14 @@ module App =
 
         {
             RgbRatioComposite.empty with
-                redNumeratorBand      = pickBand 5 1 bands
-                redDenominatorBand    = pickBand 4 0 bands
+                redNumeratorBand      = pickBand 16 1 bands
+                redDenominatorBand    = pickBand 15 0 bands
 
-                greenNumeratorBand    = pickBand 3 1 bands
-                greenDenominatorBand  = pickBand 2 0 bands
+                greenNumeratorBand    = pickBand 11 1 bands
+                greenDenominatorBand  = pickBand 10 0 bands
 
-                blueNumeratorBand     = pickBand 1 1 bands
-                blueDenominatorBand   = pickBand 0 0 bands
+                blueNumeratorBand     = pickBand 5 1 bands
+                blueDenominatorBand   = pickBand 4 0 bands
         }
 
     let private defaultBandMappingForImages images =
@@ -1266,12 +1266,6 @@ module App =
                                 text "Import Image"
                         ]
                     ]
-                    div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                        div [] [text "Visualization:"]
-                        div [style "margin-left: auto;"] [
-                            Numeric.view' [NumericInputType.Slider] m.projectionOpacity |> UI.map SetProjectionOpacity
-                        ]
-                    ]
 
                     div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
                         div [] [text "Visualization:"]
@@ -1282,62 +1276,75 @@ module App =
                     ]
 
                     visualizationModeSelector
-
-                    accordionLists "Highlights" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] ResetHighlights [
-                        Html.table [
-                            Html.row "Amount:" [
-                                Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.amount  
-                                |> UI.map SetAmountHighlight
-
-                                Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.amount
-                                |> UI.map SetAmountHighlight
+                     
+                    accordionLists "Highlights and Shadows" "sliders horizontal" false
+                        [clazz "item"; style "margin-top: 10px;"]
+                        ResetHighlights
+                        [
+                            div [
+                                style "font-weight: bold; margin-bottom: 6px;"
+                            ] [
+                                text "Highlights"
                             ]
 
-                            Html.row "Tone:" [
-                                Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.tone
-                                |> UI.map SetToneHighlight
+                            Html.table [
+                                Html.row "Amount:" [
+                                    Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.amount
+                                    |> UI.map SetAmountHighlight
 
-                                Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.tone
-                                |> UI.map SetToneHighlight
+                                    Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.amount
+                                    |> UI.map SetAmountHighlight
+                                ]
+
+                                Html.row "Tone:" [
+                                    Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.tone
+                                    |> UI.map SetToneHighlight
+
+                                    Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.tone
+                                    |> UI.map SetToneHighlight
+                                ]
+
+                                Html.row "Radius:" [
+                                    Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.radius
+                                    |> UI.map SetRadiusHighlight
+
+                                    Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.radius
+                                    |> UI.map SetRadiusHighlight
+                                ]
                             ]
 
-                            Html.row "Radius:" [
-                                Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.radius
-                                |> UI.map SetRadiusHighlight
+                            div [
+                                style "font-weight: bold; margin-bottom: 6px;"
+                            ] [
+                                text "Shadows"
+                            ]
 
-                                Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.radius
-                                |> UI.map SetRadiusHighlight
+                            Html.table [
+                                Html.row "Amount:" [
+                                    Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.amount
+                                    |> UI.map SetAmountShadow
+
+                                    Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.amount
+                                    |> UI.map SetAmountShadow
+                                ]
+
+                                Html.row "Tone:" [
+                                    Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.tone
+                                    |> UI.map SetToneShadow
+
+                                    Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.tone
+                                    |> UI.map SetToneShadow
+                                ]
+
+                                Html.row "Radius:" [
+                                    Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.radius
+                                    |> UI.map SetRadiusShadow
+
+                                    Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.radius
+                                    |> UI.map SetRadiusShadow
+                                ]
                             ]
                         ]
-                    ]
-
-                    accordionLists "Shadows" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] ResetShadows [
-                        Html.table [
-                            Html.row "Amount:" [
-                                Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.amount  
-                                |> UI.map SetAmountShadow
-
-                                Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.amount
-                                |> UI.map SetAmountShadow
-                            ]
-
-                            Html.row "Tone:" [
-                                Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.tone
-                                |> UI.map SetToneShadow
-
-                                Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.tone
-                                |> UI.map SetToneShadow
-                            ]
-
-                            Html.row "Radius:" [
-                                Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.radius
-                                |> UI.map SetRadiusShadow
-
-                                Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.radius
-                                |> UI.map SetRadiusShadow
-                            ]
-                        ]
-                    ]
 
                     accordionLists "Adjustments" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] ResetAdjustments [
                         Html.table [
