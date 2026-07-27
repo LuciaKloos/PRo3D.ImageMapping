@@ -163,17 +163,17 @@ type Model =
 module HighlightAdjustment =
     let init : HighlightAdjustment =
         {
-            amount = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.0 }
-            tone = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.5 }
-            radius = { Numeric.init with min = 0.0; max = 100.0; step = 1.0; value = 50.0 }
+            amount = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.80 }
+            tone = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.70 }
+            radius = { Numeric.init with min = 0.0; max = 100.0; step = 1.0; value = 25.0 }
         }
 
 module ShadowAdjustment =
     let init : ShadowAdjustment=
         {
-            amount = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.0 }
-            tone = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.5 }
-            radius = { Numeric.init with min = 0.0; max = 100.0; step = 1.0; value = 50.0 }
+            amount = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.7 }
+            tone = { Numeric.init with min = 0.0; max = 1.0; step = 0.01; value = 0.6 }
+            radius = { Numeric.init with min = 0.0; max = 100.0; step = 1.0; value = 20.0 }
         }
 
 module MidtoneContrastAdjustment =

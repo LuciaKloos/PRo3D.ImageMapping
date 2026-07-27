@@ -330,6 +330,139 @@ module RgbComposite =
             255uy
         )
 
+    let private adjustBrightness
+        (brightness : float)
+        (channel : float)
+        =
+        let c =
+            clamp01 channel
+
+        let b =
+            if Double.IsFinite brightness then
+                brightness |> max -1.0 |> min 1.0
+            else
+                0.0
+
+        if b > 0.0 then
+            // Nonlinear brightening: move toward sqrt(c).
+            c + b * (Math.Sqrt(c) - c)
+        elif b < 0.0 then
+            // Nonlinear darkening: move toward c².
+            c + (-b) * (c * c - c)
+        else
+            c
+
+    let createShadowsHighlightsMask 
+        (highlightTone : float)
+        (highlightRadius : float)
+        (shadowTone : float)
+        (shadowRadius : float)
+        (pixelCount : int)
+        (alphaBytes : byte[])
+        (luminance : float[])
+        (height : int)
+        (width : int) = 
+
+        let highlightStart =
+            1.0 - clamp01 highlightTone
+
+        let rawHighlightMask =
+            Array.init pixelCount (fun index ->
+                if alphaBytes.[index] > 0uy then
+                    smoothstep highlightStart 1.0 luminance.[index]
+                else
+                    0.0
+            )
+
+        let highlightMask =
+            boxBlurMask
+                width
+                height
+                highlightRadius
+                rawHighlightMask
+
+        let shadowEnd =
+            clamp01 shadowTone
+
+        let rawShadowMask =
+            Array.init pixelCount (fun index ->
+                if alphaBytes.[index] > 0uy then
+                    1.0 - smoothstep 0.0 shadowEnd luminance.[index]
+                else
+                    0.0
+            )
+
+        let shadowMask =
+            boxBlurMask
+                width
+                height
+                shadowRadius
+                rawShadowMask
+
+        shadowMask, highlightMask
+
+    let applyAdjustments 
+        (channel : byte)
+        (clampedAmountHighlight : float)
+        (clampedAmountShadow : float)
+        (midtoneGainFactor : float)
+        (midtoneMidpoint : float)
+        (highlightMask : float[])
+        (shadowMask : float[])
+        (midtoneMask : float[])
+        (index : int) =
+
+            let highlightGamma =
+                1.4
+
+            let shadowGamma =
+                0.5
+
+            let c =
+                float channel / 255.0
+
+            // c^gamma, where gamma > 1, produces the darker candidate.
+            let highlightCorrected =
+                Math.Pow(c, highlightGamma)
+
+            let highlightStrength =
+                clampedAmountHighlight
+                * highlightMask.[index]
+                |> clamp01
+
+            let afterHighlight =
+                c
+                + highlightStrength
+                    * (highlightCorrected - c)
+
+            // Gamma below 1 produces a brighter shadow candidate.
+            let shadowCorrected =
+                Math.Pow(afterHighlight, shadowGamma)
+
+            let shadowStrength =
+                clampedAmountShadow
+                * shadowMask.[index]
+                |> clamp01
+
+            let afterShadow =
+                afterHighlight
+                + shadowStrength
+                    * (shadowCorrected - afterHighlight)
+
+            let afterMidtoneContrast =
+                contrastPointOperation
+                    midtoneGainFactor
+                    midtoneMidpoint
+                    afterShadow
+
+            let result =
+                if midtoneMask.[index] > 0.0 then
+                    afterMidtoneContrast
+                else
+                    afterShadow
+
+            clamp01 result
+        
     let createTransferFunctionPixImageFromSource
         (sources : list<RgbBandSource>)
         (bandIndex : int)
@@ -340,8 +473,10 @@ module RgbComposite =
         (colorMap : ColorMap)
         (highlightAmount : float)
         (highlightTone : float)
+        (highlightRadius : float)
         (shadowAmount : float)
         (shadowTone : float)
+        (shadowRadius : float)
         (midtoneContrastGainFactor : float)
         (saturation : float)
         (brightness : float)
@@ -425,27 +560,17 @@ module RgbComposite =
                         luminance.[index] <-
                             0.2126 * rf + 0.7152 * gf + 0.0722 * bf
 
-                let highlightStart =
-                    1.0 - clamp01 highlightTone
-
-                let highlightMask =
-                    Array.init pixelCount (fun index ->
-                        if alphaBytes.[index] > 0uy then
-                            smoothstep highlightStart 1.0 luminance.[index]
-                        else
-                            0.0
-                    )
-
-                let shadowEnd =
-                    clamp01 shadowTone
-
-                let shadowMask =
-                    Array.init pixelCount (fun index ->
-                        if alphaBytes.[index] > 0uy then
-                            1.0 - smoothstep 0.0 shadowEnd luminance.[index]
-                        else
-                            0.0
-                    )
+                let shadowMask, highlightMask = 
+                    createShadowsHighlightsMask
+                        highlightTone
+                        highlightRadius
+                        shadowTone
+                        shadowRadius
+                        pixelCount
+                        alphaBytes
+                        luminance
+                        height
+                        width
 
                 let clampedAmountHighlight =
                     clamp01 highlightAmount
@@ -494,12 +619,6 @@ module RgbComposite =
                     else
                         1.0
 
-                let brightnessGain =
-                    if Double.IsFinite brightness then
-                        1.0 + (brightness |> max -1.0 |> min 1.0)
-                    else
-                        1.0
-
                 let adjustedRedBytes =
                     Array.zeroCreate<byte> pixelCount
 
@@ -522,35 +641,42 @@ module RgbComposite =
                         let midtoneMaskValue =
                             midtoneMask.[index]
 
-                        let applyAdjustments (channel : byte) =
-                            let c =
-                                float channel / 255.0
-
-                            let afterHighlight =
-                                c * (1.0 - clampedAmountHighlight * highlightMaskValue)
-
-                            let afterShadow =
-                                afterHighlight + (1.0 - afterHighlight) * clampedAmountShadow * shadowMaskValue
-
-                            let afterMidtoneContrast =
-                                contrastPointOperation midtoneGainFactor midtoneMidpoint afterShadow
-
-                            let result =
-                                if midtoneMaskValue > 0.0 then
-                                    afterMidtoneContrast
-                                else
-                                    afterShadow
-
-                            clamp01 result
-
+                        
                         let r =
-                            applyAdjustments redBytes.[index]
+                            applyAdjustments 
+                                redBytes.[index]
+                                clampedAmountHighlight
+                                clampedAmountShadow
+                                midtoneGainFactor
+                                midtoneMidpoint
+                                highlightMask
+                                shadowMask
+                                midtoneMask
+                                index
 
                         let g =
-                            applyAdjustments greenBytes.[index]
+                            applyAdjustments 
+                                greenBytes.[index]
+                                clampedAmountHighlight
+                                clampedAmountShadow
+                                midtoneGainFactor
+                                midtoneMidpoint
+                                highlightMask
+                                shadowMask
+                                midtoneMask
+                                index
 
                         let b =
-                            applyAdjustments blueBytes.[index]
+                            applyAdjustments 
+                                blueBytes.[index]
+                                clampedAmountHighlight
+                                clampedAmountShadow
+                                midtoneGainFactor
+                                midtoneMidpoint
+                                highlightMask
+                                shadowMask
+                                midtoneMask
+                                index
 
                         let luminanceAfterAdjustments =
                             0.2126 * r + 0.7152 * g + 0.0722 * b
@@ -565,13 +691,13 @@ module RgbComposite =
                             luminanceAfterAdjustments + saturationGain * (b - luminanceAfterAdjustments)
 
                         let brightenedRed =
-                            clamp01 (saturatedRed * brightnessGain)
+                            adjustBrightness brightness saturatedRed
 
                         let brightenedGreen =
-                            clamp01 (saturatedGreen * brightnessGain)
+                            adjustBrightness brightness saturatedGreen
 
                         let brightenedBlue =
-                            clamp01 (saturatedBlue * brightnessGain)
+                            adjustBrightness brightness saturatedBlue
 
                         adjustedRedBytes.[index] <-
                             byte (round (255.0 * brightenedRed))
@@ -773,8 +899,10 @@ module RgbComposite =
         (path : string)
         (highlightAmount : float)
         (highlightTone : float)
+        (highlightRadius : float)
         (shadowAmount : float)
         (shadowTone : float)
+        (shadowRadius : float)
         (midtoneContrastGainFactor : float)
         (blackClipPercentile : float)
         (whiteClipPercentile : float)
@@ -915,7 +1043,7 @@ module RgbComposite =
             let highlightStart =
                 1.0 - clamp01 highlightTone
 
-            let highlightMask =
+            let rawHighlightMask =
                 Array.init pixelCount (fun index ->
                     if alphaBytes.[index] > 0uy then
                         smoothstep highlightStart 1.0 luminance.[index]
@@ -923,16 +1051,62 @@ module RgbComposite =
                         0.0
                 )
 
+            let highlightMask =
+                boxBlurMask
+                    width
+                    height
+                    highlightRadius
+                    rawHighlightMask
+
             let shadowEnd =
                 clamp01 shadowTone
 
-            let shadowMask =
+            let rawShadowMask =
                 Array.init pixelCount (fun index ->
                     if alphaBytes.[index] > 0uy then
                         1.0 - smoothstep 0.0 shadowEnd luminance.[index]
                     else
                         0.0
                 )
+
+            let shadowMask =
+                boxBlurMask
+                    width
+                    height
+                    shadowRadius
+                    rawShadowMask
+
+            let fixedMidtoneLow =
+                0.25
+
+            let fixedMidtoneHigh =
+                0.75
+
+            let midtoneLow =
+                clamp01 fixedMidtoneLow
+
+            let midtoneHigh =
+                clamp01 fixedMidtoneHigh
+
+            let midtoneMidpoint =
+                (midtoneLow + midtoneHigh) * 0.5
+
+            let validMidtoneRange =
+                midtoneHigh > midtoneLow
+
+            let midtoneMask =
+                        Array.init pixelCount (fun index ->
+                            if alphaBytes.[index] > 0uy && validMidtoneRange then
+                                let l =
+                                    luminance.[index]
+
+                                if l >= midtoneLow && l <= midtoneHigh then
+                                    1.0
+                                else
+                                    0.0
+                            else
+                                0.0
+                        )
 
             let clampedAmountHighlight =
                 clamp01 highlightAmount
@@ -967,12 +1141,6 @@ module RgbComposite =
                 else
                     1.0
 
-            let brightnessGain =
-                if Double.IsFinite brightness then
-                    1.0 + (brightness |> max -1.0 |> min 1.0)
-                else
-                    1.0
-
             let output =
                 PixImage<byte>(
                     Col.Format.RGBA,
@@ -992,33 +1160,43 @@ module RgbComposite =
                         y * width + x
 
                     if alphaBytes.[index] > 0uy then
-                        let applyAdjustments (channel : byte) =
-                            let c =
-                                float channel / 255.0
-
-                            let afterHighlight =
-                                c * (1.0 - clampedAmountHighlight * highlightMask.[index])
-
-                            let afterShadow =
-                                afterHighlight
-                                + (1.0 - afterHighlight) * clampedAmountShadow * shadowMask.[index]
-
-                            let afterMidtone =
-                                if luminance.[index] >= midtoneLow && luminance.[index] <= midtoneHigh then
-                                    contrastPointOperation midtoneGainFactor midtoneMidpoint afterShadow
-                                else
-                                    afterShadow
-
-                            clamp01 afterMidtone
+                        
 
                         let r =
-                            applyAdjustments redBytes.[index]
+                            applyAdjustments    
+                                redBytes.[index]
+                                clampedAmountHighlight
+                                clampedAmountShadow
+                                midtoneGainFactor
+                                midtoneMidpoint
+                                highlightMask
+                                shadowMask
+                                midtoneMask
+                                index
 
                         let g =
-                            applyAdjustments greenBytes.[index]
+                            applyAdjustments 
+                                greenBytes.[index]
+                                clampedAmountHighlight
+                                clampedAmountShadow
+                                midtoneGainFactor
+                                midtoneMidpoint
+                                highlightMask
+                                shadowMask
+                                midtoneMask
+                                index
 
                         let b =
-                            applyAdjustments blueBytes.[index]
+                            applyAdjustments 
+                                blueBytes.[index]
+                                clampedAmountHighlight
+                                clampedAmountShadow
+                                midtoneGainFactor
+                                midtoneMidpoint
+                                highlightMask
+                                shadowMask
+                                midtoneMask
+                                index
 
                         let l =
                             0.2126 * r + 0.7152 * g + 0.0722 * b
@@ -1032,10 +1210,19 @@ module RgbComposite =
                         let b =
                             l + saturationGain * (b - l)
 
+                        let brightenedRed =
+                            adjustBrightness brightness r
+
+                        let brightenedGreen =
+                            adjustBrightness brightness g
+
+                        let brightenedBlue =
+                            adjustBrightness brightness b
+
                         C4b(
-                            byte (round (255.0 * clamp01 (r * brightnessGain))),
-                            byte (round (255.0 * clamp01 (g * brightnessGain))),
-                            byte (round (255.0 * clamp01 (b * brightnessGain))),
+                            byte (round (255.0 * clamp01 (brightenedRed))),
+                            byte (round (255.0 * clamp01 (brightenedGreen))),
+                            byte (round (255.0 * clamp01 (brightenedBlue))),
                             alphaBytes.[index]
                         )
                     else
@@ -1080,8 +1267,10 @@ module RgbComposite =
                         path
                         highlightAdjustmentValue.amount.value
                         highlightAdjustmentValue.tone.value
+                        highlightAdjustmentValue.radius.value
                         shadowAdjustmentValue.amount.value
                         shadowAdjustmentValue.tone.value
+                        shadowAdjustmentValue.radius.value
                         midtoneContrastValue.gainFactor.value
                         blackWhiteClipValue.blackClipPercentile.value
                         blackWhiteClipValue.whiteClipPercentile.value
@@ -1283,7 +1472,7 @@ module RgbComposite =
                     let highlightStart =
                         1.0 - clamp01 highlightTone
 
-                    let highlightMask =
+                    let rawHighlightMask =
                         Array.init pixelCount (fun index ->
                             if alphaBytes.[index] > 0uy then
                                 smoothstep highlightStart 1.0 luminance.[index]
@@ -1291,16 +1480,30 @@ module RgbComposite =
                                 0.0
                         )
 
+                    let highlightMask =
+                        boxBlurMask
+                            width
+                            height
+                            highlightRadius
+                            rawHighlightMask
+
                     let shadowEnd =
                         clamp01 shadowTone
 
-                    let shadowMask =
+                    let rawShadowMask =
                         Array.init pixelCount (fun index ->
                             if alphaBytes.[index] > 0uy then
                                 1.0 - smoothstep 0.0 shadowEnd luminance.[index]
                             else
                                 0.0
                         )
+
+                    let shadowMask =
+                        boxBlurMask
+                            width
+                            height
+                            shadowRadius
+                            rawShadowMask
 
                     let clampedAmountHighlight =
                         clamp01 highlightAmount
@@ -1362,11 +1565,7 @@ module RgbComposite =
                         else
                             1.0
 
-                    let brightnessGain =
-                        if Double.IsFinite brightness then
-                            1.0 + (brightness |> max -1.0 |> min 1.0)
-                        else
-                            1.0
+                    
 
                     let adjustedRedBytes =
                         Array.zeroCreate<byte> pixelCount
@@ -1380,42 +1579,42 @@ module RgbComposite =
                     // Third pass: darken highlights according to Amount * highlight mask.
                     for index in 0 .. pixelCount - 1 do
                         if alphaBytes.[index] > 0uy then
-                            let highlightMaskValue = highlightMask.[index] 
-
-                            let shadowMaskValue = shadowMask.[index] 
-
-                            let midtoneMaskValue =
-                                midtoneMask.[index]
-
-                            let applyAdjustments (channel : byte) =
-                                let c =
-                                    float channel / 255.0
-
-                                let afterHighlight =
-                                    c * (1.0 - clampedAmountHighlight * highlightMaskValue)
-
-                                let afterShadow =
-                                    afterHighlight + (1.0 - afterHighlight) * clampedAmountShadow * shadowMaskValue
-
-                                let afterMidtoneContrast =
-                                    contrastPointOperation midtoneGainFactor midtoneMidpoint afterShadow
-
-                                let result =
-                                    if midtoneMaskValue > 0.0 then
-                                        afterMidtoneContrast
-                                    else
-                                        afterShadow
-
-                                clamp01 result
-                                
+                            
                             let r =
-                                applyAdjustments redBytes.[index]
+                                applyAdjustments 
+                                    redBytes.[index]
+                                    clampedAmountHighlight
+                                    clampedAmountShadow
+                                    midtoneGainFactor
+                                    midtoneMidpoint
+                                    highlightMask
+                                    shadowMask
+                                    midtoneMask
+                                    index
 
                             let g =
-                                applyAdjustments greenBytes.[index]
+                                applyAdjustments 
+                                    greenBytes.[index]
+                                    clampedAmountHighlight
+                                    clampedAmountShadow
+                                    midtoneGainFactor
+                                    midtoneMidpoint
+                                    highlightMask
+                                    shadowMask
+                                    midtoneMask
+                                    index
 
                             let b =
-                                applyAdjustments blueBytes.[index]
+                                applyAdjustments 
+                                    blueBytes.[index]
+                                    clampedAmountHighlight
+                                    clampedAmountShadow
+                                    midtoneGainFactor
+                                    midtoneMidpoint
+                                    highlightMask
+                                    shadowMask
+                                    midtoneMask
+                                    index
 
                             let luminanceAfterAdjustments =
                                 0.2126 * r + 0.7152 * g + 0.0722 * b
@@ -1430,13 +1629,13 @@ module RgbComposite =
                                 luminanceAfterAdjustments + saturationGain * ( b - luminanceAfterAdjustments )
 
                             let brightenedRed =
-                                clamp01 (saturatedRed * brightnessGain)
+                                adjustBrightness brightness saturatedRed
 
                             let brightenedGreen =
-                                clamp01 (saturatedGreen * brightnessGain)
+                                adjustBrightness brightness saturatedGreen
 
                             let brightenedBlue =
-                                clamp01 (saturatedBlue * brightnessGain)
+                                adjustBrightness brightness saturatedBlue
 
                             adjustedRedBytes.[index] <-
                                 byte (round (255.0 * brightenedRed))
@@ -1497,8 +1696,10 @@ module RgbComposite =
         (gamma : float)
         (highlightAmount : float)
         (highlightTone   : float)
+        (highlightRadius : float)
         (shadowAmount : float)
         (shadowTone   : float)
+        (shadowRadius : float)
         (midtoneContrastGainFactor : float)
         (blackClipPercentile : float)
         (whiteClipPercentile : float)
@@ -1637,7 +1838,7 @@ module RgbComposite =
                     let highlightStart =
                         1.0 - clamp01 highlightTone
 
-                    let highlightMask =
+                    let rawHighlightMask =
                         Array.init pixelCount (fun index ->
                             if alphaBytes.[index] > 0uy then
                                 smoothstep highlightStart 1.0 luminance.[index]
@@ -1645,16 +1846,30 @@ module RgbComposite =
                                 0.0
                         )
 
+                    let highlightMask =
+                        boxBlurMask
+                            width
+                            height
+                            highlightRadius
+                            rawHighlightMask
+
                     let shadowEnd =
                         clamp01 shadowTone
 
-                    let shadowMask =
+                    let rawShadowMask =
                         Array.init pixelCount (fun index ->
                             if alphaBytes.[index] > 0uy then
                                 1.0 - smoothstep 0.0 shadowEnd luminance.[index]
                             else
                                 0.0
                         )
+
+                    let shadowMask =
+                        boxBlurMask
+                            width
+                            height
+                            shadowRadius
+                            rawShadowMask
 
                     let clampedAmountHighlight =
                         clamp01 highlightAmount
@@ -1716,12 +1931,6 @@ module RgbComposite =
                         else
                             1.0
 
-                    let brightnessGain =
-                        if Double.IsFinite brightness then
-                            1.0 + (brightness |> max -1.0 |> min 1.0)
-                        else
-                            1.0
-
                     let adjustedRedBytes =
                         Array.zeroCreate<byte> pixelCount
 
@@ -1740,36 +1949,42 @@ module RgbComposite =
 
                             let midtoneMaskValue =
                                 midtoneMask.[index]
-
-                            let applyAdjustments (channel : byte) =
-                                let c =
-                                    float channel / 255.0
-
-                                let afterHighlight =
-                                    c * (1.0 - clampedAmountHighlight * highlightMaskValue)
-
-                                let afterShadow =
-                                    afterHighlight + (1.0 - afterHighlight) * clampedAmountShadow * shadowMaskValue
-
-                                let afterMidtoneContrast =
-                                    contrastPointOperation midtoneGainFactor midtoneMidpoint afterShadow
-
-                                let result =
-                                    if midtoneMaskValue > 0.0 then
-                                        afterMidtoneContrast
-                                    else
-                                        afterShadow
-
-                                clamp01 result
                                 
                             let r =
-                                applyAdjustments redBytes.[index]
+                                applyAdjustments 
+                                    redBytes.[index]
+                                    clampedAmountHighlight
+                                    clampedAmountShadow
+                                    midtoneGainFactor
+                                    midtoneMidpoint
+                                    highlightMask
+                                    shadowMask
+                                    midtoneMask
+                                    index
 
                             let g =
-                                applyAdjustments greenBytes.[index]
+                                applyAdjustments 
+                                    greenBytes.[index]
+                                    clampedAmountHighlight
+                                    clampedAmountShadow
+                                    midtoneGainFactor
+                                    midtoneMidpoint
+                                    highlightMask
+                                    shadowMask
+                                    midtoneMask
+                                    index
 
                             let b =
-                                applyAdjustments blueBytes.[index]
+                                applyAdjustments 
+                                    blueBytes.[index]
+                                    clampedAmountHighlight
+                                    clampedAmountShadow
+                                    midtoneGainFactor
+                                    midtoneMidpoint
+                                    highlightMask
+                                    shadowMask
+                                    midtoneMask
+                                    index
 
                             let luminanceAfterAdjustments =
                                 0.2126 * r + 0.7152 * g + 0.0722 * b
@@ -1784,13 +1999,13 @@ module RgbComposite =
                                 luminanceAfterAdjustments + saturationGain * ( b - luminanceAfterAdjustments )
 
                             let brightenedRed =
-                                clamp01 (saturatedRed * brightnessGain)
+                                adjustBrightness brightness saturatedRed
 
                             let brightenedGreen =
-                                clamp01 (saturatedGreen * brightnessGain)
+                                adjustBrightness brightness saturatedGreen
 
                             let brightenedBlue =
-                                clamp01 (saturatedBlue * brightnessGain)
+                                adjustBrightness brightness saturatedBlue
 
                             adjustedRedBytes.[index] <-
                                 byte (round (255.0 * brightenedRed))

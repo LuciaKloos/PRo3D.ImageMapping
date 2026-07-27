@@ -211,6 +211,8 @@ module Image =
                 highlightAdjustmentValue.amount.value
             let highlightToneValue =
                 highlightAdjustmentValue.tone.value
+            let highlightRadiusValue =
+                highlightAdjustmentValue.radius.value
 
             let shadowAdjustmentValue =
                 shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
@@ -218,6 +220,8 @@ module Image =
                 shadowAdjustmentValue.amount.value
             let shadowToneValue =
                 shadowAdjustmentValue.tone.value
+            let shadowRadiusValue =
+                shadowAdjustmentValue.radius.value
 
             let midtoneContrastValue =
                 shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
@@ -259,8 +263,10 @@ module Image =
                         gammaValue
                         highlightAmountValue
                         highlightToneValue
+                        highlightRadiusValue
                         shadowAmountValue
                         shadowToneValue
+                        shadowRadiusValue
                         midtoneContrastGainFactorValue
                         blackClipPercentileValue
                         whiteClipPercentileValue
@@ -312,6 +318,8 @@ module Image =
                 highlightAdjustmentValue.amount.value
             let highlightToneValue =
                 highlightAdjustmentValue.tone.value
+            let highlightRadiusValue =
+                highlightAdjustmentValue.radius.value
 
             let shadowAdjustmentValue =
                 shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
@@ -319,6 +327,8 @@ module Image =
                 shadowAdjustmentValue.amount.value
             let shadowToneValue =
                 shadowAdjustmentValue.tone.value
+            let shadowRadiusValue =
+                shadowAdjustmentValue.radius.value
 
             let midtoneContrastValue =
                 shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
@@ -387,8 +397,10 @@ module Image =
                             colorMapValue
                             highlightAmountValue
                             highlightToneValue
+                            highlightRadiusValue
                             shadowAmountValue
                             shadowToneValue
+                            shadowRadiusValue
                             midtoneContrastGainFactorValue
                             saturationGainFactorValue
                             brightnessGainFactorValue

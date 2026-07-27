@@ -132,10 +132,10 @@
  0:     Skipped loading native dependencies for System.Collections.Immutable, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     Skipped loading native dependencies for System.IO.MemoryMappedFiles, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.exe
- 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentData.dll
- 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.dll
- 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.exe
- 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentVisualization.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentData.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.exe
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentVisualization.dll
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.SPICE.dll
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Silk.NET.Core.dll
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Silk.NET.GLFW.dll
@@ -143,7 +143,7 @@
  0:     [IsPlugin] Ignoring assembly Suave due to filter
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\TinyEXR.NET.dll
  0:     [IsPlugin] Ignoring assembly Unofficial.Typography due to filter
- 0:   Loading plugins .................................................................... 0.137 s
+ 0:   Loading plugins .................................................................... 0.050 s
  0:   [Introspection] Entry assembly: PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null (path: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.dll)
  0:   [Introspection] Ignoring assembly System.Runtime due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
@@ -426,8 +426,8 @@
  0:     [cache hit ] Aardvark.Geometry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FsPickler.Json, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache miss] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache miss] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FSharp.Data.Json.Core, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0:     [cache hit ] FSharp.Data.Runtime.Utilities, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0:     [cache hit ] FSharp.Data.Http, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
@@ -447,7 +447,7 @@
  0:     [cache hit ] Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Silk.NET.GLFW, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Silk.NET.Core, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache miss] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Rendering.Text, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Geometry.PolyMesh, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.IO, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -460,7 +460,7 @@
  0:     [cache hit ] FSys, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] HDF.PInvoke, Version=1.10.502.0, Culture=neutral, PublicKeyToken=18793c1fcffe58a3
  0:     installing pickler: Aardvark.Base.Picklers.AdaptivePicklers
- 0:   Initializing CustomPicklerProvider ................................................. 0.029 s
+ 0:   Initializing CustomPicklerProvider ................................................. 0.019 s
  0:     [cache hit ] Aardvark.Base, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:   Initializing Constants ............................................................. 0.000 s
  0:     [cache hit ] SingleFileExtractor.Core, Version=2.2.1.0, Culture=neutral, PublicKeyToken=null
@@ -481,8 +481,8 @@
  0:     [cache hit ] Aardvark.Geometry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FsPickler.Json, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache miss] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache miss] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FSharp.Data.Json.Core, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0:     [cache hit ] FSharp.Data.Runtime.Utilities, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0:     [cache hit ] FSharp.Data.Http, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
@@ -509,7 +509,7 @@
  0:     [cache hit ] Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Silk.NET.GLFW, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Silk.NET.Core, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache miss] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache hit ] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Rendering.Text, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Geometry.PolyMesh, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.IO, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -537,10 +537,10 @@
  0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
  0:     [Introspection] loaded native library FreeImage from C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64\FreeImage.dll
  0:   Initializing PixImageFreeImage ..................................................... 0.008 s
- 0: initializing aardvark ........................................................ [0.09x] 0.281 s
+ 0: initializing aardvark ........................................................ [0.13x] 0.182 s
  0: Initializing Aardium .........................................................................
  0:   Binary: C:\Users\kloos\AppData\Local\Aardium\x64\2.1.2\tools\Aardium.exe
- 0: Initializing Aardium ................................................................. 0.011 s
+ 0: Initializing Aardium ................................................................. 0.012 s
  0: log path for coo trafo: .\logs\CooTrafo.Log
  0: probing paths for CooTransformation
  0:   C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
@@ -1021,7 +1021,7 @@
  0:     C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
  0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
  0:   [Introspection] loaded native library kernel32.dll from kernel32.dll
- 0: initializing OpenGL runtime .......................................................... 0.015 s
+ 0: initializing OpenGL runtime .......................................................... 0.016 s
  0: Skipped loading native dependencies for System.ObjectModel, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: [cache miss] PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] FSharp.Core, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -1048,9 +1048,9 @@
  0: [cache hit ] Aardvark.Geometry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] FsPickler.Json, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
- 0: [cache miss] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0: [cache hit ] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0: WARNING: unexpected rule: FSharp.Data.Adaptive.IAdaptiveValue`1[Aardvark.Base.Trafo3d] ComputeModelViewProj(Microsoft.FSharp.Core.FSharpFunc`2[System.String,FSharp.Data.Adaptive.IAdaptiveValue`1[Microsoft.FSharp.Core.FSharpOption`1[Aardvark.Base.Trafo3d]]], System.String, FSharp.Data.Adaptive.IAdaptiveValue`1[Aardvark.Base.Trafo3d])
- 0: [cache miss] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0: [cache hit ] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] FSharp.Data.Json.Core, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0: [cache hit ] FSharp.Data.Runtime.Utilities, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0: [cache hit ] FSharp.Data.Http, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
@@ -1070,7 +1070,7 @@
  0: [cache hit ] Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Silk.NET.GLFW, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Silk.NET.Core, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
- 0: [cache miss] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0: [cache hit ] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Rendering.Text, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Geometry.PolyMesh, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Base.IO, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -1189,17 +1189,17 @@
  1: Skipped loading native dependencies for System.Threading.Overlapped, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  1: Skipped loading native dependencies for System.Diagnostics.DiagnosticSource, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  2: Skipped loading native dependencies for System.Web.HttpUtility, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
- 3: Skipped loading native dependencies for System.Globalization, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: [Server] created client for (096bb827-102c-ac5e-0b23-113fe002d041/n5), mapping enabled
- 1: [Server] created client for (096bb827-102c-ac5e-0b23-113fe002d041/n236), mapping enabled
- 3: [Client] 1: running n5
- 1: [Client] 2: running n236
+ 1: Skipped loading native dependencies for System.Globalization, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 1: [Server] created client for (eed34f54-8332-ad99-a3b4-06701f077dd2/n5), mapping enabled
+ 3: [Server] created client for (eed34f54-8332-ad99-a3b4-06701f077dd2/n236), mapping enabled
+ 3: [Client] 2: running n236
+ 1: [Client] 1: running n5
  1: Skipped loading native dependencies for System.Runtime.Numerics, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: Skipped loading native dependencies for System.Reflection, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 1: Skipped loading native dependencies for System.Reflection, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  3: Skipped loading native dependencies for System.Linq.Expressions, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: Skipped loading native dependencies for System.Runtime.Serialization.Formatters, Version=8.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 1: Skipped loading native dependencies for Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed
- 1: Skipped loading native dependencies for System.IO, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 1: Skipped loading native dependencies for System.Runtime.Serialization.Formatters, Version=8.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 3: Skipped loading native dependencies for Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed
+ 3: Skipped loading native dependencies for System.IO, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  4: [Scene] n5: created
  4: probing paths for jitmem
  4:   C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
@@ -1207,3 +1207,60 @@
  4: [Introspection] loaded native library jitmem from C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64\jitmem.dll
  4: [GL] Reading shader program file cache 'C:\Users\kloos\AppData\Local\Aardvark\Cache\Shaders\OpenGL\9638dd46-4eb6-0397-4eac-908fb7775c70.bin: success 0.012 s
  4: Skipped loading native dependencies for System.Reflection.Emit, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.009 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.006 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.006 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.006 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.006 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.006 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.006 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.006 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.006 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.006 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.006 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'C:\Users\kloos\Downloads\840x560.webp' with FreeImage loader: success in 0.005 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 2.jpg' with FreeImage loader: success in 0.308 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 2.jpg' with FreeImage loader: success in 0.244 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 2.jpg' with FreeImage loader: success in 0.169 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 2.jpg' with FreeImage loader: success in 0.249 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 2.jpg' with FreeImage loader: success in 0.169 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 2.jpg' with FreeImage loader: success in 0.245 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 2.jpg' with FreeImage loader: success in 0.170 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 2.jpg' with FreeImage loader: success in 0.250 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 2.jpg' with FreeImage loader: success in 0.243 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 2.jpg' with FreeImage loader: success in 0.243 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 2.jpg' with FreeImage loader: success in 0.250 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 2.jpg' with FreeImage loader: success in 0.241 s
+ 5: [Client] 1: stopped
+ 6: [Client] 2: stopped

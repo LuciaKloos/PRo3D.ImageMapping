@@ -21,6 +21,86 @@ module ImageMath =
         gain * inputValue + b
         |> clamp01
 
+    let boxBlurMask
+        (width : int)
+        (height : int)
+        (radius : float)
+        (mask : float[])
+        =
+        let r =
+            if Double.IsFinite radius then
+                int (round radius) |> max 0
+            else
+                0
+
+        if r = 0 then
+            Array.copy mask
+        else
+            let horizontal =
+                Array.zeroCreate<float> mask.Length
+
+            let result =
+                Array.zeroCreate<float> mask.Length
+
+            // Horizontal pass
+            for y in 0 .. height - 1 do
+                let rowStart =
+                    y * width
+
+                let mutable sum =
+                    0.0
+
+                for x in 0 .. min (width - 1) r do
+                    sum <- sum + mask.[rowStart + x]
+
+                for x in 0 .. width - 1 do
+                    let left =
+                        x - r
+
+                    let right =
+                        x + r
+
+                    if left > 0 then
+                        sum <- sum - mask.[rowStart + left - 1]
+
+                    if right < width - 1 then
+                        sum <- sum + mask.[rowStart + right + 1]
+
+                    let sampleCount =
+                        min (width - 1) right - max 0 left + 1
+
+                    horizontal.[rowStart + x] <-
+                        sum / float sampleCount
+
+            // Vertical pass
+            for x in 0 .. width - 1 do
+                let mutable sum =
+                    0.0
+
+                for y in 0 .. min (height - 1) r do
+                    sum <- sum + horizontal.[y * width + x]
+
+                for y in 0 .. height - 1 do
+                    let top =
+                        y - r
+
+                    let bottom =
+                        y + r
+
+                    if top > 0 then
+                        sum <- sum - horizontal.[(top - 1) * width + x]
+
+                    if bottom < height - 1 then
+                        sum <- sum + horizontal.[(bottom + 1) * width + x]
+
+                    let sampleCount =
+                        min (height - 1) bottom - max 0 top + 1
+
+                    result.[y * width + x] <-
+                        sum / float sampleCount
+
+            result
+
     let smoothstep edge0 edge1 x =
         let t = 
             if edge1 <= edge0 then

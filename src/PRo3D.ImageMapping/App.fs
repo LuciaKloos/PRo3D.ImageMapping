@@ -88,11 +88,12 @@ module App =
         }
 
     let private isPlainRgbImagePath (path : string) =
-            match Path.GetExtension(path).ToLowerInvariant() with
-            | ".png"
-            | ".jpg"
-            | ".jpeg" -> true
-            | _ -> false
+        match Path.GetExtension(path).ToLowerInvariant() with
+        | ".png"
+        | ".jpg"
+        | ".jpeg"
+        | ".webp" -> true
+        | _ -> false
 
     let private noBlackWhiteClip =
         {
@@ -883,8 +884,8 @@ module App =
             computeRgbSelectedBandHistograms m 64
 
         let jsImportDialog =
-            "top.aardvark.dialog.showOpenDialog({title: 'Select image', filters: [{name: 'Images', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc', 'png', 'jpg', 'jpeg']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open image dialog:', error);});"
-        
+            "top.aardvark.dialog.showOpenDialog({title: 'Select image', filters: [{name: 'Images', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc', 'png', 'jpg', 'jpeg', 'webp']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open image dialog:', error);});"
+
         let accordion text' icon active styling content' =
                 let title = if active then "title active inverted" else "title inverted"
                 let content = if active then "content active" else "content"
