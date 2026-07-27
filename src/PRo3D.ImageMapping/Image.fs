@@ -81,6 +81,9 @@ module Image =
             let highlightToneValue =
                 highlightAdjustmentValue.tone.value
 
+            let highlightRadiusValue =
+                highlightAdjustmentValue.radius.value
+
             let shadowAdjustmentValue =
                 shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
 
@@ -89,6 +92,9 @@ module Image =
 
             let shadowToneValue =
                 shadowAdjustmentValue.tone.value
+                
+            let shadowRadiusValue =
+                shadowAdjustmentValue.radius.value
 
             let midtoneContrastValue =
                 shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
@@ -149,8 +155,10 @@ module Image =
                         gammaValue
                         highlightAmountValue
                         highlightToneValue
+                        highlightRadiusValue
                         shadowAmountValue
-                        shadowToneValue                        
+                        shadowToneValue                       
+                        shadowRadiusValue
                         midtoneContrastGainFactorValue
                         blackClipPercentileValue
                         whiteClipPercentileValue
@@ -448,6 +456,9 @@ module Image =
             let highlightToneValue =
                 highlightAdjustmentValue.tone.value
 
+            let highlightRadiusValue =
+                highlightAdjustmentValue.radius.value
+
             let shadowAdjustmentValue =
                 shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
 
@@ -456,6 +467,9 @@ module Image =
 
             let shadowToneValue =
                 shadowAdjustmentValue.tone.value
+
+            let shadowRadiusValue =
+                shadowAdjustmentValue.radius.value
 
             let midtoneContrastValue =
                 shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
@@ -507,8 +521,10 @@ module Image =
                         gammaValue
                         highlightAmountValue
                         highlightToneValue
+                        highlightRadiusValue
                         shadowAmountValue
-                        shadowToneValue                        
+                        shadowToneValue     
+                        shadowRadiusValue
                         midtoneContrastGainFactorValue
                         blackClipPercentileValue
                         whiteClipPercentileValue
