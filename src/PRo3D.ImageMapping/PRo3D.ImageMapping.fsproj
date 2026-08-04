@@ -27,6 +27,7 @@
 	<Compile Include="NetCdfLoader.fs" />
 	<Compile Include="MbiLoader.fs" />
 	<Compile Include="TiffLoader.fs" />
+	<Compile Include="BandHandler.fs" />
 	<Compile Include="RgbComposite.fs" />
     <Compile Include="Image.fs" />
     <Compile Include="App.fs" />

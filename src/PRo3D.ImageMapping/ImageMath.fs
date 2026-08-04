@@ -111,6 +111,28 @@ module ImageMath =
         t * t * (3.0 - 2.0 * t)
 
     
+    let calculateMidtoneContrast
+        (midtoneContrastGainFactor : float) =
+                    let clampedMidtoneContrastGainFactor =
+                        if Double.IsFinite midtoneContrastGainFactor then  
+                            midtoneContrastGainFactor |> max -1.0 |> min 1.0
+                        else 
+                            0.0
+
+                    let midtoneGainFactor = 1.0 + clampedMidtoneContrastGainFactor
+
+                    midtoneGainFactor
+
+    let calculateSaturationGain
+        (saturation : float) =
+            let saturationGain =
+                    if Double.IsFinite saturation then
+                        1.0 + (saturation |> max -1.0 |> min 1.0)
+                    else
+                        1.0
+
+            saturationGain
+
     let percentile
         (fraction : float)
         (sortedValues : float[]) =

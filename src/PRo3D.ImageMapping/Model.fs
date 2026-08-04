@@ -120,12 +120,41 @@ type Brightness =
     }
 
 [<ModelType>]
+type Luminance =
+    {
+        red : float
+        green : float
+        blue : float
+    }
+
+[<ModelType>]
 type BoresightAdjustment =
     {
         roll : NumericInput
         pitch : NumericInput
         yaw : NumericInput
 
+    }
+    
+[<ModelType>]
+type MinimumObjectSignal =
+    {
+        signal : float
+    }
+
+[<ModelType>]
+type Midtone =
+    {
+        low : float
+        mid : float
+        high : float
+    }
+
+[<ModelType>]
+type Gamma =
+    {
+        highlights : float
+        shadows : float
     }
 
 type VisualizationMode =
@@ -199,6 +228,35 @@ module Brightness =
     let init : Brightness =
         {
             gainFactor = { Numeric.init with min = -1.0; max = 1.0; step = 0.01; value = 0.0 }
+        }
+
+module Luminance =
+    let init : Luminance =
+        {
+            red = 0.2126
+            green = 0.7152
+            blue = 0.0722
+        }
+
+module Midtone =
+    let init : Midtone =
+        {
+            low = (84.0/255.0)
+            mid = ((84.0/255.0) + (168.0/255.0)) * 0.5
+            high = (168.0/255.0)
+        }
+
+module Gamma =
+    let init : Gamma =
+        {
+            highlights = 1.3
+            shadows = 0.7
+        }
+
+module MinimumObjectSignal =
+    let init : MinimumObjectSignal =
+        {
+            signal = 0.002
         }
 
 module RgbRatioComposite = 

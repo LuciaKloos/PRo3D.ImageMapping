@@ -7,6 +7,7 @@ open Aardvark.UI.Primitives
 open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
+open PRo3D.ImageMapping.BandHandler
 
 open System.IO
 
@@ -541,7 +542,7 @@ module App =
                 |> AList.force
 
             let sources =
-                RgbComposite.readAdaptiveBandSources images token
+                readAdaptiveBandSources images token
 
             let computeOne
                 (label : string)
@@ -570,7 +571,7 @@ module App =
 
                     | Some source ->
 
-                        match RgbComposite.readBandSourceAsFloat source with
+                        match readBandSourceAsFloat source with
                         | Result.Ok band ->
                             {
                                 label = label

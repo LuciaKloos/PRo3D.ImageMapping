@@ -83,6 +83,27 @@ type ShadowsHighlightsAdjustmentsRenderSettings =
         brightness : aval<Brightness>
     }
 
+type PreparedRgbImage =
+    {
+        width       : int
+        height      : int
+        red         : byte[]
+        green       : byte[]
+        blue        : byte[]
+        alpha       : byte[]
+        redValues   : float[]
+        greenValues : float[]
+        blueValues  : float[]
+        valid       : bool[]
+    }
+
+type SortedChannels =
+    {
+        red   : float[]
+        green : float[]
+        blue  : float[]
+    }
+
 module ImageDefaults =
 
     let initialPath = ""
