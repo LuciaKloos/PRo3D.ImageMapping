@@ -418,10 +418,9 @@ module RgbComposite =
             let shadowGamma =
                 0.5
 
-            let c =
-                float channel / 255.0
+            let c = float channel / 255.0
 
-            // c^gamma, where gamma > 1, produces the darker candidate.
+            // Highlight correction
             let highlightCorrected =
                 Math.Pow(c, highlightGamma)
 
@@ -430,38 +429,47 @@ module RgbComposite =
                 * highlightMask.[index]
                 |> clamp01
 
-            let afterHighlight =
-                c
-                + highlightStrength
-                    * (highlightCorrected - c)
+            let highlightDelta =
+                highlightStrength
+                * (highlightCorrected - c)
 
-            // Gamma below 1 produces a brighter shadow candidate.
+            // Shadow correction
             let shadowCorrected =
-                Math.Pow(afterHighlight, shadowGamma)
+                Math.Pow(c, shadowGamma)
 
             let shadowStrength =
                 clampedAmountShadow
                 * shadowMask.[index]
                 |> clamp01
 
-            let afterShadow =
-                afterHighlight
-                + shadowStrength
-                    * (shadowCorrected - afterHighlight)
+            let shadowDelta =
+                shadowStrength
+                * (shadowCorrected - c)
 
-            let afterMidtoneContrast =
+            // Midtone contrast correction
+            let midtoneCorrected =
                 contrastPointOperation
                     midtoneGainFactor
                     midtoneMidpoint
-                    afterShadow
+                    c
 
-            let result =
-                if midtoneMask.[index] > 0.0 then
-                    afterMidtoneContrast
-                else
-                    afterShadow
+            let midtoneStrength =
+                midtoneMask.[index]
+                |> clamp01
 
-            clamp01 result
+            let midtoneDelta =
+                midtoneStrength
+                * (midtoneCorrected - c)
+
+            // Combine independent changes
+            let adjusted =
+                c
+                + highlightDelta
+                + shadowDelta
+                + midtoneDelta
+                |> clamp01
+
+            adjusted
         
     let createTransferFunctionPixImageFromSource
         (sources : list<RgbBandSource>)
@@ -759,6 +767,7 @@ module RgbComposite =
                 let averageSignal =
                     (r + g + b) / 3.0
 
+                Log.warn "Average signal at pixel %d: %f" i averageSignal
                 averageSignal > minimumObjectSignal
             else
                 false
@@ -1077,10 +1086,10 @@ module RgbComposite =
                     rawShadowMask
 
             let fixedMidtoneLow =
-                0.25
+                84.0/255.0
 
             let fixedMidtoneHigh =
-                0.75
+                168.0/255.0
 
             let midtoneLow =
                 clamp01 fixedMidtoneLow
@@ -1121,19 +1130,7 @@ module RgbComposite =
                     0.0
 
             let midtoneGainFactor =
-                if clampedMidtoneContrastGainFactor >= 0.0 then
-                    1.0 + 2.0 * clampedMidtoneContrastGainFactor
-                else
                     1.0 + clampedMidtoneContrastGainFactor
-
-            let midtoneLow =
-                0.25
-
-            let midtoneHigh =
-                0.75
-
-            let midtoneMidpoint =
-                (midtoneLow + midtoneHigh) * 0.5
 
             let saturationGain =
                 if Double.IsFinite saturation then
