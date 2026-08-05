@@ -20,6 +20,7 @@ open PRo3D.ImageMapping.NetCdfLoader
 open PRo3D.ImageMapping.MbiLoader
 open PRo3D.ImageMapping.TiffLoader
 open PRo3D.ImageMapping.RgbComposite
+open PRo3D.ImageMapping.BandHandler
 
 module Image =
 
