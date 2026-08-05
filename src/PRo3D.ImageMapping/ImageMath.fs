@@ -277,6 +277,7 @@ module ImageMath =
                         |> max 0
                         |> min (binCount - 1)
 
+                    // counts the number of values in each bin
                     counts.[binIndex] <- counts.[binIndex] + 1
 
                 let maxCount =

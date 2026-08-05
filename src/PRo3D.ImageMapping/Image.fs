@@ -336,13 +336,6 @@ module Image =
             let midtoneContrastGainFactorValue =
                 midtoneContrastValue.gainFactor.value
 
-            let blackWhiteClipValue =
-                shadowsHighlightsAdjustmentsRenderSettings.blackWhiteClip.GetValue token
-            let blackClipPercentileValue =
-                blackWhiteClipValue.blackClipPercentile.value
-            let whiteClipPercentileValue = 
-                blackWhiteClipValue.whiteClipPercentile.value
-
             let saturationValue = 
                 shadowsHighlightsAdjustmentsRenderSettings.saturation.GetValue token
             let saturationGainFactorValue =

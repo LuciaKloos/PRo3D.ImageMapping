@@ -530,7 +530,7 @@ module App =
         }
 
 
-    let private computeRgbSelectedBandHistograms
+    let private computeRgbRatioSelectedBandHistograms
         (m : AdaptiveModel)
         (binCount : int)
         : aval<RgbSelectedBandHistogram list> =
@@ -604,6 +604,175 @@ module App =
             ]
         )
 
+    let private computeRgbMappingSelectedBandHistograms
+        (m : AdaptiveModel)
+        (binCount : int)
+        : aval<RgbSelectedBandHistogram list> =
+
+        AVal.custom (fun token ->
+
+            let images =
+                m.images
+                |> AList.force
+
+            let sources =
+                readAdaptiveBandSources images token
+
+            let computeOne
+                (label : string)
+                (bandIndex : Option<int>)
+                : RgbSelectedBandHistogram =
+
+                match bandIndex with
+                | None ->
+                    {
+                        label = label
+                        bandIndex = None
+                        histogram = [||]
+                    }
+
+                | Some selectedBandIndex ->
+
+                    match sources |> List.tryFind (fun source -> source.logicalIndex = selectedBandIndex) with
+                    | None ->
+                        Log.warn "Could not find selected RGB histogram band %d for %s" selectedBandIndex label
+
+                        {
+                            label = label
+                            bandIndex = Some selectedBandIndex
+                            histogram = [||]
+                        }
+
+                    | Some source ->
+
+                        match readBandSourceAsFloat source with
+                        | Result.Ok band ->
+                            {
+                                label = label
+                                bandIndex = Some selectedBandIndex
+                                histogram =
+                                    ImageMath.computeHistogram
+                                        binCount
+                                        1.0e-4
+                                        band.values
+                            }
+
+                        | Result.Error error ->
+                            Log.warn "Could not compute histogram for %s band %d: %s" label selectedBandIndex error
+
+                            {
+                                label = label
+                                bandIndex = Some selectedBandIndex
+                                histogram = [||]
+                            }
+
+            [
+                computeOne "Mapped to R"   (m.bandMapping.redBand.GetValue token)
+                computeOne "Mapped to G"   (m.bandMapping.greenBand.GetValue token)
+                computeOne "Mapped to B"   (m.bandMapping.blueBand.GetValue token)
+            ]
+        )
+
+    let private computeTransferFunctionRgbHistograms
+        (m : AdaptiveModel)
+        (binCount : int)
+        : aval<RgbSelectedBandHistogram list> =
+
+        AVal.custom (fun token ->
+
+            let images =
+                m.images
+                |> AList.force
+
+            let sources =
+                readAdaptiveBandSources images token
+
+            let selectedBandIndex =
+                m.transferFunctionMapping.selectedBand.GetValue token
+
+            let emptyHistograms () =
+                [
+                    {
+                        label = "R"
+                        bandIndex = selectedBandIndex
+                        histogram = [||]
+                    }
+                    {
+                        label = "G"
+                        bandIndex = selectedBandIndex
+                        histogram = [||]
+                    }
+                    {
+                        label = "B"
+                        bandIndex = selectedBandIndex
+                        histogram = [||]
+                    }
+                ]
+
+            match selectedBandIndex with
+            | None ->
+                emptyHistograms ()
+
+            | Some bandIndex ->
+
+                match
+                    sources
+                    |> List.tryFind (fun source ->
+                        source.logicalIndex = bandIndex
+                    )
+                with
+                | None ->
+                    Log.warn
+                        "Could not find transfer-function histogram source for band %d"
+                        bandIndex
+
+                    emptyHistograms ()
+
+                | Some selectedSource ->
+
+                    let computeChannel
+                        (label : string)
+                        (channelIndex : int)
+                        : RgbSelectedBandHistogram =
+
+                        let channelSource =
+                            {
+                                selectedSource with
+                                    channelIndex = channelIndex
+                            }
+
+                        match readBandSourceAsFloat channelSource with
+                        | Result.Ok channel ->
+                            {
+                                label = label
+                                bandIndex = Some bandIndex
+                                histogram =
+                                    ImageMath.computeHistogram
+                                        binCount
+                                        1.0e-4
+                                        channel.values
+                            }
+
+                        | Result.Error error ->
+                            Log.warn
+                                "Could not compute original %s-channel histogram for band %d: %s"
+                                label
+                                bandIndex
+                                error
+
+                            {
+                                label = label
+                                bandIndex = Some bandIndex
+                                histogram = [||]
+                            }
+
+                    [
+                        computeChannel "R" 0
+                        computeChannel "G" 1
+                        computeChannel "B" 2
+                    ]
+        )
+
     let private histogramItemView
         (item : RgbSelectedBandHistogram)
         : DomNode<Message> =
@@ -611,7 +780,11 @@ module App =
         let titleText =
             match item.bandIndex with
             | Some bandIndex ->
-                sprintf "%s, band %d" item.label bandIndex
+                sprintf "%s, band %d — %d bins"
+                    item.label
+                    bandIndex
+                    item.histogram.Length
+
             | None ->
                 sprintf "%s, not selected" item.label
 
@@ -652,7 +825,7 @@ module App =
                             attribute "title" titleHist
                             style (
                                 sprintf
-                                    "width: 4px; height: %.2f%%; background: #aaa;"
+                                    "flex: 1 1 0; min-width: 4px; flex-shrink: 0; height: %.2f%%; background: #aaa;"
                                     heightPercent
                             )
                         ] []
@@ -673,7 +846,8 @@ module App =
         ]
 
 
-    let private rgbSelectedHistogramsView
+    let private selectedHistogramsView
+        (title : string)
         (histograms : aval<RgbSelectedBandHistogram list>)
         : DomNode<Message> =
 
@@ -687,7 +861,7 @@ module App =
                     yield div [
                         style "font-weight: bold; margin-bottom: 8px;"
                     ] [
-                        text "Currently selected RGB band histograms"
+                        text title
                     ]
 
                     let! items = histograms
@@ -881,8 +1055,41 @@ module App =
                     )
             )
 
-        let rgbSelectedBandHistograms =
-            computeRgbSelectedBandHistograms m 64
+        let rgbRatioSelectedBandHistograms =
+            computeRgbRatioSelectedBandHistograms m 32
+
+        let rgbMappingSelectedBandHistogram =
+            computeRgbMappingSelectedBandHistograms m 32
+
+        let transferFunctionRgbHistograms =
+            computeTransferFunctionRgbHistograms m 32
+
+        let histogramsForCurrentMode =
+            Incremental.div
+                AttributeMap.empty
+                (
+                    alist {
+                        let! mode = m.visualizationMode
+
+                        match mode with
+                        | VisualizationMode.RgbRatioComposite ->
+                            yield
+                                selectedHistogramsView
+                                    "Currently selected RGB band histograms"
+                                    rgbRatioSelectedBandHistograms
+                        | VisualizationMode.RgbComposite ->
+                            yield
+                                selectedHistogramsView
+                                    "Currently selected RGB band histograms"
+                                    rgbMappingSelectedBandHistogram
+
+                        | VisualizationMode.SingleBandTransferFunction ->
+                            yield
+                                selectedHistogramsView
+                                    "Original image RGB channel histograms"
+                                    transferFunctionRgbHistograms
+                    }
+                )
 
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({title: 'Select image', filters: [{name: 'Images', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc', 'png', 'jpg', 'jpeg', 'webp']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open image dialog:', error);});"
@@ -951,13 +1158,6 @@ module App =
                             ]
                             div [clazz content;  style "overflow-y : auto; "] (
                                 [
-                                    //div [style "display: flex; justify-content: flex-end; padding: 5px;"] [
-                                    //    button [
-                                    //        clazz "ui tiny inverted button"
-                                    //    ] [
-                                    //        text "Reset"
-                                    //    ]
-                                    //]
                                 ] @ content'
                             )
                         ]
@@ -1396,11 +1596,9 @@ module App =
                 ]
 
                 div [] [
-                    onlyForMultispectral (
-                        accordionHist "Histograms" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
-                            rgbSelectedHistogramsView rgbSelectedBandHistograms
-                        ]
-                    )
+                    accordionHist "Histograms" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
+                        histogramsForCurrentMode
+                    ]
                     div [] [showRelative2DImage outputTexture]   
                     onlyForMultispectral (
                         div [style $"border: 2px solid black; margin-top: 10px"] [
