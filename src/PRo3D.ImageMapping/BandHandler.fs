@@ -272,3 +272,50 @@ module BandHandler =
         : Result<RgbBandData, string> =
 
         readLogicalBand sources bandIndex
+
+    let readSourceImageRGBChannels 
+        (imagePath : string)
+        : Result<float [] * float[] * float[], string> =
+
+        try 
+            if String.IsNullOrWhiteSpace imagePath then
+                Result.Error "The selected image has no source path."
+            elif not (File.Exists imagePath) then
+                Result.Error (sprintf "Image source does not exist: %s" imagePath)
+            elif isNcFile imagePath then
+                Result.Error "RGB image channels cannot be read directly from a NetCDF dataset."
+            else
+                Log.warn
+                    "Reading RGB histogram image: path=%s, exists=%b"
+                    imagePath
+                    (File.Exists imagePath)
+                let image =
+                    PixImage<byte>(imagePath)
+                        .ToPixImage<byte>(Col.Format.RGBA)
+                let pixels = image.GetMatrix<C4b>()
+                let width = image.Size.X
+                let height = image.Size.Y
+                let pixelCount = width * height
+
+                let red = Array.zeroCreate<float> pixelCount
+                let green = Array.zeroCreate<float> pixelCount
+                let blue = Array.zeroCreate<float> pixelCount
+
+                for y in 0 .. height - 1 do
+                    for x in 0 .. width - 1 do
+                        let i = y * width + x
+                        let pixel = pixels.[x, y]
+
+                        red.[i] <- float pixel.R / 255.0
+                        green.[i] <- float pixel.G / 255.0
+                        blue.[i] <- float pixel.B / 255.0
+
+                Log.warn
+                    "Extracted RGB histogram channels: R=%d, G=%d, B=%d"
+                    red.Length
+                    green.Length
+                    blue.Length
+                Result.Ok (red, green, blue)
+
+        with error ->
+            Result.Error error.Message

@@ -680,96 +680,53 @@ module App =
 
         AVal.custom (fun token ->
 
-            let images =
-                m.images
-                |> AList.force
-
-            let sources =
-                readAdaptiveBandSources images token
-
-            let selectedBandIndex =
-                m.transferFunctionMapping.selectedBand.GetValue token
-
             let emptyHistograms () =
                 [
                     {
                         label = "R"
-                        bandIndex = selectedBandIndex
+                        bandIndex = None
                         histogram = [||]
                     }
                     {
                         label = "G"
-                        bandIndex = selectedBandIndex
+                        bandIndex = None    
                         histogram = [||]
                     }
                     {
                         label = "B"
-                        bandIndex = selectedBandIndex
+                        bandIndex = None
                         histogram = [||]
                     }
                 ]
 
-            match selectedBandIndex with
+            match m.sourceImagePath.GetValue token with
             | None ->
                 emptyHistograms ()
 
-            | Some bandIndex ->
-
-                match
-                    sources
-                    |> List.tryFind (fun source ->
-                        source.logicalIndex = bandIndex
-                    )
-                with
-                | None ->
+            | Some imagePath ->            
+                match readSourceImageRGBChannels imagePath with
+                | Result.Error error ->
                     Log.warn
-                        "Could not find transfer-function histogram source for band %d"
-                        bandIndex
-
+                        "Could not compute RGB histograms for band %s: %s"
+                        imagePath
+                        error
                     emptyHistograms ()
 
-                | Some selectedSource ->
-
-                    let computeChannel
-                        (label : string)
-                        (channelIndex : int)
-                        : RgbSelectedBandHistogram =
-
-                        let channelSource =
-                            {
-                                selectedSource with
-                                    channelIndex = channelIndex
-                            }
-
-                        match readBandSourceAsFloat channelSource with
-                        | Result.Ok channel ->
-                            {
-                                label = label
-                                bandIndex = Some bandIndex
-                                histogram =
-                                    ImageMath.computeHistogram
-                                        binCount
-                                        1.0e-4
-                                        channel.values
-                            }
-
-                        | Result.Error error ->
-                            Log.warn
-                                "Could not compute original %s-channel histogram for band %d: %s"
-                                label
-                                bandIndex
-                                error
-
-                            {
-                                label = label
-                                bandIndex = Some bandIndex
-                                histogram = [||]
-                            }
-
+                | Result.Ok (red, green, blue) -> 
+                    let computeChannel label values =
+                        {
+                            label = label
+                            bandIndex = None
+                            histogram =
+                                ImageMath.computeHistogram
+                                    binCount
+                                    1.0e-4
+                                    values
+                        }
                     [
-                        computeChannel "R" 0
-                        computeChannel "G" 1
-                        computeChannel "B" 2
+                        computeChannel "R" red
+                        computeChannel "G" green
+                        computeChannel "B" blue
                     ]
         )
 
@@ -786,7 +743,9 @@ module App =
                     item.histogram.Length
 
             | None ->
-                sprintf "%s, not selected" item.label
+                sprintf "%s — %d bins"
+                    item.label
+                    item.histogram.Length
 
         div [
             clazz "ui inverted segment"
