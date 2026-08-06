@@ -104,6 +104,14 @@ type SortedChannels =
         blue  : float[]
     }
 
+type SpectralProfilePoint =
+    {
+        label : string
+        wavelength : float
+        value : float
+        color : string
+    }
+
 module ImageDefaults =
 
     let initialPath = ""

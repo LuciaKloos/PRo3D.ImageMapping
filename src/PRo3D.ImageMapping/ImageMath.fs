@@ -222,6 +222,73 @@ module ImageMath =
             numerator
             denominator
 
+    let private tryFindClosestBand
+        (targetWavelength : float)
+        (sources : RgbBandSource list)
+        : RgbBandSource option =
+
+        sources
+        |> List.choose (fun source ->
+            source.wavelength
+            |> Option.map (fun wavelength ->
+                abs (wavelength - targetWavelength), source
+            )
+        )
+        |> List.sortBy fst
+        |> List.tryHead
+
+        |> Option.map snd
+
+    // finds approximately the closest red, green, and blue bands from the given sources
+    let tryFindVisibleRgbBands
+        (sources : RgbBandSource list)
+        : Option<RgbBandSource * RgbBandSource * RgbBandSource> =
+
+        let red =
+            tryFindClosestBand 650.0 sources
+
+        let green =
+            tryFindClosestBand 550.0 sources
+
+        let blue =
+            tryFindClosestBand 450.0 sources
+
+        match red, green, blue with
+        | Some r, Some g, Some b ->
+            Some (r, g, b)
+
+        | _ ->
+            None
+
+
+    
+    let computeSpectralProfile
+        (minimumSignal : float)
+        (wavelengths : float[])
+        (values : float[])
+        : SpectralProfilePoint[] =
+
+        if wavelengths.Length <> values.Length then
+            invalidArg
+                "values"
+                "Wavelength and value arrays must have the same length."
+
+        Array.map2 (fun wavelength value -> wavelength, value) wavelengths values
+        |> Array.filter (fun (wavelength, value) ->
+            Double.IsFinite wavelength &&
+            Double.IsFinite value &&
+            value > minimumSignal
+        )
+        |> Array.sortBy fst
+        |> Array.map (fun (wavelength, value) ->
+            {
+                label = sprintf "%.1f nm" wavelength
+                wavelength = wavelength
+                value = value
+                color = "#aaaaaa"
+            }
+        )
+
     type HistogramBin =
         {
             lower    : float

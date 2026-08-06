@@ -521,7 +521,6 @@ module App =
             value = input.value.GetValue token
         }
 
-    // !! histogram Calc is AI !!
     type RgbSelectedBandHistogram =
         {
             label     : string
@@ -673,7 +672,7 @@ module App =
             ]
         )
 
-    let private computeTransferFunctionRgbHistograms
+    let private computeNonMultispectralRgbHistograms
         (m : AdaptiveModel)
         (binCount : int)
         : aval<RgbSelectedBandHistogram list> =
@@ -730,6 +729,78 @@ module App =
                     ]
         )
 
+    let private computeMultispectralRgbHistograms
+        (m : AdaptiveModel)
+        (binCount : int)
+        : aval<RgbSelectedBandHistogram list> =
+
+        AVal.custom (fun token ->
+            let emptyHistograms () =
+                    [
+                        {
+                            label = "R"
+                            bandIndex = None
+                            histogram = [||]
+                        }
+                        {
+                            label = "G"
+                            bandIndex = None    
+                            histogram = [||]
+                        }
+                        {
+                            label = "B"
+                            bandIndex = None
+                            histogram = [||]
+                        }
+                    ]
+
+            let images =
+                m.images
+                |> AList.force
+
+            let sources =
+                readAdaptiveBandSources images token
+
+            match ImageMath.tryFindVisibleRgbBands sources with
+            | None ->
+                emptyHistograms ()
+
+            | Some (redSource, greenSource, blueSource) ->
+
+                let computeChannel label source =
+                    match readBandSourceAsFloat source with
+                    | Result.Ok band ->
+                        {
+                            label = label
+                            bandIndex = Some source.logicalIndex
+                            histogram =
+                                ImageMath.computeHistogram
+                                    binCount
+                                    1.0e-4
+                                    band.values
+                        }
+
+                    | Result.Error error ->
+                        Log.warn
+                            "Could not compute %s histogram for band %d: %s"
+                            label
+                            source.logicalIndex
+                            error
+
+                        {
+                            label = label
+                            bandIndex = Some source.logicalIndex
+                            histogram = [||]
+                        }
+
+                [
+                    computeChannel "R" redSource
+                    computeChannel "G" greenSource
+                    computeChannel "B" blueSource
+                ]
+        )
+
+
     let private histogramItemView
         (item : RgbSelectedBandHistogram)
         : DomNode<Message> =
@@ -757,6 +828,7 @@ module App =
                 text titleText
             ]
 
+            // checks if the computation returned an empty array
             if item.histogram.Length = 0 then
                 div [
                     style "opacity: 0.7;"
@@ -771,18 +843,22 @@ module App =
                     |> max 1
 
                 div [
+                    // the histogram container
                     style "height: 90px; display: flex; align-items: flex-end; gap: 1px; border-left: 1px solid #666; border-bottom: 1px solid #666; padding-left: 2px;"
                 ] [
                     for bin in item.histogram do
+                        // normalize bin height. The talles bin always fills the available height
                         let heightPercent =
                             100.0 * float bin.count / float maxCount
 
+                        // browser tooltip for each bin, showing the bin range and count
                         let titleHist =
                             sprintf "%.6g – %.6g: %d" bin.lower bin.upper bin.count
 
                         div [
                             attribute "title" titleHist
                             style (
+                                // creates a vertical bar for each bin, with a height proportional to the bin count
                                 sprintf
                                     "flex: 1 1 0; min-width: 4px; flex-shrink: 0; height: %.2f%%; background: #aaa;"
                                     heightPercent
@@ -829,6 +905,67 @@ module App =
                         yield histogramItemView item
                 }
             )
+
+    let rgbSpectralProfileView
+        (profile : SpectralProfilePoint[])
+        =
+
+        if profile.Length = 0 then
+            div [
+            ] [
+                text "No spectral profile available."
+            ]
+        else
+            let width = 320.0
+            let height = 140.0
+            let padding = 25.0
+
+            let minWavelength =
+                profile |> Array.minBy _.wavelength |> _.wavelength
+
+            let maxWavelength =
+                profile |> Array.maxBy _.wavelength |> _.wavelength
+
+            let toX wavelength =
+                padding + (wavelength - minWavelength) / (maxWavelength - minWavelength) * (width - 2.0 * padding)
+
+            let toY value = height - padding - value * (height - 2.0 * padding)
+
+            let polylinePoints =
+                profile
+                |> Array.map (fun p -> sprintf "%.2f,%.2f" (toX p.wavelength) (toY p.value))
+                |> String.concat " "
+
+            Svg.svg [
+                attribute "viewBox"
+                    (sprintf "0 0 %.0f %.0f" width height)
+
+                style "width: 100%; height: 140px;"
+            ] [
+                yield
+                    Svg.polyline [
+                        attribute "points" polylinePoints
+                        attribute "fill" "none"
+                        attribute "stroke" "#aaa"
+                        attribute "stroke-width" "2"
+                    ] 
+
+                for point in profile do
+                    yield
+                        Svg.circle [
+                            attribute "cx" (string (toX point.wavelength))
+                            attribute "cy" (string (toY point.value))
+                            attribute "r" "4"
+                            attribute "fill" point.color
+
+                            attribute "title" (
+                                sprintf "%s: %.0f nm, value %.4f"
+                                    point.label
+                                    point.wavelength
+                                    point.value
+                            )
+                        ] 
+            ]
 
     let headerForMode mode =
         match mode with
@@ -1020,15 +1157,55 @@ module App =
         let rgbMappingSelectedBandHistogram =
             computeRgbMappingSelectedBandHistograms m 32
 
-        let transferFunctionRgbHistograms =
-            computeTransferFunctionRgbHistograms m 32
+        let transferFunctionNonMultispectralRgbHistograms =
+            m.sourceImageKind
+            |> AVal.bind (fun sourceKind ->
+                match sourceKind with
+                | SourceImageKind.PlainRgbImage ->
+                    computeNonMultispectralRgbHistograms m 32
+                | SourceImageKind.Multispectral ->
+                    computeMultispectralRgbHistograms m 32
+            )                
+
+        let rgbSpectralProfile : aval<SpectralProfilePoint[]> =
+            AVal.custom (fun token ->
+                let sourceKind =
+                    m.sourceImageKind.GetValue token
+
+                let sourceImagePath =
+                    m.sourceImagePath.GetValue token
+
+                match sourceKind, sourceImagePath with
+                | SourceImageKind.PlainRgbImage, Some imagePath ->
+                    match readCenterRgbSpectralProfile imagePath with
+                    | Result.Ok profile ->
+                        profile
+
+                    | Result.Error error ->
+                        Log.warn
+                            "Could not compute RGB spectral profile for %s: %s"
+                            imagePath
+                            error
+
+                        [||]
+
+                | _ ->
+                    [||]
+            )
 
         let histogramsForCurrentMode =
             Incremental.div
                 AttributeMap.empty
                 (
                     alist {
-                        let! mode = m.visualizationMode
+                        let! mode =
+                            m.visualizationMode
+
+                        let! sourceKind =
+                            m.sourceImageKind
+
+                        let! profile =
+                            rgbSpectralProfile
 
                         match mode with
                         | VisualizationMode.RgbRatioComposite ->
@@ -1036,6 +1213,7 @@ module App =
                                 selectedHistogramsView
                                     "Currently selected RGB band histograms"
                                     rgbRatioSelectedBandHistograms
+
                         | VisualizationMode.RgbComposite ->
                             yield
                                 selectedHistogramsView
@@ -1046,9 +1224,25 @@ module App =
                             yield
                                 selectedHistogramsView
                                     "Original image RGB channel histograms"
-                                    transferFunctionRgbHistograms
+                                    transferFunctionNonMultispectralRgbHistograms
+
+                            if sourceKind = SourceImageKind.PlainRgbImage then
+                                yield
+                                    div [
+                                        clazz "ui inverted segment"
+                                        style "margin-top: 10px;"
+                                    ] [
+                                        div [
+                                            style "font-weight: bold; margin-bottom: 8px;"
+                                        ] [
+                                            text "RGB spectral profile — center pixel"
+                                        ]
+
+                                        rgbSpectralProfileView profile
+                                    ]
                     }
                 )
+
 
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({title: 'Select image', filters: [{name: 'Images', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc', 'png', 'jpg', 'jpeg', 'webp']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open image dialog:', error);});"

@@ -319,3 +319,69 @@ module BandHandler =
 
         with error ->
             Result.Error error.Message
+
+    let readRgbSpectralProfile 
+        (imagePath : string)
+        (pixelX : int)
+        (pixelY : int) 
+        : Result<SpectralProfilePoint[], string> =
+
+        try
+            let image = 
+                PixImage<byte>(imagePath)
+                    .ToPixImage<byte>(Col.Format.RGBA)
+
+            let width = image.Size.X
+            let height = image.Size.Y
+
+            if pixelX < 0 || pixelX >= width || pixelY < 0 || pixelY >= height then
+                Result.Error (sprintf "Pixel coordinates (%d, %d) are out of bounds for image size (%d, %d)." pixelX pixelY width height)
+            else
+                let pixels = image.GetMatrix<C4b>()
+                let pixel = pixels.[pixelX, pixelY]
+
+                Result.Ok
+                    [|
+                        {
+                            label = "Red"
+                            wavelength = 650.0
+                            value = float pixel.R / 255.0
+                            color = "#FF0000"
+                        }
+                        {
+                            label = "Green"
+                            wavelength = 550.0
+                            value = float pixel.G / 255.0
+                            color = "#00FF00"
+                        }
+                        {
+                            label = "Blue"
+                            wavelength = 450.0
+                            value = float pixel.B / 255.0
+                            color = "#0000FF"
+                        }
+                    |]
+        with error ->
+            Result.Error error.Message
+
+    let readCenterRgbSpectralProfile
+        (imagePath : string)
+        : Result<SpectralProfilePoint[], string> =
+
+        try
+            let image =
+                PixImage<byte>(imagePath)
+                    .ToPixImage<byte>(Col.Format.RGBA)
+
+            let centerX =
+                image.Size.X / 2
+
+            let centerY =
+                image.Size.Y / 2
+
+            readRgbSpectralProfile
+                imagePath
+                centerX
+                centerY
+        with error ->
+            Result.Error error.Message
