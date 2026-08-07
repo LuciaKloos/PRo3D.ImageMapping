@@ -104,12 +104,34 @@ type SortedChannels =
         blue  : float[]
     }
 
+type HistogramBin =
+    {
+        lower    : float
+        upper    : float
+        count    : int
+        fraction : float
+    }
+
 type SpectralProfilePoint =
     {
-        label : string
         wavelength : float
-        value : float
+        count : int
+        fraction : float    
         color : string
+    }
+
+type RgbSelectedBandHistogram =
+    {
+        label     : string
+        bandIndex : Option<int>
+        histogram : HistogramBin[]
+    }
+
+type RGBSelectedBandSpectralProfile =
+    {
+        label : string
+        wavelengthSpan : Option<float * float>
+        spectralProfile : SpectralProfilePoint[]
     }
 
 module ImageDefaults =

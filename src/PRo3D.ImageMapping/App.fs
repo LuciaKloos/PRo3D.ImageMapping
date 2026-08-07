@@ -521,13 +521,74 @@ module App =
             value = input.value.GetValue token
         }
 
-    type RgbSelectedBandHistogram =
-        {
-            label     : string
-            bandIndex : Option<int>
-            histogram : ImageMath.HistogramBin[]
-        }
+    let private computeRgbMappingSelectedBandHistograms
+        (m : AdaptiveModel)
+        (binCount : int)
+        : aval<RgbSelectedBandHistogram list> =
 
+        AVal.custom (fun token ->
+
+            let images =
+                m.images
+                |> AList.force
+
+            let sources =
+                readAdaptiveBandSources images token
+
+            let computeOne
+                (label : string)
+                (bandIndex : Option<int>)
+                : RgbSelectedBandHistogram =
+
+                match bandIndex with
+                | None ->
+                    {
+                        label = label
+                        bandIndex = None
+                        histogram = [||]
+                    }
+
+                | Some selectedBandIndex ->
+
+                    match sources |> List.tryFind (fun source -> source.logicalIndex = selectedBandIndex) with
+                    | None ->
+                        Log.warn "Could not find selected RGB histogram band %d for %s" selectedBandIndex label
+
+                        {
+                            label = label
+                            bandIndex = Some selectedBandIndex
+                            histogram = [||]
+                        }
+
+                    | Some source ->
+
+                        match readBandSourceAsFloat source with
+                        | Result.Ok band ->
+                            {
+                                label = label
+                                bandIndex = Some selectedBandIndex
+                                histogram =
+                                    ImageMath.computeHistogram
+                                        binCount
+                                        1.0e-4
+                                        band.values
+                            }
+
+                        | Result.Error error ->
+                            Log.warn "Could not compute histogram for %s band %d: %s" label selectedBandIndex error
+
+                            {
+                                label = label
+                                bandIndex = Some selectedBandIndex
+                                histogram = [||]
+                            }
+
+            [
+                computeOne "Mapped to R"   (m.bandMapping.redBand.GetValue token)
+                computeOne "Mapped to G"   (m.bandMapping.greenBand.GetValue token)
+                computeOne "Mapped to B"   (m.bandMapping.blueBand.GetValue token)
+            ]
+        )
 
     let private computeRgbRatioSelectedBandHistograms
         (m : AdaptiveModel)
@@ -603,73 +664,98 @@ module App =
             ]
         )
 
-    let private computeRgbMappingSelectedBandHistograms
+    let private computeNonMultispectralRgbSpectralProfiles
         (m : AdaptiveModel)
-        (binCount : int)
-        : aval<RgbSelectedBandHistogram list> =
+        (sampleCount : int)
+        : aval<RGBSelectedBandSpectralProfile list> =
 
         AVal.custom (fun token ->
 
-            let images =
-                m.images
-                |> AList.force
-
-            let sources =
-                readAdaptiveBandSources images token
-
-            let computeOne
-                (label : string)
-                (bandIndex : Option<int>)
-                : RgbSelectedBandHistogram =
-
-                match bandIndex with
-                | None ->
+            let emptyProfiles () =
+                [
                     {
-                        label = label
-                        bandIndex = None
-                        histogram = [||]
+                        label = "R"
+                        wavelengthSpan = None
+                        spectralProfile = [||]
                     }
+                    {
+                        label = "G"
+                        wavelengthSpan = None
+                        spectralProfile = [||]
+                    }
+                    {
+                        label = "B"
+                        wavelengthSpan = None
+                        spectralProfile = [||]
+                    }
+                ]
 
-                | Some selectedBandIndex ->
+            match m.sourceImageKind.GetValue token with
+            | SourceImageKind.Multispectral ->
+                emptyProfiles ()
 
-                    match sources |> List.tryFind (fun source -> source.logicalIndex = selectedBandIndex) with
-                    | None ->
-                        Log.warn "Could not find selected RGB histogram band %d for %s" selectedBandIndex label
+            | SourceImageKind.PlainRgbImage ->
+                match m.sourceImagePath.GetValue token with
+                | None ->
+                    emptyProfiles ()
 
-                        {
-                            label = label
-                            bandIndex = Some selectedBandIndex
-                            histogram = [||]
-                        }
+                | Some imagePath ->
+                    match readSourceImageRGBChannels imagePath with
+                    | Result.Error error ->
+                        Log.warn
+                            "Could not compute RGB spectral profiles for %s: %s"
+                            imagePath
+                            error
 
-                    | Some source ->
+                        emptyProfiles ()
 
-                        match readBandSourceAsFloat source with
-                        | Result.Ok band ->
+                    | Result.Ok (red, green, blue) ->
+
+                        let computeChannel
+                            label
+                            color
+                            minimumWavelength
+                            maximumWavelength
+                            values =
+
                             {
                                 label = label
-                                bandIndex = Some selectedBandIndex
-                                histogram =
-                                    ImageMath.computeHistogram
-                                        binCount
-                                        1.0e-4
-                                        band.values
+                                wavelengthSpan =
+                                    Some (
+                                        minimumWavelength,
+                                        maximumWavelength
+                                    )
+                                spectralProfile =
+                                    ImageMath.computeSpectralProfile
+                                        sampleCount
+                                        minimumWavelength
+                                        maximumWavelength
+                                        values
+                                        color
                             }
 
-                        | Result.Error error ->
-                            Log.warn "Could not compute histogram for %s band %d: %s" label selectedBandIndex error
+                        [
+                            computeChannel
+                                "R"
+                                "#ff5c5c"
+                                620.0
+                                750.0
+                                red
 
-                            {
-                                label = label
-                                bandIndex = Some selectedBandIndex
-                                histogram = [||]
-                            }
+                            computeChannel
+                                "G"
+                                "#5cff7a"
+                                495.0
+                                570.0
+                                green
 
-            [
-                computeOne "Mapped to R"   (m.bandMapping.redBand.GetValue token)
-                computeOne "Mapped to G"   (m.bandMapping.greenBand.GetValue token)
-                computeOne "Mapped to B"   (m.bandMapping.blueBand.GetValue token)
-            ]
+                            computeChannel
+                                "B"
+                                "#5c8dff"
+                                450.0
+                                495.0
+                                blue
+                        ]
         )
 
     let private computeNonMultispectralRgbHistograms
@@ -728,6 +814,63 @@ module App =
                         computeChannel "B" blue
                     ]
         )
+    
+    //let private computeNonMultispectralRgbSpectralProfiles
+    //    (m : AdaptiveModel)
+    //    (binCount : int)
+    //    : aval<RgbSelectedBandHistogram list> =
+
+    //    AVal.custom (fun token ->
+
+    //        let emptyHistograms () =
+    //            [
+    //                {
+    //                    label = "R"
+    //                    bandIndex = None
+    //                    histogram = [||]
+    //                }
+    //                {
+    //                    label = "G"
+    //                    bandIndex = None    
+    //                    histogram = [||]
+    //                }
+    //                {
+    //                    label = "B"
+    //                    bandIndex = None
+    //                    histogram = [||]
+    //                }
+    //            ]
+
+    //        match m.sourceImagePath.GetValue token with
+    //        | None ->
+    //            emptyHistograms ()
+
+    //        | Some imagePath ->            
+    //            match readSourceImageRGBChannels imagePath with
+    //            | Result.Error error ->
+    //                Log.warn
+    //                    "Could not compute RGB histograms for band %s: %s"
+    //                    imagePath
+    //                    error
+    //                emptyHistograms ()
+
+    //            | Result.Ok (red, green, blue) -> 
+    //                let computeChannel label values =
+    //                    {
+    //                        label = label
+    //                        bandIndex = None
+    //                        histogram =
+    //                            ImageMath.computeHistogram
+    //                                binCount
+    //                                1.0e-4
+    //                                values
+    //                    }
+    //                [
+    //                    computeChannel "R" red
+    //                    computeChannel "G" green
+    //                    computeChannel "B" blue
+    //                ]
+    //    )
 
     let private computeMultispectralRgbHistograms
         (m : AdaptiveModel)
@@ -907,65 +1050,181 @@ module App =
             )
 
     let rgbSpectralProfileView
-        (profile : SpectralProfilePoint[])
+        (profile : RGBSelectedBandSpectralProfile)
         =
 
-        if profile.Length = 0 then
-            div [
-            ] [
+        match profile.wavelengthSpan with
+        | None ->
+            div [] [
                 text "No spectral profile available."
             ]
-        else
+
+        | Some (minWavelength, maxWavelength)
+            when profile.spectralProfile.Length = 0 ->
+
+            div [] [
+                text "No spectral profile available."
+            ]
+
+        | Some (minWavelength, maxWavelength) ->
+
             let width = 320.0
-            let height = 140.0
-            let padding = 25.0
+            let height = 160.0
 
-            let minWavelength =
-                profile |> Array.minBy _.wavelength |> _.wavelength
+            let leftPadding = 42.0
+            let rightPadding = 12.0
+            let topPadding = 12.0
+            let bottomPadding = 30.0
 
-            let maxWavelength =
-                profile |> Array.maxBy _.wavelength |> _.wavelength
+            let plotWidth =
+                width - leftPadding - rightPadding
+
+            let plotHeight =
+                height - topPadding - bottomPadding
 
             let toX wavelength =
-                padding + (wavelength - minWavelength) / (maxWavelength - minWavelength) * (width - 2.0 * padding)
+                leftPadding +
+                (wavelength - minWavelength) /
+                (maxWavelength - minWavelength) *
+                plotWidth
 
-            let toY value = height - padding - value * (height - 2.0 * padding)
+            let toY reflectance =
+                topPadding +
+                (1.0 - reflectance) * plotHeight
 
             let polylinePoints =
-                profile
-                |> Array.map (fun p -> sprintf "%.2f,%.2f" (toX p.wavelength) (toY p.value))
+                profile.spectralProfile
+                |> Array.map (fun point ->
+                    sprintf
+                        "%.2f,%.2f"
+                        (toX point.wavelength)
+                        (toY point.fraction)
+                )
                 |> String.concat " "
 
-            Svg.svg [
-                attribute "viewBox"
-                    (sprintf "0 0 %.0f %.0f" width height)
-
-                style "width: 100%; height: 140px;"
+            div [
+                clazz "ui inverted segment"
+                style "margin-top: 8px;"
             ] [
-                yield
+
+                div [
+                    style "font-weight: bold; margin-bottom: 4px;"
+                ] [
+                    text (
+                        sprintf
+                            "%s spectral profile (%.0f–%.0f nm)"
+                            profile.label
+                            minWavelength
+                            maxWavelength
+                    )
+                ]
+
+                Svg.svg [
+                    attribute "viewBox"
+                        (sprintf "0 0 %.0f %.0f" width height)
+
+                    style "width: 100%; height: 160px;"
+                ] [
+
+                    Svg.line [
+                        attribute "x1" (string leftPadding)
+                        attribute "y1" (string topPadding)
+                        attribute "x2" (string leftPadding)
+                        attribute "y2"
+                            (string (topPadding + plotHeight))
+                        attribute "stroke" "#777"
+                    ]
+
+                    Svg.line [
+                        attribute "x1" (string leftPadding)
+                        attribute "y1"
+                            (string (topPadding + plotHeight))
+                        attribute "x2"
+                            (string (leftPadding + plotWidth))
+                        attribute "y2"
+                            (string (topPadding + plotHeight))
+                        attribute "stroke" "#777"
+                    ]
+
                     Svg.polyline [
                         attribute "points" polylinePoints
                         attribute "fill" "none"
-                        attribute "stroke" "#aaa"
+                        attribute
+                            "stroke"
+                            profile.spectralProfile.[0].color
                         attribute "stroke-width" "2"
-                    ] 
+                    ]
 
-                for point in profile do
-                    yield
-                        Svg.circle [
-                            attribute "cx" (string (toX point.wavelength))
-                            attribute "cy" (string (toY point.value))
-                            attribute "r" "4"
-                            attribute "fill" point.color
+                    Svg.text [
+                        attribute "x" (string leftPadding)
+                        attribute "y" (string (height - 10.0))
+                        attribute "font-size" "10"
+                        attribute "fill" "#aaa"
+                    ] (sprintf "%.0f nm" minWavelength)
 
-                            attribute "title" (
-                                sprintf "%s: %.0f nm, value %.4f"
-                                    point.label
-                                    point.wavelength
-                                    point.value
-                            )
-                        ] 
+                    Svg.text [
+                        attribute
+                            "x"
+                            (string (leftPadding + plotWidth))
+                        attribute "y" (string (height - 10.0))
+                        attribute "text-anchor" "end"
+                        attribute "font-size" "10"
+                        attribute "fill" "#aaa"
+                    ] (sprintf "%.0f nm" maxWavelength)
+
+                    Svg.text [
+                        attribute "x" (string (leftPadding - 6.0))
+                        attribute "y" (string (topPadding + 4.0))
+                        attribute "text-anchor" "end"
+                        attribute "font-size" "10"
+                        attribute "fill" "#aaa"
+                    ] "1.0"
+
+                    Svg.text [
+                        attribute "x" (string (leftPadding - 6.0))
+                        attribute
+                            "y"
+                            (string (topPadding + plotHeight))
+                        attribute "text-anchor" "end"
+                        attribute "font-size" "10"
+                        attribute "fill" "#aaa"
+                    ] "0.0"
+
+                    Svg.text [
+                        attribute "x" "10"
+                        attribute
+                            "y"
+                            (string (
+                                topPadding +
+                                plotHeight / 2.0
+                            ))
+                        attribute
+                            "transform"
+                            (sprintf
+                                "rotate(-90 10 %.2f)"
+                                (topPadding +
+                                 plotHeight / 2.0))
+                        attribute "text-anchor" "middle"
+                        attribute "font-size" "10"
+                        attribute "fill" "#aaa"
+                    ] "Relative reflectance"
+                ]
             ]
+
+    let private selectedSpectralProfilesView
+        (profiles : aval<RGBSelectedBandSpectralProfile list>)
+        : DomNode<Message> =
+
+        Incremental.div
+            AttributeMap.empty
+            (
+                alist {
+                    let! items = profiles
+
+                    for item in items do
+                        yield rgbSpectralProfileView item
+                }
+            )
 
     let headerForMode mode =
         match mode with
@@ -1167,31 +1426,8 @@ module App =
                     computeMultispectralRgbHistograms m 32
             )                
 
-        let rgbSpectralProfile : aval<SpectralProfilePoint[]> =
-            AVal.custom (fun token ->
-                let sourceKind =
-                    m.sourceImageKind.GetValue token
-
-                let sourceImagePath =
-                    m.sourceImagePath.GetValue token
-
-                match sourceKind, sourceImagePath with
-                | SourceImageKind.PlainRgbImage, Some imagePath ->
-                    match readCenterRgbSpectralProfile imagePath with
-                    | Result.Ok profile ->
-                        profile
-
-                    | Result.Error error ->
-                        Log.warn
-                            "Could not compute RGB spectral profile for %s: %s"
-                            imagePath
-                            error
-
-                        [||]
-
-                | _ ->
-                    [||]
-            )
+        let rgbSelectedBandSpectralProfiles =
+            computeNonMultispectralRgbSpectralProfiles m 32
 
         let histogramsForCurrentMode =
             Incremental.div
@@ -1204,8 +1440,11 @@ module App =
                         let! sourceKind =
                             m.sourceImageKind
 
-                        let! profile =
-                            rgbSpectralProfile
+                        let spanRed = [620.0, 750.0]
+                       // let! spectralProfileRed = rgbSelectedBandSpectralProfiles "red" spanRed 
+
+                        //let! profile =
+                        //    rgbSpectralProfile
 
                         match mode with
                         | VisualizationMode.RgbRatioComposite ->
@@ -1238,7 +1477,8 @@ module App =
                                             text "RGB spectral profile — center pixel"
                                         ]
 
-                                        rgbSpectralProfileView profile
+                                        selectedSpectralProfilesView
+                                            rgbSelectedBandSpectralProfiles 
                                     ]
                     }
                 )

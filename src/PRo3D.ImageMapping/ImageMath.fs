@@ -222,7 +222,7 @@ module ImageMath =
             numerator
             denominator
 
-    let private tryFindClosestBand
+    let tryFindClosestBand
         (targetWavelength : float)
         (sources : RgbBandSource list)
         : RgbBandSource option =
@@ -263,39 +263,68 @@ module ImageMath =
 
     
     let computeSpectralProfile
-        (minimumSignal : float)
-        (wavelengths : float[])
+        (sampleCount : int)
+        (minimumWavelength : float)
+        (maximumWavelength : float)
         (values : float[])
+        (color : string)
         : SpectralProfilePoint[] =
 
-        if wavelengths.Length <> values.Length then
-            invalidArg
-                "values"
-                "Wavelength and value arrays must have the same length."
+        let validValues =
+            values
+            |> Array.filter Double.IsFinite
 
-        Array.map2 (fun wavelength value -> wavelength, value) wavelengths values
-        |> Array.filter (fun (wavelength, value) ->
-            Double.IsFinite wavelength &&
-            Double.IsFinite value &&
-            value > minimumSignal
-        )
-        |> Array.sortBy fst
-        |> Array.map (fun (wavelength, value) ->
-            {
-                label = sprintf "%.1f nm" wavelength
-                wavelength = wavelength
-                value = value
-                color = "#aaaaaa"
-            }
-        )
+        if validValues.Length = 0 ||
+           sampleCount < 2 ||
+           maximumWavelength <= minimumWavelength then
+            [||]
+        else
 
-    type HistogramBin =
-        {
-            lower    : float
-            upper    : float
-            count    : int
-            fraction : float
-        }
+            let counts = Array.zeroCreate<int> sampleCount
+            let valueRange = maximumWavelength - minimumWavelength
+
+            for value in validValues do
+                let normalized =                     
+                    (value - minimumWavelength) / valueRange
+
+                let index =
+                    int (normalized * float sampleCount)
+                    |> max 0
+                    |> min (sampleCount - 1)
+
+                counts.[index] <- counts.[index] + 1
+
+            let maximumCount =                 
+                counts |> Array.max |> max 1 |> float
+                
+            counts
+            |> Array.mapi (fun index count ->
+
+                let t =
+                    if sampleCount <= 1 then
+                        0.0
+                    else
+                        float index /
+                        float (sampleCount - 1)
+
+                let wavelength =
+                    minimumWavelength +
+                    t *
+                    (maximumWavelength - minimumWavelength)
+
+                let relativeStrength =
+                    if maximumCount <= 0.0 then
+                        0.0
+                    else
+                        float count / maximumCount
+
+                {
+                    wavelength = wavelength
+                    count = count
+                    fraction = relativeStrength
+                    color = color
+                }
+            )
 
     let computeHistogram
         (binCount : int)
