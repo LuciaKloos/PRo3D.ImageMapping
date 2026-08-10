@@ -260,72 +260,6 @@ module ImageMath =
         | _ ->
             None
 
-
-    
-    let computeSpectralProfile
-        (sampleCount : int)
-        (minimumWavelength : float)
-        (maximumWavelength : float)
-        (values : float[])
-        (color : string)
-        : SpectralProfilePoint[] =
-
-        let validValues =
-            values
-            |> Array.filter Double.IsFinite
-
-        if validValues.Length = 0 ||
-           sampleCount < 2 ||
-           maximumWavelength <= minimumWavelength then
-            [||]
-        else
-
-            let counts = Array.zeroCreate<int> sampleCount
-            let valueRange = maximumWavelength - minimumWavelength
-
-            for value in validValues do
-                let normalized =                     
-                    (value - minimumWavelength) / valueRange
-
-                let index =
-                    int (normalized * float sampleCount)
-                    |> max 0
-                    |> min (sampleCount - 1)
-
-                counts.[index] <- counts.[index] + 1
-
-            let maximumCount =                 
-                counts |> Array.max |> max 1 |> float
-                
-            counts
-            |> Array.mapi (fun index count ->
-
-                let t =
-                    if sampleCount <= 1 then
-                        0.0
-                    else
-                        float index /
-                        float (sampleCount - 1)
-
-                let wavelength =
-                    minimumWavelength +
-                    t *
-                    (maximumWavelength - minimumWavelength)
-
-                let relativeStrength =
-                    if maximumCount <= 0.0 then
-                        0.0
-                    else
-                        float count / maximumCount
-
-                {
-                    wavelength = wavelength
-                    count = count
-                    fraction = relativeStrength
-                    color = color
-                }
-            )
-
     let computeHistogram
         (binCount : int)
         (minimumSignal : float)
@@ -393,3 +327,50 @@ module ImageMath =
                         fraction = float counts.[index] / float maxCount
                     }
                 )
+    
+    let computeSpectralProfile
+        (sampleCount : int)
+        (minimumSignal : float)
+        (minimumWavelength : float)
+        (maximumWavelength : float)
+        (values : float[])
+        (color : string)
+        : SpectralProfilePoint[] =
+
+        if sampleCount < 1 ||
+           maximumWavelength <= minimumWavelength then
+            [||]
+        else
+
+            let histogram =
+                computeHistogram
+                    sampleCount
+                    minimumSignal
+                    values
+
+            let pointCount =
+                histogram.Length
+
+            histogram
+            |> Array.mapi (fun index bin ->
+
+                // Put the point in the center of the wavelength interval
+                // represented by the corresponding histogram bin.
+                let t =
+                    (float index + 0.5) /
+                    float pointCount
+
+                let wavelength =
+                    minimumWavelength +
+                    t *
+                    (maximumWavelength - minimumWavelength)
+
+                {
+                    wavelength = wavelength
+                    count = bin.count
+                    fraction = bin.fraction
+                    color = color
+                }
+            )
+
+    

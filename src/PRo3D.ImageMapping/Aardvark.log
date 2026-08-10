@@ -16,13 +16,13 @@
  0:     Skipped loading native dependencies for System.Private.Xml.Linq, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:     Skipped loading native dependencies for System.Private.Xml, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:     Unpacking native dependencies for Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.019 s
+ 0:   Loading native dependencies for Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.020 s
  0:   Skipped loading native dependencies for netstandard, Version=2.1.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:   Skipped loading native dependencies for FSharp.Data.Adaptive, Version=1.2.0.0, Culture=neutral, PublicKeyToken=null
  0:   Skipped loading native dependencies for Suave, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.005 s
+ 0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.003 s
  0:   Skipped loading native dependencies for FShade.Core, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
  0:   Loading native dependencies for Aardvark.Service, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Service, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
@@ -145,7 +145,7 @@
  0:     [IsPlugin] Ignoring assembly Suave due to filter
  0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\TinyEXR.NET.dll
  0:     [IsPlugin] Ignoring assembly Unofficial.Typography due to filter
- 0:   Loading plugins .................................................................... 0.159 s
+ 0:   Loading plugins .................................................................... 0.167 s
  0:   [Introspection] Entry assembly: PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null (path: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.dll)
  0:   [Introspection] Ignoring assembly System.Runtime due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
@@ -243,7 +243,7 @@
  0:   [Introspection] Ignoring assembly FsPickler due to filter
  0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.022 s
+ 0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.023 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
@@ -264,7 +264,7 @@
  0:   [Introspection] Ignoring assembly OpenTK due to filter
  0:   Loading native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null 0.002 s
+ 0:   Loading native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
  0:   [Introspection] Ignoring assembly System.Memory due to filter
@@ -307,7 +307,7 @@
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.004 s
+ 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.002 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FShade.Core due to filter
  0:   Loading native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 
@@ -462,9 +462,9 @@
  0:     [cache hit ] FSys, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] HDF.PInvoke, Version=1.10.502.0, Culture=neutral, PublicKeyToken=18793c1fcffe58a3
  0:     installing pickler: Aardvark.Base.Picklers.AdaptivePicklers
- 0:   Initializing CustomPicklerProvider ................................................. 0.108 s
+ 0:   Initializing CustomPicklerProvider ................................................. 0.088 s
  0:     [cache hit ] Aardvark.Base, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Initializing Constants ............................................................. 0.002 s
+ 0:   Initializing Constants ............................................................. 0.001 s
  0:     [cache hit ] SingleFileExtractor.Core, Version=2.2.1.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Telemetry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.TypeProviders, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
@@ -493,7 +493,7 @@
  0:     [cache hit ] Aardvark.Data.Opc, Version=0.11.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] TinyEXR.NET, Version=0.3.11.0, Culture=neutral, PublicKeyToken=9b5ae88730b3cee9
  0:     [cache hit ] Aardvark.PixImage.Pfim, Version=0.9.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Initializing PixImagePfim .......................................................... 0.022 s
+ 0:   Initializing PixImagePfim .......................................................... 0.015 s
  0:     [cache hit ] Pfim, Version=0.11.3.0, Culture=neutral, PublicKeyToken=c0ebc20d008ae134
  0:     [cache hit ] Aardvark.PixImage.DevIL, Version=5.2.0.0, Culture=neutral, PublicKeyToken=null
  0:   Initializing PixImageDevil .................................................................
@@ -501,7 +501,7 @@
  0:       C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
  0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
  0:     [Introspection] loaded native library DevIL from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64\DevIL.dll
- 0:   Initializing PixImageDevil ......................................................... 0.023 s
+ 0:   Initializing PixImageDevil ......................................................... 0.018 s
  0:     [cache hit ] DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Fonts, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -538,8 +538,8 @@
  0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
  0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
  0:     [Introspection] loaded native library FreeImage from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64\FreeImage.dll
- 0:   Initializing PixImageFreeImage ..................................................... 0.062 s
- 0: initializing aardvark ........................................................ [0.20x] 0.751 s
+ 0:   Initializing PixImageFreeImage ..................................................... 0.051 s
+ 0: initializing aardvark ........................................................ [0.15x] 0.660 s
  0: Initializing Aardium .........................................................................
  0:   Binary: C:\Users\lucia\AppData\Local\Aardium\x64\2.1.2\tools\Aardium.exe
  0: Initializing Aardium ................................................................. 0.039 s
@@ -869,7 +869,7 @@
  0:     C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
  0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
  0:   [Introspection] loaded native library kernel32.dll from kernel32.dll
- 0: initializing OpenGL runtime .......................................................... 0.043 s
+ 0: initializing OpenGL runtime .......................................................... 0.042 s
  0: Trying to resolve assembly: FSharp.Core.resources, Version=9.0.0.0, Culture=de-DE, PublicKeyToken=b03f5f7f11d50a3a - not found
  0: Skipped loading native dependencies for System.ObjectModel, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: [cache miss] PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
@@ -1039,16 +1039,16 @@
  1: Skipped loading native dependencies for System.Diagnostics.DiagnosticSource, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  2: Skipped loading native dependencies for System.Web.HttpUtility, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  3: Skipped loading native dependencies for System.Globalization, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: [Server] created client for (5be27d7c-9577-0032-2096-10b747946710/n5), mapping enabled
- 4: [Server] created client for (5be27d7c-9577-0032-2096-10b747946710/n236), mapping enabled
+ 3: [Server] created client for (06f03f14-e5c7-a0a1-4fb1-2eaa5f276940/n5), mapping enabled
+ 4: [Server] created client for (06f03f14-e5c7-a0a1-4fb1-2eaa5f276940/n236), mapping enabled
  3: [Client] 1: running n5
  4: [Client] 2: running n236
  3: Skipped loading native dependencies for System.Runtime.Numerics, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 4: Skipped loading native dependencies for System.Reflection, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: Skipped loading native dependencies for System.Linq.Expressions, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 3: Skipped loading native dependencies for System.Reflection, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 4: Skipped loading native dependencies for System.Linq.Expressions, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  3: Skipped loading native dependencies for System.Runtime.Serialization.Formatters, Version=8.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 4: Skipped loading native dependencies for Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed
- 4: Skipped loading native dependencies for System.IO, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 3: Skipped loading native dependencies for Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed
+ 3: Skipped loading native dependencies for System.IO, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  5: [Scene] n5: created
  5: probing paths for jitmem
  5:   C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
@@ -1056,12 +1056,10 @@
  5: [Introspection] loaded native library jitmem from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64\jitmem.dll
  5: [GL] Reading shader program file cache 'C:\Users\lucia\AppData\Local\Aardvark\Cache\Shaders\OpenGL\5a7de485-f0ab-be12-6c02-19be5075591e.bin: success 0.052 s
  5: Skipped loading native dependencies for System.Reflection.Emit, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 5: Trying to load image from file 'C:\Users\lucia\VrVis\pano_images_shadowshighlights_testing\pano2.webp' with FreeImage loader: success in 0.034 s
- 2: WARNING: Reading RGB histogram image: path=C:\Users\lucia\VrVis\pano_images_shadowshighlights_testing\pano2.webp, exists=true
- 2: Trying to load image from file 'C:\Users\lucia\VrVis\pano_images_shadowshighlights_testing\pano2.webp' with FreeImage loader: success in 0.012 s
- 2: WARNING: Extracted RGB histogram channels: R=451080, G=451080, B=451080
- 2: WARNING: Reading RGB histogram image: path=C:\Users\lucia\VrVis\pano_images_shadowshighlights_testing\pano2.webp, exists=true
- 2: Trying to load image from file 'C:\Users\lucia\VrVis\pano_images_shadowshighlights_testing\pano2.webp' with FreeImage loader: success in 0.013 s
- 2: WARNING: Extracted RGB histogram channels: R=451080, G=451080, B=451080
- 4: [Client] 1: stopped
- 6: [Client] 2: stopped
+ 5: Trying to load image from file 'C:\Users\lucia\VrVis\pano_images_shadowshighlights_testing\pano1.webp' with FreeImage loader: success in 0.033 s
+ 2: WARNING: Reading RGB histogram image: path=C:\Users\lucia\VrVis\pano_images_shadowshighlights_testing\pano1.webp, exists=true
+ 2: Trying to load image from file 'C:\Users\lucia\VrVis\pano_images_shadowshighlights_testing\pano1.webp' with FreeImage loader: success in 0.010 s
+ 2: WARNING: Extracted RGB histogram channels: R=346920, G=346920, B=346920
+ 2: WARNING: Reading RGB histogram image: path=C:\Users\lucia\VrVis\pano_images_shadowshighlights_testing\pano1.webp, exists=true
+ 2: Trying to load image from file 'C:\Users\lucia\VrVis\pano_images_shadowshighlights_testing\pano1.webp' with FreeImage loader: success in 0.010 s
+ 2: WARNING: Extracted RGB histogram channels: R=346920, G=346920, B=346920

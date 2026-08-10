@@ -728,6 +728,7 @@ module App =
                                 spectralProfile =
                                     ImageMath.computeSpectralProfile
                                         sampleCount
+                                        1.0e-4
                                         minimumWavelength
                                         maximumWavelength
                                         values
@@ -1049,24 +1050,32 @@ module App =
                 }
             )
 
-    let rgbSpectralProfileView
-        (profile : RGBSelectedBandSpectralProfile)
+    let rgbSpectralProfilesView
+        (profiles : RGBSelectedBandSpectralProfile list)
         =
 
-        match profile.wavelengthSpan with
-        | None ->
+        let validProfiles =
+            profiles
+            |> List.choose (fun profile ->
+                match profile.wavelengthSpan with
+                | Some (minWavelength, maxWavelength)
+                    when profile.spectralProfile.Length > 0 ->
+
+                    Some (
+                        profile,
+                        minWavelength,
+                        maxWavelength
+                    )
+
+                | _ ->
+                    None
+            )
+
+        if validProfiles.IsEmpty then
             div [] [
                 text "No spectral profile available."
             ]
-
-        | Some (minWavelength, maxWavelength)
-            when profile.spectralProfile.Length = 0 ->
-
-            div [] [
-                text "No spectral profile available."
-            ]
-
-        | Some (minWavelength, maxWavelength) ->
+        else
 
             let width = 320.0
             let height = 160.0
@@ -1082,17 +1091,34 @@ module App =
             let plotHeight =
                 height - topPadding - bottomPadding
 
+            // Shared wavelength range for all RGB profiles.
+            let minimumWavelength =
+                validProfiles
+                |> List.map (fun (_, minimum, _) -> minimum)
+                |> List.min
+
+            let maximumWavelength =
+                validProfiles
+                |> List.map (fun (_, _, maximum) -> maximum)
+                |> List.max
+
+            let wavelengthRange =
+                maximumWavelength - minimumWavelength
+
             let toX wavelength =
                 leftPadding +
-                (wavelength - minWavelength) /
-                (maxWavelength - minWavelength) *
+                (wavelength - minimumWavelength) /
+                wavelengthRange *
                 plotWidth
 
-            let toY reflectance =
+            let toY fraction =
                 topPadding +
-                (1.0 - reflectance) * plotHeight
+                (1.0 - fraction) * plotHeight
 
-            let polylinePoints =
+            let createPolylinePoints
+                (profile : RGBSelectedBandSpectralProfile)
+                =
+
                 profile.spectralProfile
                 |> Array.map (fun point ->
                     sprintf
@@ -1112,104 +1138,139 @@ module App =
                 ] [
                     text (
                         sprintf
-                            "%s spectral profile (%.0f–%.0f nm)"
-                            profile.label
-                            minWavelength
-                            maxWavelength
+                            "RGB spectral profile (%.0f–%.0f nm)"
+                            minimumWavelength
+                            maximumWavelength
                     )
                 ]
+
+                let profileLines =
+                    validProfiles
+                    |> List.map (fun (profile, _, _) ->
+
+                        let polylinePoints =
+                            createPolylinePoints profile
+
+                        let color =
+                            profile.spectralProfile.[0].color
+
+                        Svg.polyline [
+                            attribute "points" polylinePoints
+                            attribute "fill" "none"
+                            attribute "stroke" color
+                            attribute "stroke-width" "2"
+                        ]
+                    )
+
+                let axisAndLabels =
+                    [
+                        // Y axis
+                        Svg.line [
+                            attribute "x1" (string leftPadding)
+                            attribute "y1" (string topPadding)
+                            attribute "x2" (string leftPadding)
+                            attribute "y2" (string (topPadding + plotHeight))
+                            attribute "stroke" "#777"
+                        ]
+
+                        // X axis
+                        Svg.line [
+                            attribute "x1" (string leftPadding)
+                            attribute "y1" (string (topPadding + plotHeight))
+                            attribute "x2" (string (leftPadding + plotWidth))
+                            attribute "y2" (string (topPadding + plotHeight))
+                            attribute "stroke" "#777"
+                        ]
+
+                        // Minimum wavelength
+                        Svg.text [
+                            attribute "x" (string leftPadding)
+                            attribute "y" (string (height - 10.0))
+                            attribute "font-size" "10"
+                            attribute "fill" "#aaa"
+                        ] (
+                            sprintf "%.0f nm" minimumWavelength
+                        )
+
+                        // Maximum wavelength
+                        Svg.text [
+                            attribute "x" (string (leftPadding + plotWidth))
+                            attribute "y" (string (height - 10.0))
+                            attribute "text-anchor" "end"
+                            attribute "font-size" "10"
+                            attribute "fill" "#aaa"
+                        ] (
+                            sprintf "%.0f nm" maximumWavelength
+                        )
+
+                        // Y = 1
+                        Svg.text [
+                            attribute "x" (string (leftPadding - 6.0))
+                            attribute "y" (string (topPadding + 4.0))
+                            attribute "text-anchor" "end"
+                            attribute "font-size" "10"
+                            attribute "fill" "#aaa"
+                        ] "1.0"
+
+                        // Y = 0
+                        Svg.text [
+                            attribute "x" (string (leftPadding - 6.0))
+                            attribute "y" (string (topPadding + plotHeight))
+                            attribute "text-anchor" "end"
+                            attribute "font-size" "10"
+                            attribute "fill" "#aaa"
+                        ] "0.0"
+
+                        // Y-axis title
+                        Svg.text [
+                            attribute "x" "10"
+                            attribute "y"
+                                (string (topPadding + plotHeight / 2.0))
+
+                            attribute "transform"
+                                (sprintf
+                                    "rotate(-90 10 %.2f)"
+                                    (topPadding + plotHeight / 2.0))
+
+                            attribute "text-anchor" "middle"
+                            attribute "font-size" "10"
+                            attribute "fill" "#aaa"
+                        ] "Relative frequency"
+                    ]
 
                 Svg.svg [
                     attribute "viewBox"
                         (sprintf "0 0 %.0f %.0f" width height)
 
                     style "width: 100%; height: 160px;"
+                ] (
+                    axisAndLabels @ profileLines
+                )
+
+                // Small legend
+                div [
+                    style "margin-top: 4px; font-size: 11px;"
                 ] [
-
-                    Svg.line [
-                        attribute "x1" (string leftPadding)
-                        attribute "y1" (string topPadding)
-                        attribute "x2" (string leftPadding)
-                        attribute "y2"
-                            (string (topPadding + plotHeight))
-                        attribute "stroke" "#777"
+                    span [
+                        style "color: #ff5c5c; margin-right: 12px;"
+                    ] [
+                        text "R"
                     ]
 
-                    Svg.line [
-                        attribute "x1" (string leftPadding)
-                        attribute "y1"
-                            (string (topPadding + plotHeight))
-                        attribute "x2"
-                            (string (leftPadding + plotWidth))
-                        attribute "y2"
-                            (string (topPadding + plotHeight))
-                        attribute "stroke" "#777"
+                    span [
+                        style "color: #5cff7a; margin-right: 12px;"
+                    ] [
+                        text "G"
                     ]
 
-                    Svg.polyline [
-                        attribute "points" polylinePoints
-                        attribute "fill" "none"
-                        attribute
-                            "stroke"
-                            profile.spectralProfile.[0].color
-                        attribute "stroke-width" "2"
+                    span [
+                        style "color: #5c8dff;"
+                    ] [
+                        text "B"
                     ]
-
-                    Svg.text [
-                        attribute "x" (string leftPadding)
-                        attribute "y" (string (height - 10.0))
-                        attribute "font-size" "10"
-                        attribute "fill" "#aaa"
-                    ] (sprintf "%.0f nm" minWavelength)
-
-                    Svg.text [
-                        attribute
-                            "x"
-                            (string (leftPadding + plotWidth))
-                        attribute "y" (string (height - 10.0))
-                        attribute "text-anchor" "end"
-                        attribute "font-size" "10"
-                        attribute "fill" "#aaa"
-                    ] (sprintf "%.0f nm" maxWavelength)
-
-                    Svg.text [
-                        attribute "x" (string (leftPadding - 6.0))
-                        attribute "y" (string (topPadding + 4.0))
-                        attribute "text-anchor" "end"
-                        attribute "font-size" "10"
-                        attribute "fill" "#aaa"
-                    ] "1.0"
-
-                    Svg.text [
-                        attribute "x" (string (leftPadding - 6.0))
-                        attribute
-                            "y"
-                            (string (topPadding + plotHeight))
-                        attribute "text-anchor" "end"
-                        attribute "font-size" "10"
-                        attribute "fill" "#aaa"
-                    ] "0.0"
-
-                    Svg.text [
-                        attribute "x" "10"
-                        attribute
-                            "y"
-                            (string (
-                                topPadding +
-                                plotHeight / 2.0
-                            ))
-                        attribute
-                            "transform"
-                            (sprintf
-                                "rotate(-90 10 %.2f)"
-                                (topPadding +
-                                 plotHeight / 2.0))
-                        attribute "text-anchor" "middle"
-                        attribute "font-size" "10"
-                        attribute "fill" "#aaa"
-                    ] "Relative reflectance"
                 ]
             ]
+
 
     let private selectedSpectralProfilesView
         (profiles : aval<RGBSelectedBandSpectralProfile list>)
@@ -1221,8 +1282,7 @@ module App =
                 alist {
                     let! items = profiles
 
-                    for item in items do
-                        yield rgbSpectralProfileView item
+                    yield rgbSpectralProfilesView items
                 }
             )
 
