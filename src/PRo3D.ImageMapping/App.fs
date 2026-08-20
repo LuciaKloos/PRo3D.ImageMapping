@@ -35,7 +35,7 @@ module App =
         blackWhiteClip = BlackWhiteClip.init
         saturation = Saturation.init
         brightness = Brightness.init
-        visualizationMode = VisualizationMode.RgbRatioComposite
+        visualizationMode = VisualizationMode.SingleBandTransferFunction
     }
 
     let private loadedLogicalBandIndices (images : IndexList<Image>) =
@@ -127,6 +127,7 @@ module App =
                         selectedImage = None
                         sourceImagePath = Some fullPath
                         sourceImageKind = SourceImageKind.PlainRgbImage
+                        //visualizationMode = VisualizationMode.SingleBandTransferFunction
                         editImages = []
                         blackWhiteClip = noBlackWhiteClip
                 }
@@ -209,7 +210,7 @@ module App =
                             rgbRatioComposite = defaultRgbComposite
                             bandMapping = defaultBandMappingForImages bands
                             transferFunctionMapping = defaultTransferFunctionMappingForImages bands
-                            visualizationMode = VisualizationMode.RgbRatioComposite
+                            visualizationMode = VisualizationMode.SingleBandTransferFunction
                     }                    
         | SelectImage idx ->
             { m with selectedImage = Some idx }
@@ -478,8 +479,8 @@ module App =
                     saturation = Saturation.init
                     brightness = Brightness.init
             }
-        | SetVisualizationMode mode when m.visualizationMode = mode ->
-            m
+        //| SetVisualizationMode mode when m.visualizationMode = mode ->
+        //    m
 
         | SetVisualizationMode mode ->
             match mode with
@@ -664,7 +665,60 @@ module App =
             ]
         )
 
-    let private computeNonMultispectralRgbSpectralProfiles
+    let private computeMappedBand
+        sampleCount 
+        sources
+        label
+        color
+        minimumWavelength
+        maximumWavelength
+        bandIndex =
+
+        match bandIndex with
+        | None ->
+            {
+                label = label
+                wavelengthSpan = None
+                spectralProfile = [||]
+            }
+
+        | Some selectedBandIndex ->
+            match readLogicalBand sources selectedBandIndex with
+            | Result.Error error ->
+                Log.warn
+                    "Could not compute RGB spectral profile for mapped %s band %d: %s"
+                    label
+                    selectedBandIndex
+                    error
+
+                {
+                    label = label
+                    wavelengthSpan = None
+                    spectralProfile = [||]
+                }
+
+            | Result.Ok band ->
+                {
+                    label =
+                        sprintf "%s (band %d)" label selectedBandIndex
+
+                    wavelengthSpan =
+                        Some (
+                            minimumWavelength,
+                            maximumWavelength
+                        )
+
+                    spectralProfile =
+                        ImageMath.computeSpectralProfile
+                            sampleCount
+                            1.0e-4
+                            minimumWavelength
+                            maximumWavelength
+                            band.values
+                            color
+                }
+
+    let private computeRgbSpectralProfiles
         (m : AdaptiveModel)
         (sampleCount : int)
         : aval<RGBSelectedBandSpectralProfile list> =
@@ -692,7 +746,112 @@ module App =
 
             match m.sourceImageKind.GetValue token with
             | SourceImageKind.Multispectral ->
-                emptyProfiles ()
+                match m.visualizationMode.GetValue token with
+                | VisualizationMode.RgbComposite ->
+                    let images =
+                        m.images
+                        |> AList.force
+
+                    let sources =
+                        readAdaptiveBandSources images token                    
+
+                    [
+                        computeMappedBand
+                            sampleCount
+                            sources
+                            "R"
+                            "#ff5c5c"
+                            620.0
+                            750.0
+                            (m.bandMapping.redBand.GetValue token)
+
+                        computeMappedBand
+                            sampleCount
+                            sources
+                            "G"
+                            "#5cff7a"
+                            495.0
+                            570.0
+                            (m.bandMapping.greenBand.GetValue token)
+
+                        computeMappedBand
+                            sampleCount
+                            sources
+                            "B"
+                            "#5c8dff"
+                            450.0
+                            495.0
+                            (m.bandMapping.blueBand.GetValue token)
+                    ]
+
+                | VisualizationMode.RgbRatioComposite ->
+                    let images =
+                        m.images
+                        |> AList.force
+
+                    let sources =
+                        readAdaptiveBandSources images token
+
+                    [
+                        computeMappedBand
+                                sampleCount
+                                sources
+                                "R numerator"
+                                "#ff5c5c"
+                                620.0
+                                750.0
+                                (m.rgbRatioComposite.redNumeratorBand.GetValue token)
+
+                        computeMappedBand 
+                                sampleCount
+                                sources
+                                "R denominator"
+                                "#ff5c5c"
+                                620.0
+                                750.0
+                                (m.rgbRatioComposite.redDenominatorBand.GetValue token)
+
+                        computeMappedBand
+                                sampleCount
+                                sources
+                                "G numerator"
+                                "#5cff7a"
+                                495.0
+                                570.0
+                                (m.rgbRatioComposite.greenNumeratorBand.GetValue token)
+
+                        computeMappedBand
+                                sampleCount
+                                sources
+                                "G denominator"
+                                "#5cff7a"
+                                495.0
+                                570.0
+                                (m.rgbRatioComposite.greenDenominatorBand.GetValue token)
+
+                        computeMappedBand
+                                sampleCount
+                                sources
+                                "B numerator"
+                                "#5c8dff"
+                                450.0
+                                495.0
+                                (m.rgbRatioComposite.blueNumeratorBand.GetValue token)
+
+                        computeMappedBand
+                                sampleCount
+                                sources
+                                "B denominator"
+                                "#5c8dff"
+                                450.0
+                                495.0
+                                (m.rgbRatioComposite.blueDenominatorBand.GetValue token)
+
+                    ]
+
+
+                | VisualizationMode.SingleBandTransferFunction ->
+                    emptyProfiles ()
 
             | SourceImageKind.PlainRgbImage ->
                 match m.sourceImagePath.GetValue token with
@@ -758,6 +917,7 @@ module App =
                                 blue
                         ]
         )
+
 
     let private computeNonMultispectralRgbHistograms
         (m : AdaptiveModel)
@@ -1147,20 +1307,30 @@ module App =
                 let profileLines =
                     validProfiles
                     |> List.map (fun (profile, _, _) ->
-
                         let polylinePoints =
                             createPolylinePoints profile
 
                         let color =
                             profile.spectralProfile.[0].color
 
-                        Svg.polyline [
-                            attribute "points" polylinePoints
-                            attribute "fill" "none"
-                            attribute "stroke" color
-                            attribute "stroke-width" "2"
-                        ]
+                        let lineAttributes =
+                            [
+                                attribute "points" polylinePoints
+                                attribute "fill" "none"
+                                attribute "stroke" color
+                                attribute "stroke-width" "2"
+                            ]
+
+                        let lineAttributes =
+                            if profile.label.Contains("denominator") then
+                                attribute "stroke-dasharray" "5,4"
+                                :: lineAttributes
+                            else
+                                lineAttributes
+
+                        Svg.polyline lineAttributes
                     )
+
 
                 let axisAndLabels =
                     [
@@ -1487,7 +1657,7 @@ module App =
             )                
 
         let rgbSelectedBandSpectralProfiles =
-            computeNonMultispectralRgbSpectralProfiles m 32
+            computeRgbSpectralProfiles m 32
 
         let histogramsForCurrentMode =
             Incremental.div
@@ -1501,10 +1671,6 @@ module App =
                             m.sourceImageKind
 
                         let spanRed = [620.0, 750.0]
-                       // let! spectralProfileRed = rgbSelectedBandSpectralProfiles "red" spanRed 
-
-                        //let! profile =
-                        //    rgbSpectralProfile
 
                         match mode with
                         | VisualizationMode.RgbRatioComposite ->
@@ -1513,11 +1679,48 @@ module App =
                                     "Currently selected RGB band histograms"
                                     rgbRatioSelectedBandHistograms
 
+                            if sourceKind = SourceImageKind.Multispectral then
+                                yield
+                                    div [
+                                        clazz "ui inverted segment"
+                                        style "margin-top: 10px;"
+                                    ] [
+                                        div [
+                                            style "font-weight: bold; margin-bottom: 8px;"
+                                        ] [
+                                            text "RGB-ratio spectral profiles"
+                                        ]
+
+                                        div [
+                                            style "font-size: 11px; color: #aaa;"
+                                        ] [
+                                            text "Solid: numerator · Dashed: denominator"
+                                        ]
+
+                                        selectedSpectralProfilesView
+                                            rgbSelectedBandSpectralProfiles
+                                    ]
                         | VisualizationMode.RgbComposite ->
                             yield
                                 selectedHistogramsView
                                     "Currently selected RGB band histograms"
                                     rgbMappingSelectedBandHistogram
+
+                            if sourceKind = SourceImageKind.Multispectral then
+                                yield
+                                    div [
+                                        clazz "ui inverted segment"
+                                        style "margin-top: 10px;"
+                                    ] [
+                                        div [
+                                            style "font-weight: bold; margin-bottom: 8px;"
+                                        ] [
+                                            text "Mapped-band RGB spectral profiles"
+                                        ]
+
+                                        selectedSpectralProfilesView
+                                            rgbSelectedBandSpectralProfiles
+                                    ]
 
                         | VisualizationMode.SingleBandTransferFunction ->
                             yield
@@ -1664,6 +1867,7 @@ module App =
             ]
 
         let visualizationModeSelector =
+
             div [
                 clazz "item"
                 style "border-bottom: solid 1px black; padding: 5px;"
@@ -1674,21 +1878,32 @@ module App =
                     text "Mode:"
                 ]
 
-                div [
-                    style "display: flex; align-items: center; flex-wrap: wrap;"
-                ] [
-                    visualizationModeOption
-                        "Band ratio"
-                        VisualizationMode.RgbRatioComposite
+                Incremental.div
+                    (AttributeMap.ofList [
+                        attribute "style"
+                            "display: flex; align-items: center; flex-wrap: wrap;"
+                    ])
+                    (
+                        alist {
+                            let! sourceKind = m.sourceImageKind
 
-                    visualizationModeOption
-                        "RGB mapping"
-                        VisualizationMode.RgbComposite
+                            if sourceKind = SourceImageKind.Multispectral then
+                                yield
+                                    visualizationModeOption
+                                        "Band ratio"
+                                        VisualizationMode.RgbRatioComposite
 
-                    visualizationModeOption
-                        "Transfer function"
-                        VisualizationMode.SingleBandTransferFunction
-                ]
+                                yield
+                                    visualizationModeOption
+                                        "RGB mapping"
+                                        VisualizationMode.RgbComposite
+
+                            yield
+                                visualizationModeOption
+                                    "Transfer function"
+                                    VisualizationMode.SingleBandTransferFunction
+                        }
+                    )
             ]
 
 
@@ -2039,26 +2254,36 @@ module App =
                         ]
                     ]
 
-                    accordionRegi "Registration" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
-                        Html.table [  
-                            Html.row "Roll:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll |> UI.map SetRoll]
-                            Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]
-                            Html.row "Yaw:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.yaw |> UI.map SetYaw]
-                        ]
-                    ]
-                ]
-
-                div [] [
                     accordionHist "Histograms" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
                         histogramsForCurrentMode
                     ]
-                    div [] [showRelative2DImage outputTexture]   
+                    //div [] [showRelative2DImage outputTexture]   
                     onlyForMultispectral (
                         div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages
                         ]
                     )
+
+                    //accordionRegi "Registration" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
+                    //    Html.table [  
+                    //        Html.row "Roll:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.roll |> UI.map SetRoll]
+                    //        Html.row "Pitch:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.pitch |> UI.map SetPitch]
+                    //        Html.row "Yaw:" [Numeric.view' [NumericInputType.InputBox] m.boresightAdjustment.yaw |> UI.map SetYaw]
+                    //    ]
+                    //]
                 ]
+
+                //div [] [
+                //    accordionHist "Histograms" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
+                //        histogramsForCurrentMode
+                //    ]
+                //    //div [] [showRelative2DImage outputTexture]   
+                //    onlyForMultispectral (
+                //        div [style $"border: 2px solid black; margin-top: 10px"] [
+                //            contentImages
+                //        ]
+                //    )
+                //]
             ]
             
 
