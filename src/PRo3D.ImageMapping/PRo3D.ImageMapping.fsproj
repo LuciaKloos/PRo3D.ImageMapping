@@ -30,6 +30,7 @@
 	<Compile Include="BandHandler.fs" />
 	<Compile Include="RgbComposite.fs" />
     <Compile Include="Image.fs" />
+	<Compile Include="SpectralAnalysis.fs" />
     <Compile Include="App.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
