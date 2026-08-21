@@ -591,6 +591,77 @@ module App =
             ]
         )
 
+    let private computeTransferFunctionSelectedBandHistogram
+        (m : AdaptiveModel)
+        (binCount : int)
+        : aval<RgbSelectedBandHistogram list> =
+
+        AVal.custom (fun token ->
+            let selectedBandIndex =
+                m.transferFunctionMapping.selectedBand.GetValue token
+
+            match selectedBandIndex with
+            | None ->
+                [
+                    {
+                        label = "Transfer function"
+                        bandIndex = None
+                        histogram = [||]
+                    }
+                ]
+
+            | Some bandIndex ->
+                let images =
+                    m.images
+                    |> AList.force
+
+                let sources =
+                    readAdaptiveBandSources images token
+
+                match sources |> List.tryFind (fun source -> source.logicalIndex = bandIndex) with
+                | None ->
+                    Log.warn
+                        "Could not find selected transfer-function histogram band %d"
+                        bandIndex
+
+                    [
+                        {
+                            label = "Transfer function"
+                            bandIndex = Some bandIndex
+                            histogram = [||]
+                        }
+                    ]
+
+                | Some source ->
+                    match readBandSourceAsFloat source with
+                    | Result.Ok band ->
+                        [
+                            {
+                                label = "Transfer function"
+                                bandIndex = Some bandIndex
+                                histogram =
+                                    ImageMath.computeHistogram
+                                        binCount
+                                        1.0e-4
+                                        band.values
+                            }
+                        ]
+
+                    | Result.Error error ->
+                        Log.warn
+                            "Could not compute transfer-function histogram for band %d: %s"
+                            bandIndex
+                            error
+
+                        [
+                            {
+                                label = "Transfer function"
+                                bandIndex = Some bandIndex
+                                histogram = [||]
+                            }
+                        ]
+        )
+
     let private computeRgbRatioSelectedBandHistograms
         (m : AdaptiveModel)
         (binCount : int)
@@ -670,8 +741,6 @@ module App =
         sources
         label
         color
-        minimumWavelength
-        maximumWavelength
         bandIndex =
 
         match bandIndex with
@@ -698,25 +767,122 @@ module App =
                 }
 
             | Result.Ok band ->
+                let bandValues = band.values
+                let finiteBandValues =
+                    bandValues
+                    |> Array.filter Double.IsFinite
+
+                let minimumBandValue, maximumBandValue =
+                    if Array.isEmpty finiteBandValues then
+                        0.0, 1.0
+                    else
+                        Array.min finiteBandValues,
+                        Array.max finiteBandValues
+
                 {
                     label =
                         sprintf "%s (band %d)" label selectedBandIndex
 
                     wavelengthSpan =
                         Some (
-                            minimumWavelength,
-                            maximumWavelength
+                            minimumBandValue,
+                            maximumBandValue
                         )
 
                     spectralProfile =
                         ImageMath.computeSpectralProfile
                             sampleCount
                             1.0e-4
-                            minimumWavelength
-                            maximumWavelength
+                            minimumBandValue
+                            maximumBandValue
                             band.values
                             color
                 }
+
+    let private computeRatioBand
+        sampleCount
+        sources
+        label
+        color
+        numeratorBandIndex
+        denominatorBandIndex =
+
+        match numeratorBandIndex, denominatorBandIndex with
+        | Some numeratorIndex, Some denominatorIndex ->
+            match
+                readLogicalBand sources numeratorIndex,
+                readLogicalBand sources denominatorIndex
+            with
+            | Result.Ok numerator, Result.Ok denominator ->
+                let valueCount =
+                    min numerator.values.Length denominator.values.Length
+
+                let ratioValues =
+                    Array.init valueCount (fun index ->
+                        let numeratorValue = numerator.values.[index]
+                        let denominatorValue = denominator.values.[index]
+
+                        if Double.IsFinite numeratorValue &&
+                           Double.IsFinite denominatorValue &&
+                           abs denominatorValue > 1.0e-12 then
+                            numeratorValue / denominatorValue
+                        else
+                            Double.NaN
+                    )
+
+                let finiteRatioValues =
+                    ratioValues
+                    |> Array.filter Double.IsFinite
+
+                let minimumRatio, maximumRatio =
+                    if Array.isEmpty finiteRatioValues then
+                        0.0, 1.0
+                    else
+                        Array.min finiteRatioValues,
+                        Array.max finiteRatioValues
+
+                {
+                    label =
+                        sprintf
+                            "%s ratio (bands %d/%d)"
+                            label
+                            numeratorIndex
+                            denominatorIndex
+
+                    wavelengthSpan =
+                        Some (minimumRatio, maximumRatio)
+
+                    spectralProfile =
+                        ImageMath.computeSpectralProfile
+                            sampleCount
+                            1.0e-4
+                            minimumRatio
+                            maximumRatio
+                            ratioValues
+                            color
+                }
+
+            | Result.Error error, _
+            | _, Result.Error error ->
+                Log.warn
+                    "Could not compute %s ratio spectral profile for bands %d/%d: %s"
+                    label
+                    numeratorIndex
+                    denominatorIndex
+                    error
+
+                {
+                    label = label
+                    wavelengthSpan = None
+                    spectralProfile = [||]
+                }
+
+        | _ ->
+            {
+                label = label
+                wavelengthSpan = None
+                spectralProfile = [||]
+            }
 
     let private computeRgbSpectralProfiles
         (m : AdaptiveModel)
@@ -761,8 +927,6 @@ module App =
                             sources
                             "R"
                             "#ff5c5c"
-                            620.0
-                            750.0
                             (m.bandMapping.redBand.GetValue token)
 
                         computeMappedBand
@@ -770,8 +934,6 @@ module App =
                             sources
                             "G"
                             "#5cff7a"
-                            495.0
-                            570.0
                             (m.bandMapping.greenBand.GetValue token)
 
                         computeMappedBand
@@ -779,8 +941,6 @@ module App =
                             sources
                             "B"
                             "#5c8dff"
-                            450.0
-                            495.0
                             (m.bandMapping.blueBand.GetValue token)
                     ]
 
@@ -793,65 +953,49 @@ module App =
                         readAdaptiveBandSources images token
 
                     [
-                        computeMappedBand
-                                sampleCount
-                                sources
-                                "R numerator"
-                                "#ff5c5c"
-                                620.0
-                                750.0
-                                (m.rgbRatioComposite.redNumeratorBand.GetValue token)
+                        computeRatioBand
+                            sampleCount
+                            sources
+                            "R"
+                            "#ff5c5c"
+                            (m.rgbRatioComposite.redNumeratorBand.GetValue token)
+                            (m.rgbRatioComposite.redDenominatorBand.GetValue token)
 
-                        computeMappedBand 
-                                sampleCount
-                                sources
-                                "R denominator"
-                                "#ff5c5c"
-                                620.0
-                                750.0
-                                (m.rgbRatioComposite.redDenominatorBand.GetValue token)
+                        computeRatioBand
+                            sampleCount
+                            sources
+                            "G"
+                            "#5cff7a"
+                            (m.rgbRatioComposite.greenNumeratorBand.GetValue token)
+                            (m.rgbRatioComposite.greenDenominatorBand.GetValue token)
 
-                        computeMappedBand
-                                sampleCount
-                                sources
-                                "G numerator"
-                                "#5cff7a"
-                                495.0
-                                570.0
-                                (m.rgbRatioComposite.greenNumeratorBand.GetValue token)
-
-                        computeMappedBand
-                                sampleCount
-                                sources
-                                "G denominator"
-                                "#5cff7a"
-                                495.0
-                                570.0
-                                (m.rgbRatioComposite.greenDenominatorBand.GetValue token)
-
-                        computeMappedBand
-                                sampleCount
-                                sources
-                                "B numerator"
-                                "#5c8dff"
-                                450.0
-                                495.0
-                                (m.rgbRatioComposite.blueNumeratorBand.GetValue token)
-
-                        computeMappedBand
-                                sampleCount
-                                sources
-                                "B denominator"
-                                "#5c8dff"
-                                450.0
-                                495.0
-                                (m.rgbRatioComposite.blueDenominatorBand.GetValue token)
-
+                        computeRatioBand
+                            sampleCount
+                            sources
+                            "B"
+                            "#5c8dff"
+                            (m.rgbRatioComposite.blueNumeratorBand.GetValue token)
+                            (m.rgbRatioComposite.blueDenominatorBand.GetValue token)
                     ]
 
 
                 | VisualizationMode.SingleBandTransferFunction ->
-                    emptyProfiles ()
+                    let images =
+                        m.images
+                        |> AList.force
+
+                    let sources =
+                        readAdaptiveBandSources images token
+
+                    [
+                        computeMappedBand
+                            sampleCount
+                            sources
+                            "Transfer function"
+                            "#ffffff"
+                            (m.transferFunctionMapping.selectedBand.GetValue token)
+                    ]   
+                     
 
             | SourceImageKind.PlainRgbImage ->
                 match m.sourceImagePath.GetValue token with
@@ -975,64 +1119,7 @@ module App =
                         computeChannel "B" blue
                     ]
         )
-    
-    //let private computeNonMultispectralRgbSpectralProfiles
-    //    (m : AdaptiveModel)
-    //    (binCount : int)
-    //    : aval<RgbSelectedBandHistogram list> =
-
-    //    AVal.custom (fun token ->
-
-    //        let emptyHistograms () =
-    //            [
-    //                {
-    //                    label = "R"
-    //                    bandIndex = None
-    //                    histogram = [||]
-    //                }
-    //                {
-    //                    label = "G"
-    //                    bandIndex = None    
-    //                    histogram = [||]
-    //                }
-    //                {
-    //                    label = "B"
-    //                    bandIndex = None
-    //                    histogram = [||]
-    //                }
-    //            ]
-
-    //        match m.sourceImagePath.GetValue token with
-    //        | None ->
-    //            emptyHistograms ()
-
-    //        | Some imagePath ->            
-    //            match readSourceImageRGBChannels imagePath with
-    //            | Result.Error error ->
-    //                Log.warn
-    //                    "Could not compute RGB histograms for band %s: %s"
-    //                    imagePath
-    //                    error
-    //                emptyHistograms ()
-
-    //            | Result.Ok (red, green, blue) -> 
-    //                let computeChannel label values =
-    //                    {
-    //                        label = label
-    //                        bandIndex = None
-    //                        histogram =
-    //                            ImageMath.computeHistogram
-    //                                binCount
-    //                                1.0e-4
-    //                                values
-    //                    }
-    //                [
-    //                    computeChannel "R" red
-    //                    computeChannel "G" green
-    //                    computeChannel "B" blue
-    //                ]
-    //    )
-
+  
     let private computeMultispectralRgbHistograms
         (m : AdaptiveModel)
         (binCount : int)
@@ -1646,6 +1733,9 @@ module App =
         let rgbMappingSelectedBandHistogram =
             computeRgbMappingSelectedBandHistograms m 32
 
+        let transferFunctionSelectedBandHistogram =
+            computeTransferFunctionSelectedBandHistogram m 32
+
         let transferFunctionNonMultispectralRgbHistograms =
             m.sourceImageKind
             |> AVal.bind (fun sourceKind ->
@@ -1670,8 +1760,6 @@ module App =
                         let! sourceKind =
                             m.sourceImageKind
 
-                        let spanRed = [620.0, 750.0]
-
                         match mode with
                         | VisualizationMode.RgbRatioComposite ->
                             yield
@@ -1687,14 +1775,13 @@ module App =
                                     ] [
                                         div [
                                             style "font-weight: bold; margin-bottom: 8px;"
-                                        ] [
-                                            text "RGB-ratio spectral profiles"
+                                        ] [                                           
                                         ]
 
                                         div [
                                             style "font-size: 11px; color: #aaa;"
                                         ] [
-                                            text "Solid: numerator · Dashed: denominator"
+                                            text "Calculated numerator/denominator ratio per RGB channel"
                                         ]
 
                                         selectedSpectralProfilesView
@@ -1714,9 +1801,7 @@ module App =
                                     ] [
                                         div [
                                             style "font-weight: bold; margin-bottom: 8px;"
-                                        ] [
-                                            text "Mapped-band RGB spectral profiles"
-                                        ]
+                                        ] []
 
                                         selectedSpectralProfilesView
                                             rgbSelectedBandSpectralProfiles
@@ -1725,24 +1810,27 @@ module App =
                         | VisualizationMode.SingleBandTransferFunction ->
                             yield
                                 selectedHistogramsView
-                                    "Original image RGB channel histograms"
-                                    transferFunctionNonMultispectralRgbHistograms
+                                    (if sourceKind = SourceImageKind.Multispectral then
+                                        "Selected transfer-function band histogram"
+                                     else
+                                        "Original image RGB channel histograms")
+                                    (if sourceKind = SourceImageKind.Multispectral then
+                                        transferFunctionSelectedBandHistogram
+                                     else
+                                        transferFunctionNonMultispectralRgbHistograms)
 
-                            if sourceKind = SourceImageKind.PlainRgbImage then
-                                yield
+                            yield
+                                div [
+                                    clazz "ui inverted segment"
+                                    style "margin-top: 10px;"
+                                ] [
                                     div [
-                                        clazz "ui inverted segment"
-                                        style "margin-top: 10px;"
-                                    ] [
-                                        div [
-                                            style "font-weight: bold; margin-bottom: 8px;"
-                                        ] [
-                                            text "RGB spectral profile — center pixel"
-                                        ]
+                                        style "font-weight: bold; margin-bottom: 8px;"
+                                    ] []
 
-                                        selectedSpectralProfilesView
-                                            rgbSelectedBandSpectralProfiles 
-                                    ]
+                                    selectedSpectralProfilesView
+                                        rgbSelectedBandSpectralProfiles
+                                ]
                     }
                 )
 
@@ -1814,34 +1902,6 @@ module App =
                             ]
                             div [clazz content;  style "overflow-y : auto; "] (
                                 [
-                                ] @ content'
-                            )
-                        ]
-                ]
-            )
-        
-        let accordionRegi text' icon active styling content' =
-            let title = if active then "title active inverted" else "title inverted"
-            let content = if active then "content active" else "content"
-
-            onBoot "$('#__ID__ > .ui.accordion').accordion({ exclusive: false, selector: { title: '> .title', content: '> .content' } });" (
-                div styling [
-                        div [clazz "ui inverted accordion fluid"] [
-                            div [clazz title; style "background-color: #282828"] [
-                                    i [clazz ("dropdown icon")] []
-                                    text text'                                
-                                    div [style "float:right"] [i [clazz (icon + " icon")] []]
-                                
-                            ]
-                            div [clazz content;  style "overflow-y : auto; "] (
-                                [
-                                    div [style "display: flex; justify-content: flex-end; padding: 5px;"] [
-                                        button [
-                                            clazz "ui tiny inverted button"
-                                        ] [
-                                            text "Reset"
-                                        ]
-                                    ]
                                 ] @ content'
                             )
                         ]
