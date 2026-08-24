@@ -122,8 +122,8 @@ type SpectralProfilePoint =
 
 type RgbSelectedBandHistogram =
     {
-        label     : string
-        bandIndex : Option<int>
+        label : string
+        bandIndices : int[] option
         histogram : HistogramBin[]
     }
 

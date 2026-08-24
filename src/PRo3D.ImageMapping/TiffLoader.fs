@@ -13,8 +13,103 @@ open PRo3D.Core
 
 open PRo3D.ImageMapping.MbiLoader
 open PRo3D.ImageMapping.ImageDefaults
+open BitMiracle.LibTiff.Classic
 
 module TiffLoader =
+
+    let private tryReadContiguousUInt16Tiff
+        (path : string)
+        : Result<TiffReadResult, string> =
+
+        try
+            use tif = Tiff.Open(path, "r")
+
+            if isNull tif then
+                Result.Error "Cannot open TIFF."
+            else
+                let width =
+                    tif.GetFieldDefaulted(TiffTag.IMAGEWIDTH).[0].ToInt()
+
+                let height =
+                    tif.GetFieldDefaulted(TiffTag.IMAGELENGTH).[0].ToInt()
+
+                let bitsPerSample =
+                    tif.GetFieldDefaulted(TiffTag.BITSPERSAMPLE).[0].ToInt()
+
+                let sampleFormat =
+                    tif.GetFieldDefaulted(TiffTag.SAMPLEFORMAT).[0].ToInt()
+
+                let samplesPerPixel =
+                    tif.GetFieldDefaulted(TiffTag.SAMPLESPERPIXEL).[0].ToInt()
+
+                let planarConfig =
+                    tif.GetFieldDefaulted(TiffTag.PLANARCONFIG).[0].ToInt()
+
+                if planarConfig <> int PlanarConfig.CONTIG then
+                    Result.Error "TIFF is not PLANARCONFIG=CONTIG."
+
+                elif
+                    bitsPerSample <> 16 ||
+                    sampleFormat <> int SampleFormat.UINT
+                then
+                    Result.Error (
+                        sprintf
+                            "Unsupported SAMPLEFORMAT=%d BITSPERSAMPLE=%d"
+                            sampleFormat
+                            bitsPerSample
+                    )
+
+                else
+                    let scanlineSize = tif.ScanlineSize()
+                    let scanline = Array.zeroCreate<byte> scanlineSize
+                    let pixelCount = width * height
+
+                    let bands =
+                        Array.init samplesPerPixel (fun _ ->
+                            Array.zeroCreate<uint16> pixelCount
+                        )
+
+                    for row in 0 .. height - 1 do
+                        if not (tif.ReadScanline(scanline, row, 0s)) then
+                            failwithf "ReadScanline failed at row %d." row
+
+                        for column in 0 .. width - 1 do
+                            let pixelIndex = row * width + column
+
+                            for band in 0 .. samplesPerPixel - 1 do
+                                let byteOffset =
+                                    (column * samplesPerPixel + band) * 2
+
+                                bands.[band].[pixelIndex] <-
+                                    BitConverter.ToUInt16(scanline, byteOffset)
+
+                    Result.Ok {
+                        width = width
+                        height = height
+                        bands = samplesPerPixel
+                        format = Format.Uint16
+                        buffers = PixelBuffers.UInt16Bands bands
+                    }
+
+        with error ->
+            Result.Error error.Message
+
+
+    let tryReadMultiBandTiff
+        (path : string)
+        (forceByteSwap : bool)
+        : Result<TiffReadResult, string> =
+
+        try
+            match MultiBandReader.tryReadMultiBandTiff path forceByteSwap with
+            | Result.Ok image ->
+                Result.Ok image
+
+            | Result.Error _ ->
+                tryReadContiguousUInt16Tiff path
+
+        with _ ->
+            tryReadContiguousUInt16Tiff path
 
     let  getBandAsFloat
         (bandIndex : int)
@@ -50,9 +145,14 @@ module TiffLoader =
             InstrumentMetadata.tryParseMetadataForImagePath fullPath
 
         let channelCount =
-            match tiffJson with
-            | Some metadata -> max 1 metadata.channels
-            | None -> 1
+            match MultiBandReader.tryGetChannels fullPath with
+            | Some info ->
+                max 1 info.channels
+
+            | None ->
+                match tiffJson with
+                | Some metadata -> max 1 metadata.channels
+                | None -> 1
 
         let wavelengths =
             let jsonPath = Path.ChangeExtension(texturePath, ".json")

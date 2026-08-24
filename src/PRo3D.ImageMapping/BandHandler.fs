@@ -90,7 +90,7 @@ module BandHandler =
                             }
 
             else
-                match MultiBandReader.tryReadMultiBandTiff source.filePath false with
+                match TiffLoader.tryReadMultiBandTiff source.filePath false with
                 | Result.Error error ->
                     Result.Error error
 
