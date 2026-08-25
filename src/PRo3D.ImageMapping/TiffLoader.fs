@@ -155,7 +155,7 @@ module TiffLoader =
                 | None -> 1
 
         let wavelengths =
-            let jsonPath = Path.ChangeExtension(texturePath, ".json")
+            let jsonPath = Path.ChangeExtension(fullPath, ".json")
 
             if File.Exists jsonPath then
                 tryReadWavelengthsFromJson jsonPath
@@ -228,6 +228,11 @@ module TiffLoader =
                     wavelengths
                     |> List.tryItem channelIndex
 
+                Log.warn
+                    "Loaded TIFF band %d with wavelength %A"
+                    channelIndex
+                    wavelength
+
                 let channel =
                     {
                         idx = channelIndex
@@ -235,7 +240,7 @@ module TiffLoader =
                     }
               
                 createBandImage
-                    texturePath
+                    fullPath
                     channelIndex
                     channel
                     wavelength

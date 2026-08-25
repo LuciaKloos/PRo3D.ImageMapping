@@ -508,30 +508,22 @@ module SpectralAnalysis =
                         None
 
                     | Result.Ok band ->
-                        match 
-                            averageSignal band.values, 
-                            band.source.wavelength 
-                        with
+                        match averageSignal band.values with
+                        | Some average ->
+                            let xValue = float (selectedBandIndex + 1)
 
-                        | Some average, Some wavelength ->
                             Some {
-                                wavelength = wavelength
-                                count = band.values.Length
-                                fraction = average
+                                wavelength = xValue
+                                value = average
                                 color = color
                             }
-                        | None, _ ->
+
+                        | None ->
                             Log.warn
                                 "Band %d contains no valid values"
                                 selectedBandIndex
 
                             None
-                        | _, None ->
-                            Log.warn
-                                "Band %d contains no valid pixel values"
-                                selectedBandIndex
-
-                            None  
                                 
             )
             |> Array.sortBy (fun point -> point.wavelength)
@@ -545,12 +537,18 @@ module SpectralAnalysis =
         let spectralPoints = computeSpectralPoints sources label color bandIndices            
 
         if Array.isEmpty spectralPoints then
+            Log.warn
+                "The spectralPoints are empty"
             {
                 label = label
                 wavelengthSpan = None
                 spectralProfile = [||]
             }
         else
+            Log.warn
+                "Spectral profile point 0 has average value %f"
+                spectralPoints[0].value
+
             let minimumWavelength =
                 spectralPoints.[0].wavelength
 
@@ -637,27 +635,17 @@ module SpectralAnalysis =
                                 else
                                     Some (Array.average validRatios)
 
-                        match
-                            numerator.source.wavelength,
-                            averageRatio
-                        with
-                        | Some wavelength, Some ratio ->
+                        match averageRatio with
+                        | Some ratio ->
+                            let xValue = float (numeratorIndex + 1)
 
                             Some {
-                                wavelength = wavelength
-                                count = ratioValues.Length
-                                fraction = ratio
+                                wavelength = xValue
+                                value = ratio
                                 color = color
                             }
 
-                        | None, _ ->
-                            Log.warn
-                                "Numerator band %d has no wavelength"
-                                numeratorIndex
-
-                            None
-
-                        | _, None ->
+                        | None ->
                             Log.warn
                                 "Ratio %d/%d has no valid values"
                                 numeratorIndex
@@ -793,7 +781,7 @@ module SpectralAnalysis =
                             m.transferFunctionMapping.selectedBand.GetValue token
                         |]
                         |> Array.choose id
-
+                    
                     [
                         computeMappedBand
                             sources
@@ -829,9 +817,9 @@ module SpectralAnalysis =
                         // wavelengths for the three broad colour channels.
                         let channels =
                             [|
-                                650.0, red
-                                550.0, green
-                                475.0, blue
+                                1.0, red
+                                2.0, green
+                                3.0, blue
                             |]
 
                         let spectralPoints =
@@ -841,8 +829,7 @@ module SpectralAnalysis =
                                 | Some average ->
                                     Some {
                                         wavelength = wavelength
-                                        count = values.Length
-                                        fraction = average
+                                        value = average
                                         color = "#ffffff"
                                     }
 
@@ -931,74 +918,118 @@ module SpectralAnalysis =
             let wavelengthRange =
                 maximumWavelength - minimumWavelength
 
-            let toX wavelength =
-                leftPadding +
-                (wavelength - minimumWavelength) /
-                wavelengthRange *
-                plotWidth
+            let allSpectralPoints =
+                validProfiles
+                |> List.collect (fun (profile, _, _) ->
+                    profile.spectralProfile
+                    |> Array.toList
+                )
 
-            let toY fraction =
+
+            
+            let maximumValue =
+                allSpectralPoints
+                |> List.map (fun point -> point.value)
+                |> List.filter Double.IsFinite
+                |> function
+                    | [] ->
+                        1.0
+
+                    | values ->
+                        let maximum = List.max values
+
+                        // Keep the scale valid if all values are zero or negative.
+                        if maximum > 0.0 then maximum else 1.0
+
+            let toX wavelength =
+                if wavelengthRange <= 0.0 then
+                    leftPadding + plotWidth / 2.0
+                else
+                    leftPadding +
+                    (wavelength - minimumWavelength) /
+                    wavelengthRange *
+                    plotWidth
+
+            let toY value =
                 topPadding +
-                (1.0 - fraction) * plotHeight
+                (1.0 - value / maximumValue) *
+                plotHeight
+
 
             let createPolylinePoints
                 (profile : RGBSelectedBandSpectralProfile)
                 =
-
                 profile.spectralProfile
                 |> Array.map (fun point ->
                     sprintf
                         "%.2f,%.2f"
                         (toX point.wavelength)
-                        (toY point.fraction)
+                        (toY point.value)
                 )
                 |> String.concat " "
 
-            div [
-                clazz "ui inverted segment"
-                style "margin-top: 8px;"
-            ] [
+            let profileLines =
+                validProfiles
+                |> List.map (fun (profile, _, _) ->
+                    let color =
+                        profile.spectralProfile.[0].color
 
-                div [
-                    style "font-weight: bold; margin-bottom: 4px;"
-                ] [
-                    text (
-                        sprintf
-                            "RGB spectral profile (%.0f–%.0f nm)"
-                            minimumWavelength
-                            maximumWavelength
-                    )
-                ]
+                    let commonAttributes =
+                        [
+                            attribute "fill" "none"
+                            attribute "stroke" color
+                            attribute "stroke-width" "2"
+                        ]
 
-                let profileLines =
-                    validProfiles
-                    |> List.map (fun (profile, _, _) ->
-                        let polylinePoints =
-                            createPolylinePoints profile
+                    let commonAttributes =
+                        if profile.label.Contains("denominator") then
+                            attribute "stroke-dasharray" "5,4"
+                            :: commonAttributes
+                        else
+                            commonAttributes
 
-                        let color =
-                            profile.spectralProfile.[0].color
+                    if profile.spectralProfile.Length = 1 then
+                        // A one-point profile is shown as a horizontal line.
+                        let y =
+                            profile.spectralProfile.[0].value
+                            |> toY
 
-                        let lineAttributes =
+                        Svg.line (
                             [
-                                attribute "points" polylinePoints
-                                attribute "fill" "none"
-                                attribute "stroke" color
-                                attribute "stroke-width" "2"
+                                attribute "x1" (string leftPadding)
+                                attribute "y1" (string y)
+                                attribute "x2" (string (leftPadding + plotWidth))
+                                attribute "y2" (string y)
                             ]
+                            @ commonAttributes
+                        )
+                    else
+                        Svg.polyline (
+                            attribute
+                                "points"
+                                (createPolylinePoints profile)
+                            :: commonAttributes
+                        )
+                )
 
-                        let lineAttributes =
-                            if profile.label.Contains("denominator") then
-                                attribute "stroke-dasharray" "5,4"
-                                :: lineAttributes
-                            else
-                                lineAttributes
-
-                        Svg.polyline lineAttributes
+            let bandLabels =
+                allSpectralPoints
+                |> List.map (fun point -> point.wavelength)
+                |> List.distinct
+                |> List.sort
+                |> List.map (fun bandNumber ->
+                    Svg.text [
+                        attribute "x" (string (toX bandNumber))
+                        attribute "y" (string (height - 10.0))
+                        attribute "text-anchor" "middle"
+                        attribute "font-size" "10"
+                        attribute "fill" "#aaa"
+                    ] (
+                        sprintf "Band %.0f" bandNumber
                     )
+                )
 
-
-                let axisAndLabels =
+            let axisAndLabels =
                     [
                         // Y axis
                         Svg.line [
@@ -1018,27 +1049,6 @@ module SpectralAnalysis =
                             attribute "stroke" "#777"
                         ]
 
-                        // Minimum wavelength
-                        Svg.text [
-                            attribute "x" (string leftPadding)
-                            attribute "y" (string (height - 10.0))
-                            attribute "font-size" "10"
-                            attribute "fill" "#aaa"
-                        ] (
-                            sprintf "%.0f nm" minimumWavelength
-                        )
-
-                        // Maximum wavelength
-                        Svg.text [
-                            attribute "x" (string (leftPadding + plotWidth))
-                            attribute "y" (string (height - 10.0))
-                            attribute "text-anchor" "end"
-                            attribute "font-size" "10"
-                            attribute "fill" "#aaa"
-                        ] (
-                            sprintf "%.0f nm" maximumWavelength
-                        )
-
                         // Y = 1
                         Svg.text [
                             attribute "x" (string (leftPadding - 6.0))
@@ -1046,7 +1056,7 @@ module SpectralAnalysis =
                             attribute "text-anchor" "end"
                             attribute "font-size" "10"
                             attribute "fill" "#aaa"
-                        ] "1.0"
+                        ] (sprintf "%.2f" maximumValue)
 
                         // Y = 0
                         Svg.text [
@@ -1071,8 +1081,20 @@ module SpectralAnalysis =
                             attribute "text-anchor" "middle"
                             attribute "font-size" "10"
                             attribute "fill" "#aaa"
-                        ] "Relative frequency"
-                    ]
+                        ] "Average signal"
+                    ] @ bandLabels
+
+            div [
+                clazz "ui inverted segment"
+                style "margin-top: 8px;"
+            ] [
+                div [
+                    style "font-weight: bold; margin-bottom: 4px;"
+                ] [
+                    text (
+                        sprintf "Spectral Profile of the selected Band(s)"
+                    )
+                ]
 
                 Svg.svg [
                     attribute "viewBox"
@@ -1084,28 +1106,27 @@ module SpectralAnalysis =
                 )
 
                 // Small legend
-                // TODO: make fit to different modes
-                div [
-                    style "margin-top: 4px; font-size: 11px;"
-                ] [
-                    span [
-                        style "color: #ff5c5c; margin-right: 12px;"
-                    ] [
-                        text "R"
-                    ]
+                //div [
+                //    style "margin-top: 4px; font-size: 11px;"
+                //] [
+                //    span [
+                //        style "color: #ff5c5c; margin-right: 12px;"
+                //    ] [
+                //        text "R"
+                //    ]
 
-                    span [
-                        style "color: #5cff7a; margin-right: 12px;"
-                    ] [
-                        text "G"
-                    ]
+                //    span [
+                //        style "color: #5cff7a; margin-right: 12px;"
+                //    ] [
+                //        text "G"
+                //    ]
 
-                    span [
-                        style "color: #5c8dff;"
-                    ] [
-                        text "B"
-                    ]
-                ]
+                //    span [
+                //        style "color: #5c8dff;"
+                //    ] [
+                //        text "B"
+                //    ]
+                //]
             ]
 
 

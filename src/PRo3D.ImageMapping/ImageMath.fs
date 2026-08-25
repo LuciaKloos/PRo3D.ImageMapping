@@ -367,8 +367,7 @@ module ImageMath =
 
                 {
                     wavelength = wavelength
-                    count = bin.count
-                    fraction = bin.fraction
+                    value = bin.fraction
                     color = color
                 }
             )
