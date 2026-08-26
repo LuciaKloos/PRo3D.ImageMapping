@@ -125,7 +125,7 @@ module SpectralAnalysis =
                     [
                         {
                             label = "Transfer function"
-                            bandIndices = Some [||] // bandIndex
+                            bandIndices = Some [||] 
                             histogram = [||]
                         }
                     ]
@@ -136,7 +136,7 @@ module SpectralAnalysis =
                         [
                             {
                                 label = "Transfer function"
-                                bandIndices = Some [||] // bandIndex
+                                bandIndices = Some [||] 
                                 histogram =
                                     ImageMath.computeHistogram
                                         binCount
@@ -154,7 +154,7 @@ module SpectralAnalysis =
                         [
                             {
                                 label = "Transfer function"
-                                bandIndices = Some [||] // bandIndex
+                                bandIndices = Some [||] 
                                 histogram = [||]
                             }
                         ]
@@ -195,7 +195,7 @@ module SpectralAnalysis =
 
                             {
                                 label = label
-                                bandIndices = Some [||] // bandIndex
+                                bandIndices = Some [||]
                                 histogram = [||]
                             }
 
@@ -218,7 +218,7 @@ module SpectralAnalysis =
 
                                 {
                                     label = label
-                                    bandIndices = Some [||] // bandIndex
+                                    bandIndices = Some [||]
                                     histogram = [||]
                                 }
 
@@ -457,7 +457,7 @@ module SpectralAnalysis =
             (
                 alist {
                     yield div [
-                        style "font-weight: bold; margin-bottom: 8px;"
+                        style "font-size: 11px; color: #aaa;"
                     ] [
                         text title
                     ]
@@ -475,9 +475,12 @@ module SpectralAnalysis =
         let finiteValues =
             values
             |> Array.filter Double.IsFinite
+            |> Array.filter Double.IsPositive
         if Array.isEmpty finiteValues then
             None
         else
+            Log.warn "average signals: %f"
+               ( Array.average finiteValues)
             Some (Array.average finiteValues)
 
      let computeSpectralPoints 
@@ -685,11 +688,42 @@ module SpectralAnalysis =
 
                     spectralProfile = spectralPoints
                 }
+
+     let computeCompleteSpectralProfile
+        (m : AdaptiveModel)
+        : aval<RGBSelectedBandSpectralProfile> =
+
+        let adaptiveImages =
+            AList.toAVal m.images
+
+        AVal.custom (fun token ->
+            let images =
+                adaptiveImages.GetValue token
+
+            let sources =
+                readAdaptiveBandSources images token
+
+            let bandIndices =
+                sources
+                |> List.map (fun source -> source.logicalIndex)
+                |> List.distinct
+                |> List.sort
+                |> List.toArray
+
+            computeMappedBand
+                sources
+                "Complete spectral profile"
+                "#ffffff"
+                bandIndices
+        )
                 
      let computeRgbSpectralProfiles
         (m : AdaptiveModel)
         (sampleCount : int)
         : aval<RGBSelectedBandSpectralProfile list> =
+
+        let adaptiveImages =
+            AList.toAVal m.images
 
         AVal.custom (fun token ->
 
@@ -704,8 +738,7 @@ module SpectralAnalysis =
             | SourceImageKind.Multispectral ->
 
                 let images =
-                    m.images
-                    |> AList.force
+                    adaptiveImages.GetValue token
 
                 let sources =
                     readAdaptiveBandSources images token
@@ -863,8 +896,24 @@ module SpectralAnalysis =
                             ]
         )
 
+     let spectralProfileMaximum
+        (profile : RGBSelectedBandSpectralProfile)
+        =
+        profile.spectralProfile
+        |> Array.map (fun point -> point.value)
+        |> Array.filter Double.IsFinite
+        |> function
+            | [||] ->
+                1.0
+
+            | values ->
+                let maximum = Array.max values
+                if maximum > 0.0 then maximum else 1.0
+
      let rgbSpectralProfilesView
         (profiles : RGBSelectedBandSpectralProfile list)
+        (isCompleteProfile : bool)
+        (sharedMaximumValue : float)
         =
 
         let validProfiles =
@@ -928,18 +977,11 @@ module SpectralAnalysis =
 
             
             let maximumValue =
-                allSpectralPoints
-                |> List.map (fun point -> point.value)
-                |> List.filter Double.IsFinite
-                |> function
-                    | [] ->
-                        1.0
-
-                    | values ->
-                        let maximum = List.max values
-
-                        // Keep the scale valid if all values are zero or negative.
-                        if maximum > 0.0 then maximum else 1.0
+                if Double.IsFinite sharedMaximumValue &&
+                   sharedMaximumValue > 0.0 then
+                    sharedMaximumValue
+                else
+                    1.0
 
             let toX wavelength =
                 if wavelengthRange <= 0.0 then
@@ -1012,11 +1054,48 @@ module SpectralAnalysis =
                         )
                 )
 
-            let bandLabels =
+            let profileDots =
+                validProfiles
+                |> List.collect (fun (profile, _, _) ->
+                    profile.spectralProfile
+                    |> Array.map (fun point ->
+                        Svg.circle [
+                            attribute "cx" (string (toX point.wavelength))
+                            attribute "cy" (string (toY point.value))
+                            attribute "r" "3"
+                            attribute "fill" point.color
+                            attribute "stroke" "#222"
+                            attribute "stroke-width" "1"
+                        ]
+                    )
+                    |> Array.toList
+                )
+
+            let bandNumbers =
                 allSpectralPoints
                 |> List.map (fun point -> point.wavelength)
                 |> List.distinct
                 |> List.sort
+
+            let visibleBandNumbers =
+                if isCompleteProfile then
+                    match bandNumbers with
+                    | [] ->
+                        []
+
+                    | [ singleBand ] ->
+                        [ singleBand ]
+
+                    | bands ->
+                        [
+                            List.head bands
+                            List.last bands
+                        ]
+                else
+                    bandNumbers
+
+            let bandLabels =
+                visibleBandNumbers
                 |> List.map (fun bandNumber ->
                     Svg.text [
                         attribute "x" (string (toX bandNumber))
@@ -1025,7 +1104,7 @@ module SpectralAnalysis =
                         attribute "font-size" "10"
                         attribute "fill" "#aaa"
                     ] (
-                        sprintf "Band %.0f" bandNumber
+                        sprintf "%.0f" bandNumber
                     )
                 )
 
@@ -1048,6 +1127,18 @@ module SpectralAnalysis =
                             attribute "y2" (string (topPadding + plotHeight))
                             attribute "stroke" "#777"
                         ]
+
+                        // X-axis title
+                        Svg.text [
+                            attribute "x" 
+                                (string (topPadding + plotWidth / 2.0))
+                            attribute "y" 
+                                (string (bottomPadding * 1.5 + plotHeight))
+
+                            attribute "text-anchor" "middle"
+                            attribute "font-size" "10"
+                            attribute "fill" "#aaa"
+                        ] "Band Number"
 
                         // Y = 1
                         Svg.text [
@@ -1091,47 +1182,45 @@ module SpectralAnalysis =
                 div [
                     style "font-weight: bold; margin-bottom: 4px;"
                 ] [
-                    text (
-                        sprintf "Spectral Profile of the selected Band(s)"
-                    )
                 ]
+                if (isCompleteProfile) then
+                    Svg.svg [
+                        attribute "viewBox"
+                            (sprintf "0 0 %.0f %.0f" width height)
 
-                Svg.svg [
-                    attribute "viewBox"
-                        (sprintf "0 0 %.0f %.0f" width height)
+                        style "width: 100%; height: 160px;"
+                    ] (
+                        axisAndLabels @ profileLines
+                    )
+                else 
+                    Svg.svg [
+                        attribute "viewBox"
+                            (sprintf "0 0 %.0f %.0f" width height)
 
-                    style "width: 100%; height: 160px;"
-                ] (
-                    axisAndLabels @ profileLines
-                )
-
-                // Small legend
-                //div [
-                //    style "margin-top: 4px; font-size: 11px;"
-                //] [
-                //    span [
-                //        style "color: #ff5c5c; margin-right: 12px;"
-                //    ] [
-                //        text "R"
-                //    ]
-
-                //    span [
-                //        style "color: #5cff7a; margin-right: 12px;"
-                //    ] [
-                //        text "G"
-                //    ]
-
-                //    span [
-                //        style "color: #5c8dff;"
-                //    ] [
-                //        text "B"
-                //    ]
-                //]
+                        style "width: 100%; height: 160px;"
+                    ] (
+                        axisAndLabels @ profileLines @ profileDots
+                    )
             ]
 
+     let spectralProfileView
+        (profile : aval<RGBSelectedBandSpectralProfile>)
+        : DomNode<Message> =
+        Incremental.div
+            AttributeMap.empty
+            (
+                alist {
+                    let! item = profile 
+
+                    let maximumValue = spectralProfileMaximum item
+
+                    yield rgbSpectralProfilesView [ item ] true maximumValue
+                }
+            )
 
      let selectedSpectralProfilesView
         (profiles : aval<RGBSelectedBandSpectralProfile list>)
+        (completeProfile : aval<RGBSelectedBandSpectralProfile>)
         : DomNode<Message> =
 
         Incremental.div
@@ -1139,7 +1228,15 @@ module SpectralAnalysis =
             (
                 alist {
                     let! items = profiles
+                    let! completeItem = completeProfile
 
-                    yield rgbSpectralProfilesView items
+                    let maximumValue =
+                        spectralProfileMaximum completeItem
+
+                    yield
+                        rgbSpectralProfilesView
+                            items
+                            false
+                            maximumValue
                 }
             )

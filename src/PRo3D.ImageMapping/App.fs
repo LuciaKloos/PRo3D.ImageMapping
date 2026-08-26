@@ -721,7 +721,45 @@ module App =
         let rgbSelectedBandSpectralProfiles =
             computeRgbSpectralProfiles m 32
 
-        let histogramsForCurrentMode =
+        let allSpectralProfiles = 
+            computeCompleteSpectralProfile m
+
+        let spectralProfileOfAllBands =
+            Incremental.div
+                AttributeMap.empty
+                (
+                    alist {
+                        let! mode =
+                            m.visualizationMode
+
+                        let! sourceKind =
+                            m.sourceImageKind
+
+                        if sourceKind = SourceImageKind.Multispectral then
+                            yield
+                                div [
+                                    clazz "ui inverted segment"
+                                    style "margin-top: 10px;"
+                                ] [
+                                    div [
+                                        style "font-weight: bold; margin-bottom: 8px;"
+                                    ] [                                           
+                                    ]
+
+                                    div [
+                                        style "font-size: 11px; color: #aaa;"
+                                    ] [
+                                        text "Spectral Profile of all bands"
+                                    ]
+
+                                    spectralProfileView
+                                        allSpectralProfiles
+                                ]
+                    }
+                )
+
+        
+        let histogramsAndProfilesForCurrentMode =
             Incremental.div
                 AttributeMap.empty
                 (
@@ -735,12 +773,6 @@ module App =
                         match mode with
                         | VisualizationMode.RgbRatioComposite ->
                             yield
-                                selectedHistogramsView
-                                    "Currently selected RGB band histograms"
-                                    rgbRatioSelectedBandHistograms
-
-                            if sourceKind = SourceImageKind.Multispectral then
-                                yield
                                     div [
                                         clazz "ui inverted segment"
                                         style "margin-top: 10px;"
@@ -758,32 +790,59 @@ module App =
 
                                         selectedSpectralProfilesView
                                             rgbSelectedBandSpectralProfiles
+                                            allSpectralProfiles
                                     ]
-                        | VisualizationMode.RgbComposite ->
+
                             yield
                                 selectedHistogramsView
-                                    "Currently selected RGB band histograms"
-                                    rgbMappingSelectedBandHistogram
+                                    "Currently selected RGB band histograms and spectral profiles"
+                                    rgbRatioSelectedBandHistograms
 
-                            if sourceKind = SourceImageKind.Multispectral then
-                                yield
+                            
+                        | VisualizationMode.RgbComposite ->
+                            yield
                                     div [
                                         clazz "ui inverted segment"
                                         style "margin-top: 10px;"
                                     ] [
                                         div [
-                                            style "font-weight: bold; margin-bottom: 8px;"
-                                        ] []
+                                            style "font-size: 11px; color: #aaa;"
+                                        ] [
+                                            text "Spectral Profile of the selected bands"
+                                        ]
+
 
                                         selectedSpectralProfilesView
                                             rgbSelectedBandSpectralProfiles
+                                            allSpectralProfiles
                                     ]
 
+                            yield
+                                selectedHistogramsView
+                                    "Currently selected RGB band histograms and spectral profiles"
+                                    rgbMappingSelectedBandHistogram
+                                
                         | VisualizationMode.SingleBandTransferFunction ->
+                            yield
+                                    div [
+                                        clazz "ui inverted segment"
+                                        style "margin-top: 10px;"
+                                    ] [
+                                        div [
+                                            style "font-size: 11px; color: #aaa;"
+                                        ] [
+                                            text "Spectral Profile of the selected band"
+                                        ]
+
+                                        selectedSpectralProfilesView
+                                            rgbSelectedBandSpectralProfiles
+                                            allSpectralProfiles
+                                    ]
+
                             yield
                                 selectedHistogramsView
                                     (if sourceKind = SourceImageKind.Multispectral then
-                                        "Selected transfer-function band histogram"
+                                        "Selected transfer-function band histogram and spectral profile"
                                      else
                                         "Original image RGB channel histograms")
                                     (if sourceKind = SourceImageKind.Multispectral then
@@ -791,18 +850,6 @@ module App =
                                      else
                                         transferFunctionNonMultispectralRgbHistograms)
 
-                            yield
-                                div [
-                                    clazz "ui inverted segment"
-                                    style "margin-top: 10px;"
-                                ] [
-                                    div [
-                                        style "font-weight: bold; margin-bottom: 8px;"
-                                    ] []
-
-                                    selectedSpectralProfilesView
-                                        rgbSelectedBandSpectralProfiles
-                                ]
                     }
                 )
 
@@ -1285,9 +1332,9 @@ module App =
                             ]
                         ]
                     ]
-
                     accordionHist "Histograms" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
-                        histogramsForCurrentMode
+                        spectralProfileOfAllBands
+                        histogramsAndProfilesForCurrentMode
                     ]
 
                     onlyForMultispectral (
