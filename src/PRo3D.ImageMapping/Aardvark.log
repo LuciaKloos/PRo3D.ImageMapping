@@ -16,7 +16,7 @@
  0:     Skipped loading native dependencies for System.Private.Xml.Linq, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:     Skipped loading native dependencies for System.Private.Xml, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:     Unpacking native dependencies for Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.016 s
+ 0:   Loading native dependencies for Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.019 s
  0:   Skipped loading native dependencies for netstandard, Version=2.1.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:   Skipped loading native dependencies for FSharp.Data.Adaptive, Version=1.2.0.0, Culture=neutral, PublicKeyToken=null
  0:   Skipped loading native dependencies for Suave, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
@@ -26,7 +26,7 @@
  0:   Skipped loading native dependencies for FShade.Core, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
  0:   Loading native dependencies for Aardvark.Service, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Service, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Service, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:   Loading native dependencies for Aardvark.Service, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
  0:   Skipped loading native dependencies for System.Console, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   Skipped loading native dependencies for System.Runtime.Loader, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   Skipped loading native dependencies for System.Collections, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -82,7 +82,7 @@
  0:     [IsPlugin] Plugin found: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.FreeImage.dll
  0:     Loading native dependencies for Aardvark.PixImage.FreeImage, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null 
  0:       Unpacking native dependencies for Aardvark.PixImage.FreeImage, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
- 0:     Loading native dependencies for Aardvark.PixImage.FreeImage, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:     Loading native dependencies for Aardvark.PixImage.FreeImage, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
  0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.Pfim.dll
  0:     [IsPlugin] Plugin found: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.Pfim.dll
  0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.Common.dll
@@ -134,10 +134,10 @@
  0:     Skipped loading native dependencies for System.Collections.Immutable, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     Skipped loading native dependencies for System.IO.MemoryMappedFiles, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.exe
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentData.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.exe
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentVisualization.dll
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentData.dll
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.dll
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.exe
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentVisualization.dll
  0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.SPICE.dll
  0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Silk.NET.Core.dll
  0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Silk.NET.GLFW.dll
@@ -145,7 +145,7 @@
  0:     [IsPlugin] Ignoring assembly Suave due to filter
  0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\TinyEXR.NET.dll
  0:     [IsPlugin] Ignoring assembly Unofficial.Typography due to filter
- 0:   Loading plugins .................................................................... 0.125 s
+ 0:   Loading plugins .................................................................... 0.420 s
  0:   [Introspection] Entry assembly: PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null (path: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.dll)
  0:   [Introspection] Ignoring assembly System.Runtime due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
@@ -243,7 +243,7 @@
  0:   [Introspection] Ignoring assembly FsPickler due to filter
  0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.017 s
+ 0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.018 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
@@ -307,12 +307,12 @@
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
+ 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.002 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FShade.Core due to filter
  0:   Loading native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:   Loading native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
  0:   [Introspection] Ignoring assembly System.Runtime due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
@@ -428,8 +428,8 @@
  0:     [cache hit ] Aardvark.Geometry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FsPickler.Json, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FSharp.Data.Json.Core, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0:     [cache hit ] FSharp.Data.Runtime.Utilities, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0:     [cache hit ] FSharp.Data.Http, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
@@ -449,7 +449,7 @@
  0:     [cache hit ] Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Silk.NET.GLFW, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Silk.NET.Core, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Rendering.Text, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Geometry.PolyMesh, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.IO, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -462,7 +462,7 @@
  0:     [cache hit ] FSys, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] HDF.PInvoke, Version=1.10.502.0, Culture=neutral, PublicKeyToken=18793c1fcffe58a3
  0:     installing pickler: Aardvark.Base.Picklers.AdaptivePicklers
- 0:   Initializing CustomPicklerProvider ................................................. 0.054 s
+ 0:   Initializing CustomPicklerProvider ................................................. 0.083 s
  0:     [cache hit ] Aardvark.Base, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:   Initializing Constants ............................................................. 0.001 s
  0:     [cache hit ] SingleFileExtractor.Core, Version=2.2.1.0, Culture=neutral, PublicKeyToken=null
@@ -483,8 +483,8 @@
  0:     [cache hit ] Aardvark.Geometry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FsPickler.Json, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FSharp.Data.Json.Core, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0:     [cache hit ] FSharp.Data.Runtime.Utilities, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0:     [cache hit ] FSharp.Data.Http, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
@@ -493,7 +493,7 @@
  0:     [cache hit ] Aardvark.Data.Opc, Version=0.11.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] TinyEXR.NET, Version=0.3.11.0, Culture=neutral, PublicKeyToken=9b5ae88730b3cee9
  0:     [cache hit ] Aardvark.PixImage.Pfim, Version=0.9.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Initializing PixImagePfim .......................................................... 0.011 s
+ 0:   Initializing PixImagePfim .......................................................... 0.010 s
  0:     [cache hit ] Pfim, Version=0.11.3.0, Culture=neutral, PublicKeyToken=c0ebc20d008ae134
  0:     [cache hit ] Aardvark.PixImage.DevIL, Version=5.2.0.0, Culture=neutral, PublicKeyToken=null
  0:   Initializing PixImageDevil .................................................................
@@ -501,7 +501,7 @@
  0:       C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
  0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
  0:     [Introspection] loaded native library DevIL from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64\DevIL.dll
- 0:   Initializing PixImageDevil ......................................................... 0.013 s
+ 0:   Initializing PixImageDevil ......................................................... 0.014 s
  0:     [cache hit ] DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Fonts, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -511,7 +511,7 @@
  0:     [cache hit ] Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Silk.NET.GLFW, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Silk.NET.Core, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Rendering.Text, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Geometry.PolyMesh, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.IO, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -538,11 +538,11 @@
  0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
  0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
  0:     [Introspection] loaded native library FreeImage from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64\FreeImage.dll
- 0:   Initializing PixImageFreeImage ..................................................... 0.023 s
- 0: initializing aardvark ........................................................ [0.14x] 0.465 s
+ 0:   Initializing PixImageFreeImage ..................................................... 0.032 s
+ 0: initializing aardvark ........................................................ [0.11x] 0.829 s
  0: Initializing Aardium .........................................................................
  0:   Binary: C:\Users\lucia\AppData\Local\Aardium\x64\2.1.2\tools\Aardium.exe
- 0: Initializing Aardium ................................................................. 0.026 s
+ 0: Initializing Aardium ................................................................. 0.027 s
  0: log path for coo trafo: .\logs\CooTrafo.Log
  0: probing paths for CooTransformation
  0:   C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
@@ -869,7 +869,7 @@
  0:     C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
  0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
  0:   [Introspection] loaded native library kernel32.dll from kernel32.dll
- 0: initializing OpenGL runtime .......................................................... 0.033 s
+ 0: initializing OpenGL runtime .......................................................... 0.044 s
  0: Trying to resolve assembly: FSharp.Core.resources, Version=9.0.0.0, Culture=de-DE, PublicKeyToken=b03f5f7f11d50a3a - not found
  0: Skipped loading native dependencies for System.ObjectModel, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: Skipped loading native dependencies for System.Runtime.Intrinsics, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
@@ -898,9 +898,9 @@
  0: [cache hit ] Aardvark.Geometry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] FsPickler.Json, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
- 0: [cache hit ] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0: [cache miss] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0: WARNING: unexpected rule: FSharp.Data.Adaptive.IAdaptiveValue`1[Aardvark.Base.Trafo3d] ComputeModelViewProj(Microsoft.FSharp.Core.FSharpFunc`2[System.String,FSharp.Data.Adaptive.IAdaptiveValue`1[Microsoft.FSharp.Core.FSharpOption`1[Aardvark.Base.Trafo3d]]], System.String, FSharp.Data.Adaptive.IAdaptiveValue`1[Aardvark.Base.Trafo3d])
- 0: [cache hit ] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0: [cache miss] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] FSharp.Data.Json.Core, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0: [cache hit ] FSharp.Data.Runtime.Utilities, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0: [cache hit ] FSharp.Data.Http, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
@@ -920,7 +920,7 @@
  0: [cache hit ] Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Silk.NET.GLFW, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Silk.NET.Core, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
- 0: [cache hit ] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0: [cache miss] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Rendering.Text, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Geometry.PolyMesh, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Base.IO, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -1041,7 +1041,7 @@
  2: WARNING: The spectralPoints are empty
  2: Skipped loading native dependencies for System.Web.HttpUtility, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  3: Skipped loading native dependencies for System.Globalization, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: [Server] created client for (1a094311-fc3d-a600-a5e6-1bf612623925/n5), mapping enabled
+ 3: [Server] created client for (617b2ee1-de04-8e94-22b7-233e027332e6/n5), mapping enabled
  3: [Client] 1: running n5
  3: Skipped loading native dependencies for System.Runtime.Numerics, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  3: Skipped loading native dependencies for System.Reflection, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -1054,7 +1054,7 @@
  4:   C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
  4:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
  4: [Introspection] loaded native library jitmem from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64\jitmem.dll
- 4: [GL] Reading shader program file cache 'C:\Users\lucia\AppData\Local\Aardvark\Cache\Shaders\OpenGL\5a7de485-f0ab-be12-6c02-19be5075591e.bin: success 0.033 s
+ 4: [GL] Reading shader program file cache 'C:\Users\lucia\AppData\Local\Aardvark\Cache\Shaders\OpenGL\5a7de485-f0ab-be12-6c02-19be5075591e.bin: success 0.086 s
  4: Skipped loading native dependencies for System.Reflection.Emit, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  5: Trying to resolve assembly: System.Text.Json.resources, Version=9.0.0.0, Culture=de-DE, PublicKeyToken=cc7b13ffcd2ddd51 - not found
  5: Trying to resolve assembly: System.Text.Json.resources, Version=9.0.0.0, Culture=de, PublicKeyToken=cc7b13ffcd2ddd51 - not found
@@ -1064,11 +1064,500 @@
  5: WARNING: Loaded TIFF band 2 with wavelength None
  5: WARNING: Loaded TIFF band 3 with wavelength None
  5: WARNING: Loaded 4 image bands from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
- 2: WARNING: average signals: 944.294081
- 2: WARNING: average signals: 1887.295661
- 2: WARNING: average signals: 1267.827001
- 2: WARNING: average signals: 13638.051367
- 2: WARNING: Spectral profile point 0 has average value 944.294081
- 2: WARNING: average signals: 944.294081
- 2: WARNING: Spectral profile point 0 has average value 944.294081
- 1: [Client] 1: stopped
+ 2: WARNING: TIFF CACHE MISS: decoding all channels from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
+ 2: WARNING: STATISTICS CACHE MISS: scanning 8567692 pixels
+ 2: WARNING: STATISTICS CACHE MISS: scanning 8567692 pixels
+ 2: WARNING: STATISTICS CACHE MISS: scanning 8567692 pixels
+ 2: WARNING: STATISTICS CACHE MISS: scanning 8567692 pixels
+ 5: WARNING: Default NetCDF RGB ratio bands: R=Some 5/Some 4, G=Some 3/Some 2, B=Some 1/Some 0
+ 5: WARNING: Loaded 285 image bands from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 0 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 1 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 2 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 3 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 4 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 5 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 6 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 7 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 8 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 9 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 10 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 11 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 12 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 13 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 14 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 15 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 16 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 17 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 18 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 19 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 20 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 21 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 22 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 23 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 24 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 25 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 26 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 27 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 28 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 29 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 30 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 31 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 32 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 33 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 34 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 35 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 36 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 37 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 38 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 39 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 40 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 41 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 42 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 43 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 44 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 45 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 46 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 47 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 48 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 49 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 50 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 51 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 52 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 53 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 54 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 55 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 56 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 57 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 58 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 59 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 60 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 61 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 62 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 63 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 64 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 65 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 66 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 67 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 68 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 69 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 70 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 71 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 72 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 73 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 74 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 75 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 76 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 77 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 78 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 79 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 80 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 81 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 82 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 83 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 84 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 85 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 86 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 87 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 88 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 89 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 90 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 91 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 92 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 93 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 94 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 95 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 96 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 97 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 98 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 99 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 100 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 101 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 102 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 103 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 104 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 105 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 106 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 107 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 108 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 109 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 110 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 111 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 112 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 113 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 114 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 115 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 116 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 117 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 118 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 119 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 120 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 121 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 122 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 123 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 124 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 125 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 126 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 127 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 128 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 129 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 130 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 131 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 132 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 132 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 133 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 133 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 134 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 134 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 135 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 135 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 136 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 136 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 137 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 137 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 138 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 138 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 139 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 140 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 141 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 142 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 143 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 144 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 145 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 146 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 147 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 148 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 149 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 150 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 151 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 152 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 153 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 154 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 155 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 156 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 157 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 158 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 159 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 160 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 161 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 162 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 163 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 164 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 165 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 166 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 167 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 168 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 169 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 170 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 171 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 172 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 173 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 174 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 175 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 176 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 177 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 178 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 179 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 180 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 181 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 182 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 183 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 184 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 185 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 186 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 187 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 188 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 189 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 190 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 191 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 191 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 192 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 192 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 193 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 193 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 194 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 194 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 195 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 195 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 196 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 196 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 197 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 197 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 198 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 198 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 199 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 199 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 200 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 200 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 201 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 201 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 202 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 202 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 203 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 203 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 204 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 204 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 205 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 205 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 206 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 206 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 207 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 207 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 208 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 208 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 209 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 209 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 210 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 210 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 211 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 211 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 212 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 212 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 213 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: Band 213 contains no positive finite values
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 214 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 215 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 216 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 217 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 218 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 219 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 220 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 221 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 222 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 223 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 224 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 225 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 226 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 227 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 228 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 2: WARNING: STATISTICS CACHE MISS: scanning 1589760 pixels
+ 2: WARNING: NETCDF CACHE MISS: decoding channel 229 from C:\Users\lucia\VrVis\20260618T024545_2616902_016\EMIT_L2A_RFL_001_20260618T024545_2616902_016.nc
+ 6: [Client] 1: stopped

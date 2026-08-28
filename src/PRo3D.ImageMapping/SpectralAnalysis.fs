@@ -471,17 +471,17 @@ module SpectralAnalysis =
 
     // SPECTRAL PROFILES
 
-     let averageSignal (values : float[]) =
-        let finiteValues =
-            values
-            |> Array.filter Double.IsFinite
-            |> Array.filter Double.IsPositive
-        if Array.isEmpty finiteValues then
-            None
-        else
-            Log.warn "average signals: %f"
-               ( Array.average finiteValues)
-            Some (Array.average finiteValues)
+     let averageSignal (values: float[]) =
+        let mutable sum = 0.0
+        let mutable count = 0L
+
+        for value in values do
+            if Double.IsFinite value && value > 0.0 then
+                sum <- sum + value
+                count <- count + 1L
+
+        if count = 0L then None
+        else Some (sum / float count)
 
      let computeSpectralPoints 
         sources
@@ -500,7 +500,7 @@ module SpectralAnalysis =
 
                     None
                 else
-                    match readLogicalBand sources selectedBandIndex with
+                    match readLogicalBandStatistics sources selectedBandIndex with
                     | Result.Error error ->
                         Log.warn
                             "Could not compute spectral point for %s band %d: %s"
@@ -510,8 +510,8 @@ module SpectralAnalysis =
 
                         None
 
-                    | Result.Ok band ->
-                        match averageSignal band.values with
+                    | Result.Ok statistics ->
+                        match statistics.positiveFiniteMean with
                         | Some average ->
                             let xValue = float (selectedBandIndex + 1)
 
@@ -523,11 +523,10 @@ module SpectralAnalysis =
 
                         | None ->
                             Log.warn
-                                "Band %d contains no valid values"
+                                "Band %d contains no positive finite values"
                                 selectedBandIndex
 
-                            None
-                                
+                            None            
             )
             |> Array.sortBy (fun point -> point.wavelength)
 
@@ -547,10 +546,7 @@ module SpectralAnalysis =
                 wavelengthSpan = None
                 spectralProfile = [||]
             }
-        else
-            Log.warn
-                "Spectral profile point 0 has average value %f"
-                spectralPoints[0].value
+        else           
 
             let minimumWavelength =
                 spectralPoints.[0].wavelength
@@ -569,6 +565,27 @@ module SpectralAnalysis =
 
                 spectralProfile = spectralPoints
             }
+
+     let averageRatio (numerator: float[]) (denominator: float[]) =
+        let count = min numerator.Length denominator.Length
+        let mutable sum = 0.0
+        let mutable validCount = 0L
+
+        for i = 0 to count - 1 do
+            let n = numerator.[i]
+            let d = denominator.[i]
+
+            if Double.IsFinite n &&
+               Double.IsFinite d &&
+               abs d > 1.0e-12 then
+                let ratio = n / d
+
+                if Double.IsFinite ratio then
+                    sum <- sum + ratio
+                    validCount <- validCount + 1L
+
+        if validCount = 0L then None
+        else Some (sum / float validCount)
 
      let computeRatioBand
         sources
@@ -607,36 +624,7 @@ module SpectralAnalysis =
                                 numerator.values.Length
                                 denominator.values.Length
 
-                        // Calculate the ratio separately for every pixel.
-                        let ratioValues =
-                            Array.init valueCount (fun pixelIndex ->
-                                let numeratorValue =
-                                    numerator.values.[pixelIndex]
-
-                                let denominatorValue =
-                                    denominator.values.[pixelIndex]
-
-                                if
-                                    Double.IsFinite numeratorValue &&
-                                    Double.IsFinite denominatorValue &&
-                                    abs denominatorValue > 1.0e-12
-                                then
-                                    numeratorValue / denominatorValue
-                                else
-                                    Double.NaN
-                            )
-
-
-
-                        // One Y value representing the entire ratio image.
-                        let averageRatio =
-                            ratioValues
-                            |> Array.filter Double.IsFinite
-                            |> fun validRatios ->
-                                if Array.isEmpty validRatios then
-                                    None
-                                else
-                                    Some (Array.average validRatios)
+                        let averageRatio = averageRatio numerator.values denominator.values
 
                         match averageRatio with
                         | Some ratio ->

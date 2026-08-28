@@ -13,10 +13,318 @@ open PRo3D.InstrumentProjection
 open ImageMath
 open NetCdfLoader
 
+open System.Collections.Concurrent
+open System.Threading
+
 open PRo3D.ImageMapping.TiffLoader
 
 module BandHandler =
     
+    type BandStatistics =
+        {
+            finiteCount        : int64
+            positiveFiniteCount: int64
+            minimum            : float option
+            maximum            : float option
+            positiveFiniteMean : float option
+        }
+
+    type private CachedBandPayload =
+        {
+            width  : int
+            height : int
+            values : float[]
+            statistics : Lazy<BandStatistics>
+        }
+
+    let private computeBandStatistics
+        (values: float[])
+        : BandStatistics =
+
+        Log.warn "STATISTICS CACHE MISS: scanning %d pixels" values.Length
+
+        let mutable finiteCount = 0L
+        let mutable positiveFiniteCount = 0L
+
+        let mutable minimum =
+            Double.PositiveInfinity
+
+        let mutable maximum =
+            Double.NegativeInfinity
+
+        let mutable positiveFiniteSum = 0.0
+
+        for value in values do
+            if Double.IsFinite value then
+                finiteCount <- finiteCount + 1L
+                minimum <- min minimum value
+                maximum <- max maximum value
+
+                if value > 0.0 then
+                    positiveFiniteCount <-
+                        positiveFiniteCount + 1L
+
+                    positiveFiniteSum <-
+                        positiveFiniteSum + value
+
+        {
+            finiteCount = finiteCount
+            positiveFiniteCount = positiveFiniteCount
+
+            minimum =
+                if finiteCount = 0L then
+                    None
+                else
+                    Some minimum
+
+            maximum =
+                if finiteCount = 0L then
+                    None
+                else
+                    Some maximum
+
+            positiveFiniteMean =
+                if positiveFiniteCount = 0L then
+                    None
+                else
+                    Some (
+                        positiveFiniteSum /
+                        float positiveFiniteCount
+                    )
+        }
+
+    let private createCachedBandPayload
+        (width: int)
+        (height: int)
+        (values: float[])
+        : CachedBandPayload =
+
+        {
+            width = width
+            height = height
+            values = values
+
+            statistics =
+                Lazy<BandStatistics>(
+                    (fun () ->
+                        computeBandStatistics values
+                    ),
+                    LazyThreadSafetyMode.ExecutionAndPublication
+                )
+        }
+
+    [<Struct>]
+    type private BandPayloadCacheKey =
+        {
+            filePath       : string
+            channelIndex   : int
+            fileLength     : int64
+            lastWriteTicks : int64
+        }
+
+    [<Struct>]
+    type private TiffPayloadCacheKey =
+        {
+            filePath       : string
+            fileLength     : int64
+            lastWriteTicks : int64
+        }
+    
+    let private decodedPayloadCache =
+        ConcurrentDictionary<
+            BandPayloadCacheKey,
+            Lazy<Result<CachedBandPayload, string>>>()
+
+    let private decodedTiffPayloadCache =
+        ConcurrentDictionary<
+            TiffPayloadCacheKey,
+            Lazy<Result<CachedBandPayload[], string>>>()
+
+    let clearDecodedBandCache () =
+        decodedPayloadCache.Clear()
+        decodedTiffPayloadCache.Clear()
+
+    let private createPayloadCacheKey (source: RgbBandSource) =
+        let fullPath = Path.GetFullPath source.filePath
+        let fileInfo = FileInfo fullPath
+
+        {
+            filePath = fullPath
+            channelIndex = source.channelIndex
+            fileLength = fileInfo.Length
+            lastWriteTicks = fileInfo.LastWriteTimeUtc.Ticks
+        }
+
+    let private createTiffPayloadCacheKey (filePath: string) =
+        let fullPath = Path.GetFullPath filePath
+        let fileInfo = FileInfo fullPath
+
+        {
+            filePath = fullPath
+            fileLength = fileInfo.Length
+            lastWriteTicks = fileInfo.LastWriteTimeUtc.Ticks
+        }
+
+    let private decodeNcBandPayload
+        (source: RgbBandSource)
+        : Result<CachedBandPayload, string> =
+
+        Log.warn
+            "NETCDF CACHE MISS: decoding channel %d from %s"
+            source.channelIndex
+            source.filePath
+
+        try
+            match tryReadNcDatasetInfoUncached source.filePath with
+            | Result.Error error ->
+                Result.Error error
+
+            | Result.Ok info ->
+                match
+                    readNcBandAsFloat
+                        source.filePath
+                        info.datasetPath
+                        source.channelIndex
+                with
+                | Result.Error error ->
+                    Result.Error error
+
+                | Result.Ok (width, height, _, values) ->
+                    createCachedBandPayload
+                        width
+                        height
+                        values
+                    |> Result.Ok
+
+        with error ->
+            Result.Error error.Message
+
+    let private decodeAllTiffPayloads
+        (filePath: string)
+        : Result<CachedBandPayload[], string> =
+
+        Log.warn "TIFF CACHE MISS: decoding all channels from %s" filePath
+
+        try
+            match TiffLoader.tryReadMultiBandTiff filePath false with
+            | Result.Error error ->
+                Result.Error error
+
+            | Result.Ok image ->
+                Array.init image.bands (fun channelIndex ->
+                    let values = 
+                        TiffLoader.getBandAsFloat
+                            channelIndex
+                            image
+
+                    createCachedBandPayload
+                        image.width
+                        image.height
+                        values
+                )
+                |> Result.Ok
+
+        with error ->
+            Result.Error error.Message
+
+    let private readCachedNcBandPayload
+        (source: RgbBandSource)
+        : Result<CachedBandPayload, string> =
+
+        try
+            let key = createPayloadCacheKey source
+
+            let lazyPayload =
+                decodedPayloadCache.GetOrAdd(
+                    key,
+                    fun _ ->
+                        Lazy<Result<CachedBandPayload, string>>(
+                            (fun () -> decodeNcBandPayload source),
+                            LazyThreadSafetyMode.ExecutionAndPublication
+                        )
+                )
+
+            let result = lazyPayload.Value
+
+            // Allow transient failures to be retried later.
+            match result with
+            | Result.Ok _ ->
+                result
+
+            | Result.Error _ ->
+                let mutable removed =
+                    Unchecked.defaultof<
+                        Lazy<Result<CachedBandPayload, string>>
+                    >
+
+                decodedPayloadCache.TryRemove(key, &removed)
+                |> ignore
+
+                result
+
+        with error ->
+            Result.Error error.Message
+
+    let private readCachedTiffBandPayload
+        (source: RgbBandSource)
+        : Result<CachedBandPayload, string> =
+
+        try
+            let key =
+                createTiffPayloadCacheKey source.filePath
+
+            let lazyPayloads =
+                decodedTiffPayloadCache.GetOrAdd(
+                    key,
+                    fun _ ->
+                        Lazy<Result<CachedBandPayload[], string>>(
+                            (fun () ->
+                                decodeAllTiffPayloads key.filePath
+                            ),
+                            LazyThreadSafetyMode.ExecutionAndPublication
+                        )
+                )
+
+            match lazyPayloads.Value with
+            | Result.Error error ->
+                let mutable removed =
+                    Unchecked.defaultof<
+                        Lazy<Result<CachedBandPayload[], string>>
+                    >
+
+                decodedTiffPayloadCache.TryRemove(key, &removed)
+                |> ignore
+
+                Result.Error error
+
+            | Result.Ok payloads ->
+                if
+                    source.channelIndex < 0 ||
+                    source.channelIndex >= payloads.Length
+                then
+                    Result.Error (
+                        sprintf
+                            "Channel %d in %s is outside the available range 0..%d."
+                            source.channelIndex
+                            source.filePath
+                            (payloads.Length - 1)
+                    )
+                else
+                    Result.Ok payloads.[source.channelIndex]
+
+        with error ->
+
+            Result.Error error.Message
+
+    let private readCachedBandPayload
+        (source: RgbBandSource)
+        : Result<CachedBandPayload, string> =
+
+        if isNcFile source.filePath then
+            readCachedNcBandPayload source
+        else
+            readCachedTiffBandPayload source
+
     let availableLogicalBandsMessage (sources : list<RgbBandSource>) =
         sources
         |> List.map (fun source -> source.logicalIndex)
@@ -24,7 +332,7 @@ module BandHandler =
         |> List.sort
         |> List.map string
         |> String.concat ", "
-
+          
     let readAdaptiveBandSources
         (images : IndexList<AdaptiveImage>)
         token =
@@ -44,77 +352,59 @@ module BandHandler =
         )
 
     let readBandSourceAsFloat
-        (source : RgbBandSource)
+        (source: RgbBandSource)
         : Result<RgbBandData, string> =
 
-        try
-            if String.IsNullOrWhiteSpace source.filePath then
-                Result.Error (
-                    sprintf
-                        "Logical band %d has no TIFF path."
-                        source.logicalIndex
-                )
+        if String.IsNullOrWhiteSpace source.filePath then
+            Result.Error (
+                sprintf
+                    "Logical band %d has no image path."
+                    source.logicalIndex
+            )
 
-            elif not (File.Exists source.filePath) then
-                Result.Error (
-                    sprintf
-                        "Image source for logical band %d does not exist: %s"
-                        source.logicalIndex
-                        source.filePath
-                )
+        elif not (File.Exists source.filePath) then
+            Result.Error (
+                sprintf
+                    "Image source for logical band %d does not exist: %s"
+                    source.logicalIndex
+                    source.filePath
+            )
 
-            elif isNcFile source.filePath then
-                match tryReadNcDatasetInfoUncached source.filePath with
-                | Result.Error error ->
-                    Result.Error error
+        else
+            readCachedBandPayload source
+            |> Result.map (fun payload ->
+                {
+                    source = source
+                    width = payload.width
+                    height = payload.height
+                    values = payload.values
+                }
+            )
 
-                | Result.Ok info ->
-                    match readNcBandAsFloat source.filePath info.datasetPath source.channelIndex with
-                    | Result.Error error ->
-                        Result.Error error
+    let readBandSourceStatistics
+        (source: RgbBandSource)
+        : Result<BandStatistics, string> =
 
-                    | Result.Ok (width, height, _, values) ->
-                        let values =
-                            match info.productKind with
-                            | Reflectance
-                            | ReflectanceUncertainty
-                            | Mask ->
-                                values
+        if String.IsNullOrWhiteSpace source.filePath then
+            Result.Error (
+                sprintf
+                    "Logical band %d has no image path."
+                    source.logicalIndex
+            )
 
-                        Result.Ok
-                            {
-                                source = source
-                                width = width
-                                height = height
-                                values = values
-                            }
+        elif not (File.Exists source.filePath) then
+            Result.Error (
+                sprintf
+                    "Image source for logical band %d does not exist: %s"
+                    source.logicalIndex
+                    source.filePath
+            )
 
-            else
-                match TiffLoader.tryReadMultiBandTiff source.filePath false with
-                | Result.Error error ->
-                    Result.Error error
-
-                | Result.Ok image ->
-                    if source.channelIndex < 0 || source.channelIndex >= image.bands then
-                        Result.Error (
-                            sprintf
-                                "Logical band %d points to channel %d in %s, but the available TIFF channel range is 0..%d."
-                                source.logicalIndex
-                                source.channelIndex
-                                source.filePath
-                                (image.bands - 1)
-                        )
-                    else
-                        Result.Ok
-                            {
-                                source = source
-                                width = image.width
-                                height = image.height
-                                values = getBandAsFloat source.channelIndex image
-                            }
-
-        with error ->
-            Result.Error error.Message
+        else
+            readCachedBandPayload source
+            |> Result.map (fun payload ->
+                payload.statistics.Value
+            )
 
 
     let readLogicalBand
@@ -130,6 +420,28 @@ module BandHandler =
             Result.Error (
                 sprintf
                     "Could not find logical RGB band %d. Available logical bands are: %s"
+                    logicalBandIndex
+                    (availableLogicalBandsMessage sources)
+            )
+
+    let readLogicalBandStatistics
+        (sources: list<RgbBandSource>)
+        (logicalBandIndex: int)
+        : Result<BandStatistics, string> =
+
+        match
+            sources
+            |> List.tryFind (fun source ->
+                source.logicalIndex = logicalBandIndex
+            )
+        with
+        | Some source ->
+            readBandSourceStatistics source
+
+        | None ->
+            Result.Error (
+                sprintf
+                    "Could not find logical band %d. Available logical bands are: %s"
                     logicalBandIndex
                     (availableLogicalBandsMessage sources)
             )
@@ -319,69 +631,3 @@ module BandHandler =
 
         with error ->
             Result.Error error.Message
-
-    //let readRgbSpectralProfile 
-    //    (imagePath : string)
-    //    (pixelX : int)
-    //    (pixelY : int) 
-    //    : Result<SpectralProfilePoint[], string> =
-
-    //    try
-    //        let image = 
-    //            PixImage<byte>(imagePath)
-    //                .ToPixImage<byte>(Col.Format.RGBA)
-
-    //        let width = image.Size.X
-    //        let height = image.Size.Y
-
-    //        if pixelX < 0 || pixelX >= width || pixelY < 0 || pixelY >= height then
-    //            Result.Error (sprintf "Pixel coordinates (%d, %d) are out of bounds for image size (%d, %d)." pixelX pixelY width height)
-    //        else
-    //            let pixels = image.GetMatrix<C4b>()
-    //            let pixel = pixels.[pixelX, pixelY]
-
-    //            Result.Ok
-    //                [|
-    //                    {
-    //                        label = "Red"
-    //                        wavelength = 650.0
-    //                        value = float pixel.R / 255.0
-    //                        color = "#FF0000"
-    //                    }
-    //                    {
-    //                        label = "Green"
-    //                        wavelength = 550.0
-    //                        value = float pixel.G / 255.0
-    //                        color = "#00FF00"
-    //                    }
-    //                    {
-    //                        label = "Blue"
-    //                        wavelength = 450.0
-    //                        value = float pixel.B / 255.0
-    //                        color = "#0000FF"
-    //                    }
-    //                |]
-    //    with error ->
-    //        Result.Error error.Message
-
-    //let readCenterRgbSpectralProfile
-    //    (imagePath : string)
-    //    : Result<SpectralProfilePoint[], string> =
-
-    //    try
-    //        let image =
-    //            PixImage<byte>(imagePath)
-    //                .ToPixImage<byte>(Col.Format.RGBA)
-
-    //        let centerX =
-    //            image.Size.X / 2
-
-    //        let centerY =
-    //            image.Size.Y / 2
-
-    //        readRgbSpectralProfile
-    //            imagePath
-    //            centerX
-    //            centerY
-    //    with error ->
-    //        Result.Error error.Message

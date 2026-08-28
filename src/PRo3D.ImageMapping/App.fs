@@ -117,6 +117,8 @@ module App =
         | SetYaw r -> { m with boresightAdjustment = { m.boresightAdjustment with yaw = Numeric.update m.boresightAdjustment.yaw r } }
         | LoadMultispectralImage path ->
         
+            BandHandler.clearDecodedBandCache ()
+            
             let fullPath =
                 Path.GetFullPath path
 
@@ -127,7 +129,6 @@ module App =
                         selectedImage = None
                         sourceImagePath = Some fullPath
                         sourceImageKind = SourceImageKind.PlainRgbImage
-                        //visualizationMode = VisualizationMode.SingleBandTransferFunction
                         editImages = []
                         blackWhiteClip = noBlackWhiteClip
                 }
