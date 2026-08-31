@@ -2,7 +2,6 @@ namespace PRo3D.ImageMapping
 
 open System
 open Aardvark.Base
-open Aardvark.UI.Primitives
 open PRo3D.ImageMapping.Model
 
 open System.IO
@@ -12,7 +11,6 @@ open PRo3D.InstrumentProjection
 open PRo3D.Core
 
 open PRo3D.ImageMapping.MbiLoader
-open PRo3D.ImageMapping.ImageDefaults
 open BitMiracle.LibTiff.Classic
 
 module TiffLoader =
@@ -94,6 +92,194 @@ module TiffLoader =
         with error ->
             Result.Error error.Message
 
+    let private readSampleAsFloat
+        (sampleFormat : int)
+        (bitsPerSample : int)
+        (buffer : byte[])
+        (offset : int)
+        : float =
+
+        match sampleFormat, bitsPerSample with
+        | format, 8
+            when format = int SampleFormat.UINT ->
+
+            float buffer.[offset]
+
+        | format, 8
+            when format = int SampleFormat.INT ->
+
+            float (sbyte buffer.[offset])
+
+        | format, 16
+            when format = int SampleFormat.UINT ->
+
+            BitConverter.ToUInt16(buffer, offset)
+            |> float
+
+        | format, 16            
+            when format = int SampleFormat.INT ->
+
+            BitConverter.ToInt16(buffer, offset)
+            |> float
+
+        | format, 32
+            when format = int SampleFormat.UINT ->
+
+            BitConverter.ToUInt32(buffer, offset)
+            |> float
+
+        | format, 32
+            when format = int SampleFormat.INT ->
+                
+            BitConverter.ToInt32(buffer, offset)
+            |> float
+
+        | format, 32 
+            when format = int SampleFormat.IEEEFP ->
+
+            BitConverter.ToSingle(buffer, offset)
+            |> float
+
+        | format, 64
+            when format = int SampleFormat.IEEEFP ->
+
+            BitConverter.ToDouble(buffer, offset)
+
+        | _ ->
+            failwithf
+                "Unsupported TIFF SAMPLEFORMAT=%d BITSPERSAMPLE=%d."
+                sampleFormat
+                bitsPerSample
+
+    let tryReadTiffBandAsFloat
+        (path : string)
+        (channelIndex : int)
+        : Result<int * int * float[], string> =
+
+        try
+            use tif =
+                Tiff.Open(path, "r")
+
+            if isNull tif then
+                Result.Error (
+                    sprintf "Could not open TIFF file: %s" path
+                )
+
+            elif tif.IsTiled() then
+                Result.Error (
+                    "Per-channel loading currently supports scanline/strip TIFFs, but this TIFF is tiled."
+                )
+
+            else
+                let width =
+                    tif.GetFieldDefaulted(TiffTag.IMAGEWIDTH).[0]
+                        .ToInt()
+
+                let height =
+                    tif.GetFieldDefaulted(TiffTag.IMAGELENGTH).[0]
+                        .ToInt()
+
+                let bitsPerSample =
+                    tif.GetFieldDefaulted(TiffTag.BITSPERSAMPLE).[0]
+                        .ToInt()
+
+                let sampleFormat =
+                    tif.GetFieldDefaulted(TiffTag.SAMPLEFORMAT).[0]
+                        .ToInt()
+
+                let samplesPerPixel =
+                    tif.GetFieldDefaulted(TiffTag.SAMPLESPERPIXEL).[0]
+                        .ToInt()
+
+                let planarConfig =
+                    tif.GetFieldDefaulted(TiffTag.PLANARCONFIG).[0]
+                        .ToInt()
+
+                if
+                    channelIndex < 0 ||
+                    channelIndex >= samplesPerPixel
+                then
+                    Result.Error (
+                        sprintf
+                            "Requested TIFF channel %d, but the valid range is 0..%d."
+                            channelIndex
+                            (samplesPerPixel - 1)
+                    )
+
+                elif bitsPerSample % 8 <> 0 then
+                    Result.Error (
+                        sprintf
+                            "Packed TIFF samples with %d bits per sample are not supported."
+                            bitsPerSample
+                    )
+
+                elif
+                    planarConfig <> int PlanarConfig.CONTIG &&
+                    planarConfig <> int PlanarConfig.SEPARATE
+                then
+                    Result.Error (
+                        sprintf
+                            "Unsupported TIFF PLANARCONFIG=%d."
+                            planarConfig
+                    )
+
+                else
+                    let bytesPerSample =
+                        bitsPerSample / 8
+
+                    let scanline =
+                        Array.zeroCreate<byte> (tif.ScanlineSize())
+
+                    let values =
+                        Array.zeroCreate<float> (width * height)
+
+                    for row in 0 .. height - 1 do
+                        let samplePlane =
+                            if planarConfig = int PlanarConfig.SEPARATE then
+                                int16 channelIndex
+                            else
+                                0s
+
+                        if not (
+                            tif.ReadScanline(
+                                scanline,
+                                row,
+                                samplePlane
+                            )
+                        ) then
+                            failwithf
+                                "Could not read TIFF scanline %d for channel %d."
+                                row
+                                channelIndex
+
+                        for column in 0 .. width - 1 do
+                            let sampleOffset =
+                                if planarConfig = int PlanarConfig.SEPARATE then
+                                    column * bytesPerSample
+                                else
+                                    (
+                                        column * samplesPerPixel +
+                                        channelIndex
+                                    ) * bytesPerSample
+
+                            let pixelIndex =
+                                row * width + column
+
+                            values.[pixelIndex] <-
+                                readSampleAsFloat
+                                    sampleFormat
+                                    bitsPerSample
+                                    scanline
+                                    sampleOffset
+
+                    Result.Ok (
+                        width,
+                        height,
+                        values
+                    )
+
+        with error ->
+            Result.Error error.Message
 
     let tryReadMultiBandTiff
         (path : string)

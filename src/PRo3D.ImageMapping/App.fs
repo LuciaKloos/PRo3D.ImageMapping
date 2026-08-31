@@ -507,8 +507,6 @@ module App =
                         editImages = []
                 }
 
-
-
     let numericInputFromAdaptive
         (token : AdaptiveToken)
         (input : AdaptiveNumericInput)
@@ -710,14 +708,7 @@ module App =
             computeTransferFunctionSelectedBandHistogram m 32
 
         let transferFunctionNonMultispectralRgbHistograms =
-            m.sourceImageKind
-            |> AVal.bind (fun sourceKind ->
-                match sourceKind with
-                | SourceImageKind.PlainRgbImage ->
-                    computeNonMultispectralRgbHistograms m 32
-                | SourceImageKind.Multispectral ->
-                    computeMultispectralRgbHistograms m 32
-            )                
+            computeNonMultispectralRgbHistograms m 32
 
         let rgbSelectedBandSpectralProfiles =
             computeRgbSpectralProfiles m 32
@@ -758,7 +749,6 @@ module App =
                                 ]
                     }
                 )
-
         
         let histogramsAndProfilesForCurrentMode =
             Incremental.div
@@ -769,61 +759,83 @@ module App =
                             m.visualizationMode
 
                         let! sourceKind =
-                            m.sourceImageKind
-
-                        match mode with
-                        | VisualizationMode.RgbRatioComposite ->
-                            yield
-                                    div [
-                                        clazz "ui inverted segment"
-                                        style "margin-top: 10px;"
-                                    ] [
+                            m.sourceImageKind                        
+                            
+                        if sourceKind = SourceImageKind.Multispectral then
+                            match mode with
+                            | VisualizationMode.RgbRatioComposite ->
+                                yield
                                         div [
-                                            style "font-weight: bold; margin-bottom: 8px;"
-                                        ] [                                           
-                                        ]
-
-                                        div [
-                                            style "font-size: 11px; color: #aaa;"
+                                            clazz "ui inverted segment"
+                                            style "margin-top: 10px;"
                                         ] [
-                                            text "Calculated numerator/denominator ratio per RGB channel"
+                                            div [
+                                                style "font-weight: bold; margin-bottom: 8px;"
+                                            ] [                                           
+                                            ]
+
+                                            div [
+                                                style "font-size: 11px; color: #aaa;"
+                                            ] [
+                                                text "Calculated numerator/denominator ratio per RGB channel"
+                                            ]
+
+                                            selectedSpectralProfilesView
+                                                rgbSelectedBandSpectralProfiles
+                                                allSpectralProfiles
                                         ]
 
-                                        selectedSpectralProfilesView
-                                            rgbSelectedBandSpectralProfiles
-                                            allSpectralProfiles
-                                    ]
-
-                            yield
-                                selectedHistogramsView
-                                    "Currently selected RGB band histograms and spectral profiles"
-                                    rgbRatioSelectedBandHistograms
+                                yield
+                                    selectedHistogramsView
+                                        "Currently selected RGB band histograms and spectral profiles"
+                                        rgbRatioSelectedBandHistograms
 
                             
-                        | VisualizationMode.RgbComposite ->
-                            yield
-                                    div [
-                                        clazz "ui inverted segment"
-                                        style "margin-top: 10px;"
-                                    ] [
+                            | VisualizationMode.RgbComposite ->
+                                yield
                                         div [
-                                            style "font-size: 11px; color: #aaa;"
+                                            clazz "ui inverted segment"
+                                            style "margin-top: 10px;"
                                         ] [
-                                            text "Spectral Profile of the selected bands"
+                                            div [
+                                                style "font-size: 11px; color: #aaa;"
+                                            ] [
+                                                text "Spectral Profile of the selected bands"
+                                            ]
+
+
+                                            selectedSpectralProfilesView
+                                                rgbSelectedBandSpectralProfiles
+                                                allSpectralProfiles
                                         ]
 
-
-                                        selectedSpectralProfilesView
-                                            rgbSelectedBandSpectralProfiles
-                                            allSpectralProfiles
-                                    ]
-
-                            yield
-                                selectedHistogramsView
-                                    "Currently selected RGB band histograms and spectral profiles"
-                                    rgbMappingSelectedBandHistogram
+                                yield
+                                    selectedHistogramsView
+                                        "Currently selected RGB band histograms and spectral profiles"
+                                        rgbMappingSelectedBandHistogram
                                 
-                        | VisualizationMode.SingleBandTransferFunction ->
+                            | VisualizationMode.SingleBandTransferFunction ->
+                                yield
+                                        div [
+                                            clazz "ui inverted segment"
+                                            style "margin-top: 10px;"
+                                        ] [
+                                            div [
+                                                style "font-size: 11px; color: #aaa;"
+                                            ] [
+                                                text "Spectral Profile of the selected band"
+                                            ]
+
+                                            selectedSpectralProfilesView
+                                                rgbSelectedBandSpectralProfiles
+                                                allSpectralProfiles
+                                        ]
+
+                                yield
+                                    selectedHistogramsView
+                                            "Selected transfer-function band histogram and spectral profile"
+                                            transferFunctionSelectedBandHistogram
+                        else 
                             yield
                                     div [
                                         clazz "ui inverted segment"
@@ -832,7 +844,7 @@ module App =
                                         div [
                                             style "font-size: 11px; color: #aaa;"
                                         ] [
-                                            text "Spectral Profile of the selected band"
+                                            text "Spectral Profile of the R G B channels"
                                         ]
 
                                         selectedSpectralProfilesView
@@ -841,16 +853,9 @@ module App =
                                     ]
 
                             yield
-                                selectedHistogramsView
-                                    (if sourceKind = SourceImageKind.Multispectral then
-                                        "Selected transfer-function band histogram and spectral profile"
-                                     else
-                                        "Original image RGB channel histograms")
-                                    (if sourceKind = SourceImageKind.Multispectral then
-                                        transferFunctionSelectedBandHistogram
-                                     else
-                                        transferFunctionNonMultispectralRgbHistograms)
-
+                                selectedHistogramsView                                    
+                                        "Original image RGB channel histograms"
+                                        transferFunctionNonMultispectralRgbHistograms
                     }
                 )
 
@@ -947,45 +952,51 @@ module App =
             ]
 
         let visualizationModeSelector =
+            
+            Incremental.div AttributeMap.empty (
+                alist {
+                    let! sourceKind = m.sourceImageKind
 
-            div [
-                clazz "item"
-                style "border-bottom: solid 1px black; padding: 5px;"
-            ] [
-                div [
-                    style "margin-bottom: 6px;"
-                ] [
-                    text "Mode:"
-                ]
 
-                Incremental.div
-                    (AttributeMap.ofList [
-                        attribute "style"
-                            "display: flex; align-items: center; flex-wrap: wrap;"
-                    ])
-                    (
-                        alist {
-                            let! sourceKind = m.sourceImageKind
+                    if sourceKind = SourceImageKind.Multispectral then
+                        div [
+                            clazz "item"
+                            style "border-bottom: solid 1px black; padding: 5px;"
+                        ] [
+                            div [
+                                style "margin-bottom: 6px;"
+                            ] [
+                                text "Mode:"
+                            ]
 
-                            if sourceKind = SourceImageKind.Multispectral then
-                                yield
-                                    visualizationModeOption
-                                        "Band ratio"
-                                        VisualizationMode.RgbRatioComposite
+                            Incremental.div
+                                (AttributeMap.ofList [
+                                    attribute "style"
+                                        "display: flex; align-items: center; flex-wrap: wrap;"
+                                ])
+                                (
+                            
+                                    alist {
+                                        yield
+                                            visualizationModeOption
+                                                "Band ratio"
+                                                VisualizationMode.RgbRatioComposite
 
-                                yield
-                                    visualizationModeOption
-                                        "RGB mapping"
-                                        VisualizationMode.RgbComposite
+                                        yield
+                                            visualizationModeOption
+                                                "RGB mapping"
+                                                VisualizationMode.RgbComposite
 
-                            yield
-                                visualizationModeOption
-                                    "Transfer function"
-                                    VisualizationMode.SingleBandTransferFunction
-                        }
-                    )
-            ]
-
+                                        yield
+                                            visualizationModeOption
+                                                "Transfer function"
+                                                VisualizationMode.SingleBandTransferFunction
+                                    }
+                                
+                                )
+                        ]
+                    }
+                )
 
         let contentImages = 
             let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
@@ -1200,8 +1211,6 @@ module App =
                         })
                     ]
                 })
-
-
 
         let content = 
             div [style "overlow-y: auto; max-height: calc(100vh - 95px);"] [

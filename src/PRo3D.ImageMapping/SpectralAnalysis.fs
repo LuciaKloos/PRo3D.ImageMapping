@@ -3,8 +3,6 @@ namespace PRo3D.ImageMapping
 open System
 open Aardvark.Base
 open Aardvark.UI
-open Aardvark.UI.Primitives
-open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
 open PRo3D.ImageMapping.BandHandler
@@ -12,6 +10,85 @@ open PRo3D.ImageMapping.BandHandler
 module SpectralAnalysis =
     
     // HISTOGRAMS
+
+     let emptyRGBHistograms () =
+        [
+            {
+                label = "R"
+                bandIndices = None
+                histogram = [||]
+            }
+            {
+                label = "G"
+                bandIndices = None    
+                histogram = [||]
+            }
+            {
+                label = "B"
+                bandIndices = None
+                histogram = [||]
+            }
+        ]
+
+     let computeOne
+        (sources : RgbBandSource list)
+        (binCount : int)
+        (label : string)
+        (bandIndex : int option)
+        : RgbSelectedBandHistogram =
+
+        match bandIndex with
+        | None ->
+            {
+                label = label
+                bandIndices = None
+                histogram = [||]
+            }
+
+        | Some selectedBandIndex ->
+            match
+                sources
+                |> List.tryFind (fun source ->
+                    source.logicalIndex = selectedBandIndex)
+            with
+            | None ->
+                Log.warn
+                    "Could not find selected histogram band %d for %s"
+                    selectedBandIndex
+                    label
+
+                {
+                    label = label
+                    bandIndices = Some [| selectedBandIndex |]
+                    histogram = [||]
+                }
+
+            | Some source ->
+                match
+                    readBandSourceHistogram
+                        binCount
+                        1.0e-4
+                        source
+                with
+                | Result.Ok histogram ->
+                    {
+                        label = label
+                        bandIndices = Some [| selectedBandIndex |]
+                        histogram = histogram
+                    }
+
+                | Result.Error error ->
+                    Log.warn
+                        "Could not compute histogram for %s band %d: %s"
+                        label
+                        selectedBandIndex
+                        error
+
+                    {
+                        label = label
+                        bandIndices = Some [| selectedBandIndex |]
+                        histogram = [||]
+                    }
 
      let computeRgbMappingSelectedBandHistograms
         (m : AdaptiveModel)
@@ -24,68 +101,11 @@ module SpectralAnalysis =
                 m.images
                 |> AList.force
                 |> fun images -> readAdaptiveBandSources images token
-
-            let computeOne
-                (label : string)
-                (bandIndex : int option)
-                : RgbSelectedBandHistogram =
-
-                match bandIndex with
-                | None ->
-                    {
-                        label = label
-                        bandIndices = None
-                        histogram = [||]
-                    }
-
-                | Some selectedBandIndex ->
-                    match
-                        sources
-                        |> List.tryFind (fun source ->
-                            source.logicalIndex = selectedBandIndex)
-                    with
-                    | None ->
-                        Log.warn
-                            "Could not find selected RGB histogram band %d for %s"
-                            selectedBandIndex
-                            label
-
-                        {
-                            label = label
-                            bandIndices = Some [| selectedBandIndex |]
-                            histogram = [||]
-                        }
-
-                    | Some source ->
-                        match readBandSourceAsFloat source with
-                        | Result.Ok band ->
-                            {
-                                label = label
-                                bandIndices = Some [| selectedBandIndex |]
-                                histogram =
-                                    ImageMath.computeHistogram
-                                        binCount
-                                        1.0e-4
-                                        band.values
-                            }
-
-                        | Result.Error error ->
-                            Log.warn
-                                "Could not compute histogram for %s band %d: %s"
-                                label
-                                selectedBandIndex
-                                error
-
-                            {
-                                label = label
-                                bandIndices = Some [| selectedBandIndex |]
-                                histogram = [||]
-                            }
-
+            
             [
-                computeOne "R" (m.bandMapping.redBand.GetValue token)
-                computeOne "G" (m.bandMapping.greenBand.GetValue token)
-                computeOne "B" (m.bandMapping.blueBand.GetValue token)
+                computeOne sources binCount "R" (m.bandMapping.redBand.GetValue token)
+                computeOne sources binCount "G" (m.bandMapping.greenBand.GetValue token)
+                computeOne sources binCount "B" (m.bandMapping.blueBand.GetValue token)
             ]
         )
 
@@ -98,66 +118,18 @@ module SpectralAnalysis =
             let selectedBandIndex =
                 m.transferFunctionMapping.selectedBand.GetValue token
 
-            match selectedBandIndex with
-            | None ->
-                [
-                    {
-                        label = "Transfer function"
-                        bandIndices = None
-                        histogram = [||]
-                    }
-                ]
+            let label = 
+                "Transfer function"
+                
+            let images =
+                m.images
+                |> AList.force
 
-            | Some bandIndex ->
-                let images =
-                    m.images
-                    |> AList.force
-
-                let sources =
-                    readAdaptiveBandSources images token
-
-                match sources |> List.tryFind (fun source -> source.logicalIndex = bandIndex) with
-                | None ->
-                    Log.warn
-                        "Could not find selected transfer-function histogram band %d"
-                        bandIndex
-
-                    [
-                        {
-                            label = "Transfer function"
-                            bandIndices = Some [||] 
-                            histogram = [||]
-                        }
-                    ]
-
-                | Some source ->
-                    match readBandSourceAsFloat source with
-                    | Result.Ok band ->
-                        [
-                            {
-                                label = "Transfer function"
-                                bandIndices = Some [||] 
-                                histogram =
-                                    ImageMath.computeHistogram
-                                        binCount
-                                        1.0e-4
-                                        band.values
-                            }
-                        ]
-
-                    | Result.Error error ->
-                        Log.warn
-                            "Could not compute transfer-function histogram for band %d: %s"
-                            bandIndex
-                            error
-
-                        [
-                            {
-                                label = "Transfer function"
-                                bandIndices = Some [||] 
-                                histogram = [||]
-                            }
-                        ]
+            let sources =
+                readAdaptiveBandSources images token
+            [
+                computeOne sources binCount label selectedBandIndex      
+            ]            
         )
 
      let computeRgbRatioSelectedBandHistograms
@@ -174,67 +146,17 @@ module SpectralAnalysis =
                 let sources =
                     readAdaptiveBandSources images token
 
-                let computeOne
-                    (label : string)
-                    (bandIndex : Option<int>)
-                    : RgbSelectedBandHistogram =
-
-                    match bandIndex with
-                    | None ->
-                        {
-                            label = label
-                            bandIndices = None
-                            histogram = [||]
-                        }
-
-                    | Some selectedBandIndex ->
-
-                        match sources |> List.tryFind (fun source -> source.logicalIndex = selectedBandIndex) with
-                        | None ->
-                            Log.warn "Could not find selected RGB histogram band %d for %s" selectedBandIndex label
-
-                            {
-                                label = label
-                                bandIndices = Some [||]
-                                histogram = [||]
-                            }
-
-                        | Some source ->
-
-                            match readBandSourceAsFloat source with
-                            | Result.Ok band ->
-                                {
-                                    label = label
-                                    bandIndices = Some [| selectedBandIndex |]
-                                    histogram =
-                                        ImageMath.computeHistogram
-                                            binCount
-                                            1.0e-4
-                                            band.values
-                                }
-
-                            | Result.Error error ->
-                                Log.warn "Could not compute histogram for %s band %d: %s" label selectedBandIndex error
-
-                                {
-                                    label = label
-                                    bandIndices = Some [||]
-                                    histogram = [||]
-                                }
-
                 [
-                    computeOne "R numerator"   (m.rgbRatioComposite.redNumeratorBand.GetValue token)
-                    computeOne "R denominator" (m.rgbRatioComposite.redDenominatorBand.GetValue token)
+                    computeOne sources binCount "R numerator"   (m.rgbRatioComposite.redNumeratorBand.GetValue token)
+                    computeOne sources binCount "R denominator" (m.rgbRatioComposite.redDenominatorBand.GetValue token)
 
-                    computeOne "G numerator"   (m.rgbRatioComposite.greenNumeratorBand.GetValue token)
-                    computeOne "G denominator" (m.rgbRatioComposite.greenDenominatorBand.GetValue token)
+                    computeOne sources binCount "G numerator"   (m.rgbRatioComposite.greenNumeratorBand.GetValue token)
+                    computeOne sources binCount "G denominator" (m.rgbRatioComposite.greenDenominatorBand.GetValue token)
 
-                    computeOne "B numerator"   (m.rgbRatioComposite.blueNumeratorBand.GetValue token)
-                    computeOne "B denominator" (m.rgbRatioComposite.blueDenominatorBand.GetValue token)
+                    computeOne sources binCount "B numerator"   (m.rgbRatioComposite.blueNumeratorBand.GetValue token)
+                    computeOne sources binCount "B denominator" (m.rgbRatioComposite.blueDenominatorBand.GetValue token)
                 ]
-            )
-
-    
+            )              
 
      let computeNonMultispectralRgbHistograms
         (m : AdaptiveModel)
@@ -243,28 +165,9 @@ module SpectralAnalysis =
 
         AVal.custom (fun token ->
 
-            let emptyHistograms () =
-                [
-                    {
-                        label = "R"
-                        bandIndices = None
-                        histogram = [||]
-                    }
-                    {
-                        label = "G"
-                        bandIndices = None    
-                        histogram = [||]
-                    }
-                    {
-                        label = "B"
-                        bandIndices = None
-                        histogram = [||]
-                    }
-                ]
-
             match m.sourceImagePath.GetValue token with
             | None ->
-                emptyHistograms ()
+                emptyRGBHistograms ()
 
             | Some imagePath ->            
                 match readSourceImageRGBChannels imagePath with
@@ -273,7 +176,7 @@ module SpectralAnalysis =
                         "Could not compute RGB histograms for band %s: %s"
                         imagePath
                         error
-                    emptyHistograms ()
+                    emptyRGBHistograms ()
 
                 | Result.Ok (red, green, blue) -> 
                     let computeChannel label values =
@@ -299,25 +202,7 @@ module SpectralAnalysis =
         : aval<RgbSelectedBandHistogram list> =
 
         AVal.custom (fun token ->
-            let emptyHistograms () =
-                    [
-                        {
-                            label = "R"
-                            bandIndices = None
-                            histogram = [||]
-                        }
-                        {
-                            label = "G"
-                            bandIndices = None    
-                            histogram = [||]
-                        }
-                        {
-                            label = "B"
-                            bandIndices = None
-                            histogram = [||]
-                        }
-                    ]
-
+            
             let images =
                 m.images
                 |> AList.force
@@ -327,21 +212,22 @@ module SpectralAnalysis =
 
             match ImageMath.tryFindVisibleRgbBands sources with
             | None ->
-                emptyHistograms ()
+                emptyRGBHistograms ()
 
             | Some (redSource, greenSource, blueSource) ->
 
                 let computeChannel label source =
-                    match readBandSourceAsFloat source with
-                    | Result.Ok band ->
+                    match
+                        readBandSourceHistogram
+                            binCount
+                            1.0e-4
+                            source
+                    with
+                    | Result.Ok histogram ->
                         {
                             label = label
-                            bandIndices = Some [||] //source.logicalIndex
-                            histogram =
-                                ImageMath.computeHistogram
-                                    binCount
-                                    1.0e-4
-                                    band.values
+                            bandIndices = Some [| source.logicalIndex |]
+                            histogram = histogram
                         }
 
                     | Result.Error error ->
@@ -353,7 +239,7 @@ module SpectralAnalysis =
 
                         {
                             label = label
-                            bandIndices = Some [||] //source.logicalIndex
+                            bandIndices = Some [| source.logicalIndex |] 
                             histogram = [||]
                         }
 
@@ -443,7 +329,6 @@ module SpectralAnalysis =
                 ]
         ]
 
-
      let selectedHistogramsView
         (title : string)
         (histograms : aval<RgbSelectedBandHistogram list>)
@@ -470,6 +355,12 @@ module SpectralAnalysis =
             )
 
     // SPECTRAL PROFILES
+     let emptyProfile label =
+        {
+            label = label
+            wavelengthSpan = None
+            spectralProfile = [||]
+        }
 
      let averageSignal (values: float[]) =
         let mutable sum = 0.0
@@ -541,11 +432,8 @@ module SpectralAnalysis =
         if Array.isEmpty spectralPoints then
             Log.warn
                 "The spectralPoints are empty"
-            {
-                label = label
-                wavelengthSpan = None
-                spectralProfile = [||]
-            }
+            emptyProfile label
+
         else           
 
             let minimumWavelength =
@@ -594,16 +482,10 @@ module SpectralAnalysis =
         (numeratorBandIndices : int[])
         (denominatorBandIndices : int[]) =
 
-        let emptyProfile () =
-            {
-                label = label
-                wavelengthSpan = None
-                spectralProfile = [||]
-            }
-
         if numeratorBandIndices.Length <> denominatorBandIndices.Length then    
             Log.warn "The number of numerators and denominators must be identical."
-            emptyProfile ()
+            
+            emptyProfile label
 
         else
             let spectralPoints =
@@ -618,11 +500,6 @@ module SpectralAnalysis =
                     with
                     | Result.Ok numerator,
                       Result.Ok denominator ->
-
-                        let valueCount =
-                            min
-                                numerator.values.Length
-                                denominator.values.Length
 
                         let averageRatio = averageRatio numerator.values denominator.values
 
@@ -663,7 +540,7 @@ module SpectralAnalysis =
                 |> Array.sortBy (fun point -> point.wavelength)
 
             if Array.isEmpty spectralPoints then
-                emptyProfile ()
+                emptyProfile label
             else
                 {
                     label = label
@@ -714,13 +591,6 @@ module SpectralAnalysis =
             AList.toAVal m.images
 
         AVal.custom (fun token ->
-
-            let emptyProfile label =
-                {
-                    label = label
-                    wavelengthSpan = None
-                    spectralProfile = [||]
-                }
 
             match m.sourceImageKind.GetValue token with
             | SourceImageKind.Multispectral ->
@@ -833,9 +703,6 @@ module SpectralAnalysis =
 
                     | Result.Ok (red, green, blue) ->
 
-                        // Plain RGB images do not contain exact wavelength
-                        // metadata. These are representative centre
-                        // wavelengths for the three broad colour channels.
                         let channels =
                             [|
                                 1.0, red
@@ -961,8 +828,6 @@ module SpectralAnalysis =
                     profile.spectralProfile
                     |> Array.toList
                 )
-
-
             
             let maximumValue =
                 if Double.IsFinite sharedMaximumValue &&
@@ -1082,18 +947,33 @@ module SpectralAnalysis =
                 else
                     bandNumbers
 
+            let isPlainRgbProfile =
+                not isCompleteProfile &&
+                validProfiles
+                |> List.exists (fun (profile, _, _) ->
+                    profile.label = "RGB"
+                )
+
             let bandLabels =
                 visibleBandNumbers
                 |> List.map (fun bandNumber ->
+                    let label =
+                        if isPlainRgbProfile then
+                            match int bandNumber with
+                            | 1 -> "R"
+                            | 2 -> "G"
+                            | 3 -> "B"
+                            | _ -> sprintf "%.0f" bandNumber
+                        else
+                            sprintf "%.0f" bandNumber
+
                     Svg.text [
                         attribute "x" (string (toX bandNumber))
                         attribute "y" (string (height - 10.0))
                         attribute "text-anchor" "middle"
                         attribute "font-size" "10"
                         attribute "fill" "#aaa"
-                    ] (
-                        sprintf "%.0f" bandNumber
-                    )
+                    ] label
                 )
 
             let axisAndLabels =

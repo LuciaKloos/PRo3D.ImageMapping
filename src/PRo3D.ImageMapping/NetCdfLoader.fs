@@ -401,11 +401,6 @@ module NetCdfLoader =
                 | Mask ->
                     []
 
-            // Important:
-            // Do not read every NetCDF band here just to calculate statistics.
-            // An EMIT RFL cube has ~285 bands and each band is large
-            // The actual selected bands are still read later by readBandSourceAsFloat
-            // when the RGB composite/texture is created.
             let defaultRangeForProduct =
                 match info.productKind with
                 | Reflectance ->

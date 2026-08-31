@@ -5,8 +5,8 @@ open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
 
+open System.Collections.Concurrent
 open PRo3D.InstrumentProjection
-
 
 type NcProductKind =
     | Reflectance
@@ -131,6 +131,78 @@ type RGBSelectedBandSpectralProfile =
         label : string
         wavelengthSpan : Option<float * float>
         spectralProfile : SpectralProfilePoint[]
+    }
+
+[<Struct>]
+type BandPayloadCacheKey =
+    {
+        filePath       : string
+        channelIndex   : int
+        fileLength     : int64
+        lastWriteTicks : int64
+    }    
+
+type BandStatistics =
+    {
+        finiteCount        : int64
+        positiveFiniteCount: int64
+        minimum            : float option
+        maximum            : float option
+        positiveFiniteMean : float option
+    }
+        
+[<Struct>]
+type HistogramCacheKey =
+    {
+        binCount      : int
+        minimumSignal : float
+    }
+
+// cache for decoded bands
+type CachedBandPayload =
+    {
+        width      : int
+        height     : int
+        values     : float[]
+        statistics : Lazy<BandStatistics>
+
+        histograms :
+            ConcurrentDictionary<
+                HistogramCacheKey,
+                Lazy<HistogramBin[]>>
+    }
+
+type RgbAdjustmentSettings =
+    {
+        highlightAmount : float
+        highlightTone : float
+        highlightRadius : float
+
+        shadowAmount : float
+        shadowTone : float
+        shadowRadius : float
+
+        midtoneContrast : float
+        saturation : float
+        brightness : float
+    }
+
+type RgbStretchSettings =
+    {
+        gamma : float
+        blackClipPercentile : float
+        whiteClipPercentile : float
+    }
+
+type RgbBuffers =
+    {
+        width : int
+        height : int
+        red : byte[]
+        green : byte[]
+        blue : byte[]
+        alpha : byte[]
+        luminance : float[]
     }
 
 module ImageDefaults =

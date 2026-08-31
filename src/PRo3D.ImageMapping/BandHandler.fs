@@ -16,32 +16,13 @@ open NetCdfLoader
 open System.Collections.Concurrent
 open System.Threading
 
-open PRo3D.ImageMapping.TiffLoader
-
-module BandHandler =
-    
-    type BandStatistics =
-        {
-            finiteCount        : int64
-            positiveFiniteCount: int64
-            minimum            : float option
-            maximum            : float option
-            positiveFiniteMean : float option
-        }
-
-    type private CachedBandPayload =
-        {
-            width  : int
-            height : int
-            values : float[]
-            statistics : Lazy<BandStatistics>
-        }
+module BandHandler =    
 
     let private computeBandStatistics
         (values: float[])
         : BandStatistics =
 
-        Log.warn "STATISTICS CACHE MISS: scanning %d pixels" values.Length
+        //Log.warn "STATISTICS CACHE MISS: scanning %d pixels" values.Length
 
         let mutable finiteCount = 0L
         let mutable positiveFiniteCount = 0L
@@ -104,6 +85,7 @@ module BandHandler =
             height = height
             values = values
 
+            // stores calculation for lazy evaluation
             statistics =
                 Lazy<BandStatistics>(
                     (fun () ->
@@ -111,43 +93,36 @@ module BandHandler =
                     ),
                     LazyThreadSafetyMode.ExecutionAndPublication
                 )
+
+            histograms =
+                ConcurrentDictionary<
+                    HistogramCacheKey,
+                    Lazy<HistogramBin[]>>()
+
         }
 
-    [<Struct>]
-    type private BandPayloadCacheKey =
-        {
-            filePath       : string
-            channelIndex   : int
-            fileLength     : int64
-            lastWriteTicks : int64
-        }
-
-    [<Struct>]
-    type private TiffPayloadCacheKey =
-        {
-            filePath       : string
-            fileLength     : int64
-            lastWriteTicks : int64
-        }
-    
-    let private decodedPayloadCache =
+    // NetCDF cache, cached per channel
+    let private decodedNcPayloadCache =
         ConcurrentDictionary<
             BandPayloadCacheKey,
             Lazy<Result<CachedBandPayload, string>>>()
 
+    // TIFF cache, cached per channel
     let private decodedTiffPayloadCache =
         ConcurrentDictionary<
-            TiffPayloadCacheKey,
-            Lazy<Result<CachedBandPayload[], string>>>()
+            BandPayloadCacheKey,
+            Lazy<Result<CachedBandPayload, string>>>()
 
+    // clears both netdcf and tiff caches
     let clearDecodedBandCache () =
-        decodedPayloadCache.Clear()
+        decodedNcPayloadCache.Clear()
         decodedTiffPayloadCache.Clear()
 
     let private createPayloadCacheKey (source: RgbBandSource) =
         let fullPath = Path.GetFullPath source.filePath
         let fileInfo = FileInfo fullPath
 
+        // creates key, including:
         {
             filePath = fullPath
             channelIndex = source.channelIndex
@@ -155,16 +130,7 @@ module BandHandler =
             lastWriteTicks = fileInfo.LastWriteTimeUtc.Ticks
         }
 
-    let private createTiffPayloadCacheKey (filePath: string) =
-        let fullPath = Path.GetFullPath filePath
-        let fileInfo = FileInfo fullPath
-
-        {
-            filePath = fullPath
-            fileLength = fileInfo.Length
-            lastWriteTicks = fileInfo.LastWriteTimeUtc.Ticks
-        }
-
+    // decodes one channel at a time
     let private decodeNcBandPayload
         (source: RgbBandSource)
         : Result<CachedBandPayload, string> =
@@ -199,33 +165,29 @@ module BandHandler =
         with error ->
             Result.Error error.Message
 
-    let private decodeAllTiffPayloads
-        (filePath: string)
-        : Result<CachedBandPayload[], string> =
+    let private decodeTiffBandPayload
+        (source : RgbBandSource)
+        : Result<CachedBandPayload, string> =
 
-        Log.warn "TIFF CACHE MISS: decoding all channels from %s" filePath
+        Log.warn
+            "TIFF CACHE MISS: decoding channel %d from %s"
+            source.channelIndex
+            source.filePath
 
-        try
-            match TiffLoader.tryReadMultiBandTiff filePath false with
-            | Result.Error error ->
-                Result.Error error
+        match
+            TiffLoader.tryReadTiffBandAsFloat
+                source.filePath
+                source.channelIndex
+        with
+        | Result.Error error ->
+            Result.Error error
 
-            | Result.Ok image ->
-                Array.init image.bands (fun channelIndex ->
-                    let values = 
-                        TiffLoader.getBandAsFloat
-                            channelIndex
-                            image
-
-                    createCachedBandPayload
-                        image.width
-                        image.height
-                        values
-                )
-                |> Result.Ok
-
-        with error ->
-            Result.Error error.Message
+        | Result.Ok (width, height, values) ->
+            createCachedBandPayload
+                width
+                height
+                values
+            |> Result.Ok
 
     let private readCachedNcBandPayload
         (source: RgbBandSource)
@@ -235,7 +197,7 @@ module BandHandler =
             let key = createPayloadCacheKey source
 
             let lazyPayload =
-                decodedPayloadCache.GetOrAdd(
+                decodedNcPayloadCache.GetOrAdd(
                     key,
                     fun _ ->
                         Lazy<Result<CachedBandPayload, string>>(
@@ -257,7 +219,7 @@ module BandHandler =
                         Lazy<Result<CachedBandPayload, string>>
                     >
 
-                decodedPayloadCache.TryRemove(key, &removed)
+                decodedNcPayloadCache.TryRemove(key, &removed)
                 |> ignore
 
                 result
@@ -271,51 +233,45 @@ module BandHandler =
 
         try
             let key =
-                createTiffPayloadCacheKey source.filePath
+                createPayloadCacheKey source
 
-            let lazyPayloads =
+            let lazyPayload =
                 decodedTiffPayloadCache.GetOrAdd(
                     key,
                     fun _ ->
-                        Lazy<Result<CachedBandPayload[], string>>(
+                        Lazy<Result<CachedBandPayload, string>>(
                             (fun () ->
-                                decodeAllTiffPayloads key.filePath
+                                decodeTiffBandPayload source
                             ),
                             LazyThreadSafetyMode.ExecutionAndPublication
                         )
                 )
 
-            match lazyPayloads.Value with
-            | Result.Error error ->
+            let result = lazyPayload.Value
+
+
+            match result with
+            | Result.Ok _ -> 
+                result 
+
+            | Result.Error _ ->
                 let mutable removed =
                     Unchecked.defaultof<
-                        Lazy<Result<CachedBandPayload[], string>>
+                        Lazy<Result<CachedBandPayload, string>>
                     >
 
-                decodedTiffPayloadCache.TryRemove(key, &removed)
+                decodedTiffPayloadCache.TryRemove(
+                    key,
+                    &removed
+                )
                 |> ignore
 
-                Result.Error error
-
-            | Result.Ok payloads ->
-                if
-                    source.channelIndex < 0 ||
-                    source.channelIndex >= payloads.Length
-                then
-                    Result.Error (
-                        sprintf
-                            "Channel %d in %s is outside the available range 0..%d."
-                            source.channelIndex
-                            source.filePath
-                            (payloads.Length - 1)
-                    )
-                else
-                    Result.Ok payloads.[source.channelIndex]
+                result
 
         with error ->
-
             Result.Error error.Message
 
+                
     let private readCachedBandPayload
         (source: RgbBandSource)
         : Result<CachedBandPayload, string> =
@@ -324,6 +280,54 @@ module BandHandler =
             readCachedNcBandPayload source
         else
             readCachedTiffBandPayload source
+
+    let readBandSourceHistogram
+        (binCount : int)
+        (minimumSignal : float)
+        (source : RgbBandSource)
+        : Result<HistogramBin[], string> =
+
+        if String.IsNullOrWhiteSpace source.filePath then
+            Result.Error (
+                sprintf
+                    "Logical band %d has no image path."
+                    source.logicalIndex
+            )
+
+        elif not (File.Exists source.filePath) then
+            Result.Error (
+                sprintf
+                    "Image source for logical band %d does not exist: %s"
+                    source.logicalIndex
+                    source.filePath
+            )
+
+        else
+            readCachedBandPayload source
+            |> Result.map (fun payload ->
+                let key =
+                    {
+                        binCount = binCount
+                        minimumSignal = minimumSignal
+                    }
+
+                let lazyHistogram =
+                    payload.histograms.GetOrAdd(
+                        key,
+                        fun _ ->
+                            Lazy<HistogramBin[]>(
+                                (fun () ->
+                                    ImageMath.computeHistogram
+                                        binCount
+                                        minimumSignal
+                                        payload.values
+                                ),
+                                LazyThreadSafetyMode.ExecutionAndPublication
+                            )
+                    )
+
+                lazyHistogram.Value
+            )
 
     let availableLogicalBandsMessage (sources : list<RgbBandSource>) =
         sources
