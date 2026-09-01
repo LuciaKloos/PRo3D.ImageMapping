@@ -554,6 +554,7 @@ module SpectralAnalysis =
                     spectralProfile = spectralPoints
                 }
 
+    // FIS: only call this on user demand
      let computeCompleteSpectralProfile
         (m : AdaptiveModel)
         : aval<RGBSelectedBandSpectralProfile> =
@@ -1088,7 +1089,6 @@ module SpectralAnalysis =
 
      let selectedSpectralProfilesView
         (profiles : aval<RGBSelectedBandSpectralProfile list>)
-        (completeProfile : aval<RGBSelectedBandSpectralProfile>)
         : DomNode<Message> =
 
         Incremental.div
@@ -1096,15 +1096,43 @@ module SpectralAnalysis =
             (
                 alist {
                     let! items = profiles
-                    let! completeItem = completeProfile
+
+                    let maximumValueOpt : aval<float option> =
+                        profiles
+                        |> AVal.map (fun profiles ->
+                            profiles
+                            |> List.collect (fun profile ->
+                                profile.spectralProfile
+                                |> Array.toList
+                                |> List.map (fun point -> point.value)
+                            )
+                            |> function
+                                | []     -> None
+                                | values -> Some (List.max values)
+                        )
 
                     let maximumValue =
-                        spectralProfileMaximum completeItem
+                        match maximumValueOpt.GetValue() with
+                        | Some maxValue when maxValue > 0.0 -> maxValue
+                        | _ -> 1.0
 
                     yield
                         rgbSpectralProfilesView
                             items
                             false
                             maximumValue
+                }
+            )
+
+     let completeSpectralProfileView
+        (completeProfile : aval<RGBSelectedBandSpectralProfile>)
+        : DomNode<Message> =
+        Incremental.div
+            AttributeMap.empty
+            (
+                alist {
+                    let! item = completeProfile 
+                    let maximumValue = spectralProfileMaximum item
+                    yield rgbSpectralProfilesView [ item ] true maximumValue
                 }
             )

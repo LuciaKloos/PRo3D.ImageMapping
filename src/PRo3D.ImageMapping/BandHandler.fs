@@ -135,10 +135,10 @@ module BandHandler =
         (source: RgbBandSource)
         : Result<CachedBandPayload, string> =
 
-        Log.warn
-            "NETCDF CACHE MISS: decoding channel %d from %s"
-            source.channelIndex
-            source.filePath
+        //Log.warn
+        //    "NETCDF CACHE MISS: decoding channel %d from %s"
+        //    source.channelIndex
+        //    source.filePath
 
         try
             match tryReadNcDatasetInfoUncached source.filePath with

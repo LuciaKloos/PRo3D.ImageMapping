@@ -187,6 +187,7 @@ type Model =
         saturation   : Saturation
         brightness   : Brightness
         visualizationMode : VisualizationMode
+        loadCompleteSpectralProfile : bool
     }
 
 module HighlightAdjustment =
@@ -415,4 +416,5 @@ type Message =
     | ResetHighlights
     | ResetShadows
     | ResetAdjustments
+    | ToggleCompleteSpectralProfile
     | Nop

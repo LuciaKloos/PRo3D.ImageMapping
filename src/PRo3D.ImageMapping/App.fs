@@ -36,6 +36,7 @@ module App =
         saturation = Saturation.init
         brightness = Brightness.init
         visualizationMode = VisualizationMode.SingleBandTransferFunction
+        loadCompleteSpectralProfile = false
     }
 
     let private loadedLogicalBandIndices (images : IndexList<Image>) =
@@ -212,6 +213,7 @@ module App =
                             bandMapping = defaultBandMappingForImages bands
                             transferFunctionMapping = defaultTransferFunctionMappingForImages bands
                             visualizationMode = VisualizationMode.SingleBandTransferFunction
+                            loadCompleteSpectralProfile = false
                     }                    
         | SelectImage idx ->
             { m with selectedImage = Some idx }
@@ -507,6 +509,9 @@ module App =
                         editImages = []
                 }
 
+        | ToggleCompleteSpectralProfile ->
+             { m with loadCompleteSpectralProfile = not m.loadCompleteSpectralProfile }
+
     let numericInputFromAdaptive
         (token : AdaptiveToken)
         (input : AdaptiveNumericInput)
@@ -560,6 +565,18 @@ module App =
                         let! sourceKind = m.sourceImageKind
 
                         if sourceKind = SourceImageKind.Multispectral then
+                            yield node
+                    }
+                )
+
+        let onlyIfCompleteSpectralProfile (node : DomNode<Message>) =
+            Incremental.div
+                AttributeMap.empty
+                (
+                    alist {
+                        let! loaded = m.loadCompleteSpectralProfile
+
+                        if loaded = true then
                             yield node
                     }
                 )
@@ -716,6 +733,7 @@ module App =
         let allSpectralProfiles = 
             computeCompleteSpectralProfile m
 
+        // FIX: only call on user demand
         let spectralProfileOfAllBands =
             Incremental.div
                 AttributeMap.empty
@@ -782,7 +800,6 @@ module App =
 
                                             selectedSpectralProfilesView
                                                 rgbSelectedBandSpectralProfiles
-                                                allSpectralProfiles
                                         ]
 
                                 yield
@@ -806,7 +823,6 @@ module App =
 
                                             selectedSpectralProfilesView
                                                 rgbSelectedBandSpectralProfiles
-                                                allSpectralProfiles
                                         ]
 
                                 yield
@@ -828,7 +844,6 @@ module App =
 
                                             selectedSpectralProfilesView
                                                 rgbSelectedBandSpectralProfiles
-                                                allSpectralProfiles
                                         ]
 
                                 yield
@@ -849,7 +864,6 @@ module App =
 
                                         selectedSpectralProfilesView
                                             rgbSelectedBandSpectralProfiles
-                                            allSpectralProfiles
                                     ]
 
                             yield
@@ -858,7 +872,6 @@ module App =
                                         transferFunctionNonMultispectralRgbHistograms
                     }
                 )
-
 
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({title: 'Select image', filters: [{name: 'Images', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc', 'png', 'jpg', 'jpeg', 'webp']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open image dialog:', error);});"
@@ -1342,16 +1355,31 @@ module App =
                             ]
                         ]
                     ]
-                    accordionHist "Histograms" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
-                        spectralProfileOfAllBands
+                    accordionHist "Selected Bands Spectral Analysis" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [                        
                         histogramsAndProfilesForCurrentMode
                     ]
+                    
+                    div [style "display: flex; justify-content: flex-end; padding: 5px;"] [
+                        button [
+                            clazz "ui tiny inverted button"
+                            onClick (fun _ -> ToggleCompleteSpectralProfile)
+                        ] [
+                            text "Compute Complete Spectral Profile"
+                        ]
+                    ]
+
+                    onlyIfCompleteSpectralProfile (
+                        accordionHist "Complete Spectral Profile" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
+                            spectralProfileOfAllBands                            
+                        ]
+                    )
 
                     onlyForMultispectral (
                         div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages
                         ]
                     )
+                    
                 ]
 
             ]
