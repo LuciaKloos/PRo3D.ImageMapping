@@ -421,12 +421,13 @@ module SpectralAnalysis =
             )
             |> Array.sortBy (fun point -> point.wavelength)
 
-     let computeMappedBand
+     let computeSpectralProfile
         sources
         label
         color
         (bandIndices : int[]) =
 
+        // the result is sorted by wavelength 
         let spectralPoints = computeSpectralPoints sources label color bandIndices            
 
         if Array.isEmpty spectralPoints then
@@ -554,10 +555,9 @@ module SpectralAnalysis =
                     spectralProfile = spectralPoints
                 }
 
-    // FIS: only call this on user demand
      let computeCompleteSpectralProfile
         (m : AdaptiveModel)
-        : aval<RGBSelectedBandSpectralProfile> =
+        : aval<SpectralProfile> =
 
         let adaptiveImages =
             AList.toAVal m.images
@@ -576,7 +576,7 @@ module SpectralAnalysis =
                 |> List.sort
                 |> List.toArray
 
-            computeMappedBand
+            computeSpectralProfile
                 sources
                 "Complete spectral profile"
                 "#ffffff"
@@ -585,8 +585,7 @@ module SpectralAnalysis =
                 
      let computeRgbSpectralProfiles
         (m : AdaptiveModel)
-        (sampleCount : int)
-        : aval<RGBSelectedBandSpectralProfile list> =
+        : aval<SpectralProfile list> =
 
         let adaptiveImages =
             AList.toAVal m.images
@@ -614,7 +613,7 @@ module SpectralAnalysis =
                         |> Array.choose id
 
                     [
-                        computeMappedBand
+                        computeSpectralProfile
                             sources
                             "RGB composite"
                             "#ffffff"
@@ -675,7 +674,7 @@ module SpectralAnalysis =
                         |> Array.choose id
                     
                     [
-                        computeMappedBand
+                        computeSpectralProfile
                             sources
                             "Transfer function"
                             "#ffffff"
@@ -753,7 +752,7 @@ module SpectralAnalysis =
         )
 
      let spectralProfileMaximum
-        (profile : RGBSelectedBandSpectralProfile)
+        (profile : SpectralProfile)
         =
         profile.spectralProfile
         |> Array.map (fun point -> point.value)
@@ -767,7 +766,7 @@ module SpectralAnalysis =
                 if maximum > 0.0 then maximum else 1.0
 
      let rgbSpectralProfilesView
-        (profiles : RGBSelectedBandSpectralProfile list)
+        (profiles : SpectralProfile list)
         (isCompleteProfile : bool)
         (sharedMaximumValue : float)
         =
@@ -809,7 +808,6 @@ module SpectralAnalysis =
             let plotHeight =
                 height - topPadding - bottomPadding
 
-            // Shared wavelength range for all RGB profiles.
             let minimumWavelength =
                 validProfiles
                 |> List.map (fun (_, minimum, _) -> minimum)
@@ -853,7 +851,7 @@ module SpectralAnalysis =
 
 
             let createPolylinePoints
-                (profile : RGBSelectedBandSpectralProfile)
+                (profile : SpectralProfile)
                 =
                 profile.spectralProfile
                 |> Array.map (fun point ->
@@ -925,6 +923,43 @@ module SpectralAnalysis =
                     |> Array.toList
                 )
 
+            let completeProfileTooltipDots =
+                validProfiles
+                |> List.collect (fun (profile, _, _) ->
+                    profile.spectralProfile
+                    |> Array.map (fun point ->
+                        Svg.g [
+                            clientEvent
+                                "onmouseenter"
+                                "this.querySelector('.band-tooltip').style.display = 'block';"
+
+                            clientEvent
+                                "onmouseleave"
+                                "this.querySelector('.band-tooltip').style.display = 'none';"
+                        ] [
+                            Svg.circle [
+                                attribute "cx" (string (toX point.wavelength))
+                                attribute "cy" (string (toY point.value))
+                                attribute "r" "6"
+                                attribute "fill" "transparent"
+                                attribute "pointer-events" "all"
+                            ]
+
+                            Svg.text [
+                                clazz "band-tooltip"
+                                attribute "x" (string (toX point.wavelength))
+                                attribute "y" (string (toY point.value - 10.0))
+                                attribute "text-anchor" "middle"
+                                attribute "font-size" "10"
+                                attribute "fill" "white"
+                                attribute "pointer-events" "none"
+                                style "display: none;"
+                            ] (sprintf "Band %.0f" point.wavelength)
+                        ]
+                    )
+                    |> Array.toList
+                )
+
             let bandNumbers =
                 allSpectralPoints
                 |> List.map (fun point -> point.wavelength)
@@ -954,6 +989,9 @@ module SpectralAnalysis =
                 |> List.exists (fun (profile, _, _) ->
                     profile.label = "RGB"
                 )
+
+            let wavelengthLabels =
+                [| minimumWavelength; maximumWavelength |]
 
             let bandLabels =
                 visibleBandNumbers
@@ -1059,7 +1097,7 @@ module SpectralAnalysis =
 
                         style "width: 100%; height: 160px;"
                     ] (
-                        axisAndLabels @ profileLines
+                        axisAndLabels @ profileLines @ completeProfileTooltipDots
                     )
                 else 
                     Svg.svg [
@@ -1073,7 +1111,7 @@ module SpectralAnalysis =
             ]
 
      let spectralProfileView
-        (profile : aval<RGBSelectedBandSpectralProfile>)
+        (profile : aval<SpectralProfile>)
         : DomNode<Message> =
         Incremental.div
             AttributeMap.empty
@@ -1088,7 +1126,7 @@ module SpectralAnalysis =
             )
 
      let selectedSpectralProfilesView
-        (profiles : aval<RGBSelectedBandSpectralProfile list>)
+        (profiles : aval<SpectralProfile list>)
         : DomNode<Message> =
 
         Incremental.div
@@ -1125,7 +1163,7 @@ module SpectralAnalysis =
             )
 
      let completeSpectralProfileView
-        (completeProfile : aval<RGBSelectedBandSpectralProfile>)
+        (completeProfile : aval<SpectralProfile>)
         : DomNode<Message> =
         Incremental.div
             AttributeMap.empty

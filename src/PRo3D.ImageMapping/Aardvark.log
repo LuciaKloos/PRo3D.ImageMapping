@@ -1,8 +1,8 @@
- 0: using cache dir: C:\Users\lucia\AppData\Local\Aardvark\Cache
+ 0: using cache dir: C:\Users\kloos\AppData\Local\Aardvark\Cache
  0: initializing aardvark ........................................................................
  0:   System Information:
- 0:     System:      Microsoft Windows 10.0.26200
- 0:     Processor:   8 core AMD64
+ 0:     System:      Microsoft Windows 10.0.26100
+ 0:     Processor:   24 core AMD64
  0:     Process:     AMD64
  0:     Framework:   .NET 9.0.19
  0:   Skipped loading native dependencies for System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e
@@ -16,13 +16,13 @@
  0:     Skipped loading native dependencies for System.Private.Xml.Linq, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:     Skipped loading native dependencies for System.Private.Xml, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:     Unpacking native dependencies for Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.013 s
+ 0:   Loading native dependencies for Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.007 s
  0:   Skipped loading native dependencies for netstandard, Version=2.1.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:   Skipped loading native dependencies for FSharp.Data.Adaptive, Version=1.2.0.0, Culture=neutral, PublicKeyToken=null
  0:   Skipped loading native dependencies for Suave, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.002 s
+ 0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
  0:   Skipped loading native dependencies for FShade.Core, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
  0:   Loading native dependencies for Aardvark.Service, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Service, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
@@ -47,106 +47,104 @@
  0:     Skipped loading native dependencies for System.Private.Uri, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     Skipped loading native dependencies for System.Runtime.Serialization.Primitives, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     Skipped loading native dependencies for System.Linq, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 0:     Trying to resolve assembly: System.Private.DataContractSerialization.resources, Version=9.0.0.0, Culture=de-DE, PublicKeyToken=b03f5f7f11d50a3a - not found
- 0:     Trying to resolve assembly: System.Private.DataContractSerialization.resources, Version=9.0.0.0, Culture=de, PublicKeyToken=b03f5f7f11d50a3a - not found
- 0:     [ReadCacheFile] Loaded plugins cache file: C:\Users\lucia\AppData\Local\Aardvark\Cache\Plugins\PRo3D.ImageMapping_1.0.0.0_plugins.xml
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardium.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Application.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Application.Slim.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Application.Slim.GL.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Application.Slim.Vulkan.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Assembler.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Base.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Base.Essentials.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Base.Fonts.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Base.FSharp.dll
- 0:     [IsPlugin] Plugin found: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Base.FSharp.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Base.Incremental.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Base.IO.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Base.Telemetry.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Base.Tensors.CSharp.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Base.Tensors.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Base.TypeProviders.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Data.Opc.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.FontProvider.Runtime.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Geometry.Clustering.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Geometry.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Geometry.Intersection.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Geometry.PointTree.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Geometry.PolyMesh.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.GeoSpatial.Opc.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.GPGPU.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.DevIL.dll
- 0:     [IsPlugin] Plugin found: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.DevIL.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.FreeImage.dll
- 0:     [IsPlugin] Plugin found: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.FreeImage.dll
+ 0:     [ReadCacheFile] Loaded plugins cache file: C:\Users\kloos\AppData\Local\Aardvark\Cache\Plugins\PRo3D.ImageMapping_1.0.0.0_plugins.xml
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardium.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Application.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Application.Slim.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Application.Slim.GL.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Application.Slim.Vulkan.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Assembler.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Base.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Base.Essentials.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Base.Fonts.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Base.FSharp.dll
+ 0:     [IsPlugin] Plugin found: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Base.FSharp.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Base.Incremental.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Base.IO.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Base.Telemetry.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Base.Tensors.CSharp.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Base.Tensors.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Base.TypeProviders.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Data.Opc.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.FontProvider.Runtime.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Geometry.Clustering.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Geometry.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Geometry.Intersection.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Geometry.PointTree.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Geometry.PolyMesh.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.GeoSpatial.Opc.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.GPGPU.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.DevIL.dll
+ 0:     [IsPlugin] Plugin found: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.DevIL.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.FreeImage.dll
+ 0:     [IsPlugin] Plugin found: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.FreeImage.dll
  0:     Loading native dependencies for Aardvark.PixImage.FreeImage, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null 
  0:       Unpacking native dependencies for Aardvark.PixImage.FreeImage, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
- 0:     Loading native dependencies for Aardvark.PixImage.FreeImage, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.Pfim.dll
- 0:     [IsPlugin] Plugin found: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.Pfim.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.Common.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.GL.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.Text.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.Vulkan.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.Vulkan.Wrapper.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.SceneGraph.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.Service.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.UI.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Aardvark.UI.Primitives.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Adaptify.Core.dll
+ 0:     Loading native dependencies for Aardvark.PixImage.FreeImage, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.Pfim.dll
+ 0:     [IsPlugin] Plugin found: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.PixImage.Pfim.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.Common.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.GL.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.Text.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.Vulkan.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Rendering.Vulkan.Wrapper.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.SceneGraph.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.Service.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.UI.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Aardvark.UI.Primitives.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Adaptify.Core.dll
  0:     [IsPlugin] Ignoring assembly Aether due to filter
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\BitMiracle.LibTiff.NET.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\CommandLine.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\BitMiracle.LibTiff.NET.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\CommandLine.dll
  0:     [IsPlugin] Ignoring assembly CommonMark due to filter
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\DevILSharp.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FreeImage.Standard.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\DevILSharp.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FreeImage.Standard.dll
  0:     [IsPlugin] Ignoring assembly FShade.Core due to filter
  0:     [IsPlugin] Ignoring assembly FShade.GLSL due to filter
  0:     [IsPlugin] Ignoring assembly FShade.Imperative due to filter
  0:     [IsPlugin] Ignoring assembly FShade.SpirV due to filter
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FSharp.Core.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FSharp.Core.dll
  0:     [IsPlugin] Ignoring assembly FSharp.Data.Adaptive due to filter
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FSharp.Data.Csv.Core.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FSharp.Data.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FSharp.Data.Html.Core.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FSharp.Data.Http.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FSharp.Data.Json.Core.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FSharp.Data.Runtime.Utilities.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FSharp.Data.WorldBank.Core.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FSharp.Data.Xml.Core.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FSharp.Data.Csv.Core.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FSharp.Data.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FSharp.Data.Html.Core.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FSharp.Data.Http.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FSharp.Data.Json.Core.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FSharp.Data.Runtime.Utilities.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FSharp.Data.WorldBank.Core.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FSharp.Data.Xml.Core.dll
  0:     [IsPlugin] Ignoring assembly FsPickler due to filter
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FsPickler.Json.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FSys.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\FuzzySharp.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\GLSLangSharp.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\HDF.PInvoke.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FsPickler.Json.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FSys.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\FuzzySharp.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\GLSLangSharp.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\HDF.PInvoke.dll
  0:     [IsPlugin] Ignoring assembly ICSharpCode.SharpZipLib due to filter
  0:     [IsPlugin] Ignoring assembly LibTessDotNet due to filter
  0:     [IsPlugin] Ignoring assembly Microsoft.DotNet.PlatformAbstractions due to filter
  0:     [IsPlugin] Ignoring assembly Microsoft.Extensions.DependencyModel due to filter
  0:     [IsPlugin] Ignoring assembly Newtonsoft.Json due to filter
  0:     [IsPlugin] Ignoring assembly OpenTK due to filter
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Pfim.dll
- 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Pfim.dll
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.dll
  0:     Skipped loading native dependencies for System.Reflection.Metadata, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     Skipped loading native dependencies for System.Collections.Immutable, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     Skipped loading native dependencies for System.IO.MemoryMappedFiles, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.exe
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentData.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.exe
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentVisualization.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.SPICE.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Silk.NET.Core.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\Silk.NET.GLFW.dll
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\SingleFileExtractor.Core.dll
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.exe
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentData.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.exe
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentVisualization.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.SPICE.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Silk.NET.Core.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Silk.NET.GLFW.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\SingleFileExtractor.Core.dll
  0:     [IsPlugin] Ignoring assembly Suave due to filter
- 0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\TinyEXR.NET.dll
+ 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\TinyEXR.NET.dll
  0:     [IsPlugin] Ignoring assembly Unofficial.Typography due to filter
- 0:   Loading plugins .................................................................... 0.114 s
- 0:   [Introspection] Entry assembly: PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null (path: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.dll)
+ 0:   Loading plugins .................................................................... 0.049 s
+ 0:   [Introspection] Entry assembly: PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null (path: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.dll)
  0:   [Introspection] Ignoring assembly System.Runtime due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly System.Runtime.Numerics due to filter
@@ -243,7 +241,7 @@
  0:   [Introspection] Ignoring assembly FsPickler due to filter
  0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.013 s
+ 0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.007 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
@@ -253,7 +251,7 @@
  0:   [Introspection] Ignoring assembly FsPickler due to filter
  0:   Loading native dependencies for GLSLangSharp, Version=0.4.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for GLSLangSharp, Version=0.4.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for GLSLangSharp, Version=0.4.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
+ 0:   Loading native dependencies for GLSLangSharp, Version=0.4.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
@@ -264,7 +262,7 @@
  0:   [Introspection] Ignoring assembly OpenTK due to filter
  0:   Loading native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
+ 0:   Loading native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
  0:   [Introspection] Ignoring assembly System.Memory due to filter
@@ -307,7 +305,7 @@
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
+ 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FShade.Core due to filter
  0:   Loading native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 
@@ -462,9 +460,9 @@
  0:     [cache hit ] FSys, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] HDF.PInvoke, Version=1.10.502.0, Culture=neutral, PublicKeyToken=18793c1fcffe58a3
  0:     installing pickler: Aardvark.Base.Picklers.AdaptivePicklers
- 0:   Initializing CustomPicklerProvider ................................................. 0.050 s
+ 0:   Initializing CustomPicklerProvider ................................................. 0.019 s
  0:     [cache hit ] Aardvark.Base, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Initializing Constants ............................................................. 0.001 s
+ 0:   Initializing Constants ............................................................. 0.000 s
  0:     [cache hit ] SingleFileExtractor.Core, Version=2.2.1.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Telemetry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.TypeProviders, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
@@ -493,15 +491,15 @@
  0:     [cache hit ] Aardvark.Data.Opc, Version=0.11.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] TinyEXR.NET, Version=0.3.11.0, Culture=neutral, PublicKeyToken=9b5ae88730b3cee9
  0:     [cache hit ] Aardvark.PixImage.Pfim, Version=0.9.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Initializing PixImagePfim .......................................................... 0.007 s
+ 0:   Initializing PixImagePfim .......................................................... 0.005 s
  0:     [cache hit ] Pfim, Version=0.11.3.0, Culture=neutral, PublicKeyToken=c0ebc20d008ae134
  0:     [cache hit ] Aardvark.PixImage.DevIL, Version=5.2.0.0, Culture=neutral, PublicKeyToken=null
  0:   Initializing PixImageDevil .................................................................
  0:     probing paths for DevIL
- 0:       C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
- 0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
- 0:     [Introspection] loaded native library DevIL from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64\DevIL.dll
- 0:   Initializing PixImageDevil ......................................................... 0.010 s
+ 0:       C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
+ 0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
+ 0:     [Introspection] loaded native library DevIL from C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64\DevIL.dll
+ 0:   Initializing PixImageDevil ......................................................... 0.006 s
  0:     [cache hit ] DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Fonts, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -527,41 +525,41 @@
  0:   Initializing PixImageFreeImage .............................................................
  0:     trying to resolve native library FreeImage
  0:     probing paths for FreeImage
- 0:       C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
- 0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Application.Slim\9618658d-d81e-38ec-8ba4-e51735e837a2\windows\AMD64
- 0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
- 0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Service\a07cedf8-9a46-7a0c-8f3f-138700248a75\windows\AMD64
- 0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64
- 0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.Vulkan\5a2554c1-95d0-40bb-6ea0-c8f8189e388f\windows\AMD64
- 0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\GLSLangSharp\d2d054ca-af95-fad3-43a0-0b947ababa67\windows\AMD64
- 0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
- 0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
- 0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
- 0:     [Introspection] loaded native library FreeImage from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64\FreeImage.dll
- 0:   Initializing PixImageFreeImage ..................................................... 0.022 s
- 0: initializing aardvark ........................................................ [0.16x] 0.406 s
+ 0:       C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
+ 0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Application.Slim\9618658d-d81e-38ec-8ba4-e51735e837a2\windows\AMD64
+ 0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
+ 0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Service\a07cedf8-9a46-7a0c-8f3f-138700248a75\windows\AMD64
+ 0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64
+ 0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.Vulkan\5a2554c1-95d0-40bb-6ea0-c8f8189e388f\windows\AMD64
+ 0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\GLSLangSharp\d2d054ca-af95-fad3-43a0-0b947ababa67\windows\AMD64
+ 0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
+ 0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
+ 0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
+ 0:     [Introspection] loaded native library FreeImage from C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64\FreeImage.dll
+ 0:   Initializing PixImageFreeImage ..................................................... 0.008 s
+ 0: initializing aardvark ........................................................ [0.14x] 0.182 s
  0: Initializing Aardium .........................................................................
- 0:   Binary: C:\Users\lucia\AppData\Local\Aardium\x64\2.1.2\tools\Aardium.exe
- 0: Initializing Aardium ................................................................. 0.019 s
+ 0:   Binary: C:\Users\kloos\AppData\Local\Aardium\x64\2.1.2\tools\Aardium.exe
+ 0: Initializing Aardium ................................................................. 0.012 s
  0: log path for coo trafo: .\logs\CooTrafo.Log
  0: probing paths for CooTransformation
- 0:   C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
- 0:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
- 0: [Introspection] loaded native library CooTransformation from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64\CooTransformation.dll
- 0: using SPICE meta-kernel: C:\Users\lucia\VrVis\SPICE\HERA\kernels\mk\hera_ops.tm
- 0: SPICE working directory: C:\Users\lucia\VrVis\SPICE\HERA\kernels\mk
+ 0:   C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
+ 0:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
+ 0: [Introspection] loaded native library CooTransformation from C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64\CooTransformation.dll
+ 0: using SPICE meta-kernel: C:\Users\kloos\source\repos\spice\kernels\mk\hera_ops.tm
+ 0: SPICE working directory: C:\Users\kloos\source\repos\spice\kernels\mk
  0: probing paths for nvapi64
- 0:   C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
- 0:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Application.Slim\9618658d-d81e-38ec-8ba4-e51735e837a2\windows\AMD64
- 0:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
- 0:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Service\a07cedf8-9a46-7a0c-8f3f-138700248a75\windows\AMD64
- 0:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64
- 0:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.Vulkan\5a2554c1-95d0-40bb-6ea0-c8f8189e388f\windows\AMD64
- 0:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\GLSLangSharp\d2d054ca-af95-fad3-43a0-0b947ababa67\windows\AMD64
- 0:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
- 0:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
- 0:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
- 0: WARNING: Could not load native library nvapi64.dll (nvapi64.dll)
+ 0:   C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
+ 0:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Application.Slim\9618658d-d81e-38ec-8ba4-e51735e837a2\windows\AMD64
+ 0:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
+ 0:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Service\a07cedf8-9a46-7a0c-8f3f-138700248a75\windows\AMD64
+ 0:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64
+ 0:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.Vulkan\5a2554c1-95d0-40bb-6ea0-c8f8189e388f\windows\AMD64
+ 0:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\GLSLangSharp\d2d054ca-af95-fad3-43a0-0b947ababa67\windows\AMD64
+ 0:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
+ 0:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
+ 0:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
+ 0: [Introspection] loaded native library nvapi64.dll from nvapi64.dll
  0: Skipped loading native dependencies for OpenTK, Version=3.0.0.0, Culture=neutral, PublicKeyToken=bad199fe84eb3df4
  0: Skipped loading native dependencies for System.Runtime.InteropServices.RuntimeInformation, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: Skipped loading native dependencies for System.Diagnostics.Process, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -574,38 +572,39 @@
  0: OpenGL 4.6 working
  0: Skipped loading native dependencies for System.Drawing.Primitives, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: probing paths for glvm
- 0:   C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
- 0:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
- 0: [Introspection] loaded native library glvm from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64\glvm.dll
+ 0:   C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
+ 0:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
+ 0: [Introspection] loaded native library glvm from C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64\glvm.dll
  0: Skipped loading native dependencies for FShade.Imperative, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
  0: Skipped loading native dependencies for FShade.GLSL, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
  0: initializing OpenGL runtime ..................................................................
  0:   Skipped loading native dependencies for mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089
- 0:   [GL] vendor: Intel
- 0:   [GL] renderer: Intel(R) Iris(R) Xe Graphics
- 0:   [GL] version: 4.6.0 - Build 32.0.101.7088
+ 0:   [GL] vendor: NVIDIA Corporation
+ 0:   [GL] renderer: NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2
+ 0:   [GL] version: 4.6.0 NVIDIA 591.86
  0:   [GL] profileMask: 1
- 0:   [GL] contextFlags: 5
+ 0:   [GL] contextFlags: 13
  0:   [GL] extensions
- 0:     GL_3DFX_texture_compression_FXT1
- 0:     GL_AMD_depth_clamp_separate
+ 0:     GL_AMD_multi_draw_indirect
+ 0:     GL_AMD_seamless_cubemap_per_texture
  0:     GL_AMD_vertex_shader_layer
  0:     GL_AMD_vertex_shader_viewport_index
  0:     GL_ARB_ES2_compatibility
  0:     GL_ARB_ES3_1_compatibility
+ 0:     GL_ARB_ES3_2_compatibility
  0:     GL_ARB_ES3_compatibility
  0:     GL_ARB_arrays_of_arrays
  0:     GL_ARB_base_instance
  0:     GL_ARB_bindless_texture
  0:     GL_ARB_blend_func_extended
  0:     GL_ARB_buffer_storage
- 0:     GL_ARB_cl_event
  0:     GL_ARB_clear_buffer_object
  0:     GL_ARB_clear_texture
  0:     GL_ARB_clip_control
  0:     GL_ARB_color_buffer_float
  0:     GL_ARB_compressed_texture_pixel_storage
  0:     GL_ARB_compute_shader
+ 0:     GL_ARB_compute_variable_group_size
  0:     GL_ARB_conditional_render_inverted
  0:     GL_ARB_conservative_depth
  0:     GL_ARB_copy_buffer
@@ -640,8 +639,10 @@
  0:     GL_ARB_gl_spirv
  0:     GL_ARB_gpu_shader5
  0:     GL_ARB_gpu_shader_fp64
+ 0:     GL_ARB_gpu_shader_int64
  0:     GL_ARB_half_float_pixel
  0:     GL_ARB_half_float_vertex
+ 0:     GL_ARB_imaging
  0:     GL_ARB_indirect_parameters
  0:     GL_ARB_instanced_arrays
  0:     GL_ARB_internalformat_query
@@ -655,6 +656,7 @@
  0:     GL_ARB_multitexture
  0:     GL_ARB_occlusion_query
  0:     GL_ARB_occlusion_query2
+ 0:     GL_ARB_parallel_shader_compile
  0:     GL_ARB_pipeline_statistics_query
  0:     GL_ARB_pixel_buffer_object
  0:     GL_ARB_point_parameters
@@ -666,7 +668,7 @@
  0:     GL_ARB_query_buffer_object
  0:     GL_ARB_robust_buffer_access_behavior
  0:     GL_ARB_robustness
- 0:     GL_ARB_robustness_isolation
+ 0:     GL_ARB_sample_locations
  0:     GL_ARB_sample_shading
  0:     GL_ARB_sampler_objects
  0:     GL_ARB_seamless_cube_map
@@ -674,22 +676,29 @@
  0:     GL_ARB_separate_shader_objects
  0:     GL_ARB_shader_atomic_counter_ops
  0:     GL_ARB_shader_atomic_counters
+ 0:     GL_ARB_shader_ballot
  0:     GL_ARB_shader_bit_encoding
+ 0:     GL_ARB_shader_clock
  0:     GL_ARB_shader_draw_parameters
  0:     GL_ARB_shader_group_vote
  0:     GL_ARB_shader_image_load_store
  0:     GL_ARB_shader_image_size
  0:     GL_ARB_shader_objects
  0:     GL_ARB_shader_precision
- 0:     GL_ARB_shader_stencil_export
  0:     GL_ARB_shader_storage_buffer_object
  0:     GL_ARB_shader_subroutine
  0:     GL_ARB_shader_texture_image_samples
  0:     GL_ARB_shader_texture_lod
+ 0:     GL_ARB_shader_viewport_layer_array
  0:     GL_ARB_shading_language_100
  0:     GL_ARB_shading_language_420pack
+ 0:     GL_ARB_shading_language_include
  0:     GL_ARB_shading_language_packing
  0:     GL_ARB_shadow
+ 0:     GL_ARB_sparse_buffer
+ 0:     GL_ARB_sparse_texture
+ 0:     GL_ARB_sparse_texture2
+ 0:     GL_ARB_sparse_texture_clamp
  0:     GL_ARB_spirv_extensions
  0:     GL_ARB_stencil_texturing
  0:     GL_ARB_sync
@@ -709,6 +718,7 @@
  0:     GL_ARB_texture_env_crossbar
  0:     GL_ARB_texture_env_dot3
  0:     GL_ARB_texture_filter_anisotropic
+ 0:     GL_ARB_texture_filter_minmax
  0:     GL_ARB_texture_float
  0:     GL_ARB_texture_gather
  0:     GL_ARB_texture_mirror_clamp_to_edge
@@ -743,134 +753,275 @@
  0:     GL_ARB_vertex_type_2_10_10_10_rev
  0:     GL_ARB_viewport_array
  0:     GL_ARB_window_pos
- 0:     GL_ATI_meminfo
- 0:     GL_ATI_separate_stencil
+ 0:     GL_ATI_draw_buffers
+ 0:     GL_ATI_texture_float
+ 0:     GL_ATI_texture_mirror_once
+ 0:     GL_EXTX_framebuffer_mixed_formats
+ 0:     GL_EXT_Cg_shader
  0:     GL_EXT_abgr
  0:     GL_EXT_bgra
+ 0:     GL_EXT_bindable_uniform
  0:     GL_EXT_blend_color
  0:     GL_EXT_blend_equation_separate
  0:     GL_EXT_blend_func_separate
  0:     GL_EXT_blend_minmax
  0:     GL_EXT_blend_subtract
- 0:     GL_EXT_clip_volume_hint
  0:     GL_EXT_compiled_vertex_array
  0:     GL_EXT_depth_bounds_test
  0:     GL_EXT_direct_state_access
  0:     GL_EXT_draw_buffers2
+ 0:     GL_EXT_draw_instanced
  0:     GL_EXT_draw_range_elements
  0:     GL_EXT_fog_coord
  0:     GL_EXT_framebuffer_blit
  0:     GL_EXT_framebuffer_multisample
+ 0:     GL_EXT_framebuffer_multisample_blit_scaled
  0:     GL_EXT_framebuffer_object
+ 0:     GL_EXT_framebuffer_sRGB
  0:     GL_EXT_geometry_shader4
  0:     GL_EXT_gpu_program_parameters
  0:     GL_EXT_gpu_shader4
+ 0:     GL_EXT_import_sync_object
  0:     GL_EXT_memory_object
  0:     GL_EXT_memory_object_win32
  0:     GL_EXT_multi_draw_arrays
+ 0:     GL_EXT_multiview_texture_multisample
+ 0:     GL_EXT_multiview_timer_query
  0:     GL_EXT_packed_depth_stencil
  0:     GL_EXT_packed_float
  0:     GL_EXT_packed_pixels
+ 0:     GL_EXT_pixel_buffer_object
+ 0:     GL_EXT_point_parameters
  0:     GL_EXT_polygon_offset_clamp
+ 0:     GL_EXT_post_depth_coverage
+ 0:     GL_EXT_provoking_vertex
+ 0:     GL_EXT_raster_multisample
  0:     GL_EXT_rescale_normal
  0:     GL_EXT_secondary_color
  0:     GL_EXT_semaphore
  0:     GL_EXT_semaphore_win32
+ 0:     GL_EXT_separate_shader_objects
  0:     GL_EXT_separate_specular_color
- 0:     GL_EXT_shader_framebuffer_fetch
+ 0:     GL_EXT_shader_image_load_formatted
+ 0:     GL_EXT_shader_image_load_store
  0:     GL_EXT_shader_integer_mix
  0:     GL_EXT_shadow_funcs
+ 0:     GL_EXT_sparse_texture2
  0:     GL_EXT_stencil_two_side
  0:     GL_EXT_stencil_wrap
  0:     GL_EXT_texture3D
  0:     GL_EXT_texture_array
+ 0:     GL_EXT_texture_buffer_object
+ 0:     GL_EXT_texture_compression_dxt1
+ 0:     GL_EXT_texture_compression_latc
+ 0:     GL_EXT_texture_compression_rgtc
  0:     GL_EXT_texture_compression_s3tc
+ 0:     GL_EXT_texture_cube_map
  0:     GL_EXT_texture_edge_clamp
  0:     GL_EXT_texture_env_add
  0:     GL_EXT_texture_env_combine
+ 0:     GL_EXT_texture_env_dot3
  0:     GL_EXT_texture_filter_anisotropic
+ 0:     GL_EXT_texture_filter_minmax
  0:     GL_EXT_texture_integer
+ 0:     GL_EXT_texture_lod
  0:     GL_EXT_texture_lod_bias
- 0:     GL_EXT_texture_rectangle
+ 0:     GL_EXT_texture_mirror_clamp
+ 0:     GL_EXT_texture_object
  0:     GL_EXT_texture_sRGB
+ 0:     GL_EXT_texture_sRGB_R8
  0:     GL_EXT_texture_sRGB_decode
+ 0:     GL_EXT_texture_shadow_lod
  0:     GL_EXT_texture_shared_exponent
- 0:     GL_EXT_texture_snorm
  0:     GL_EXT_texture_storage
  0:     GL_EXT_texture_swizzle
  0:     GL_EXT_timer_query
- 0:     GL_EXT_transform_feedback
+ 0:     GL_EXT_transform_feedback2
+ 0:     GL_EXT_vertex_array
+ 0:     GL_EXT_vertex_array_bgra
+ 0:     GL_EXT_vertex_attrib_64bit
+ 0:     GL_EXT_win32_keyed_mutex
+ 0:     GL_EXT_window_rectangles
+ 0:     GL_IBM_rasterpos_clip
  0:     GL_IBM_texture_mirrored_repeat
- 0:     GL_INTEL_conservative_rasterization
- 0:     GL_INTEL_fragment_shader_ordering
- 0:     GL_INTEL_framebuffer_CMAA
- 0:     GL_INTEL_map_texture
- 0:     GL_INTEL_multi_rate_fragment_shader
- 0:     GL_INTEL_performance_query
  0:     GL_KHR_blend_equation_advanced
  0:     GL_KHR_blend_equation_advanced_coherent
  0:     GL_KHR_context_flush_control
  0:     GL_KHR_debug
  0:     GL_KHR_no_error
+ 0:     GL_KHR_parallel_shader_compile
+ 0:     GL_KHR_robust_buffer_access_behavior
+ 0:     GL_KHR_robustness
  0:     GL_KHR_shader_subgroup
- 0:     GL_KHR_shader_subgroup_arithmetic
- 0:     GL_KHR_shader_subgroup_ballot
- 0:     GL_KHR_shader_subgroup_basic
- 0:     GL_KHR_shader_subgroup_clustered
- 0:     GL_KHR_shader_subgroup_quad
- 0:     GL_KHR_shader_subgroup_shuffle
- 0:     GL_KHR_shader_subgroup_shuffle_relative
- 0:     GL_KHR_shader_subgroup_vote
- 0:     GL_KHR_texture_compression_astc_ldr
+ 0:     GL_KTX_buffer_region
+ 0:     GL_NVX_blend_equation_advanced_multi_draw_buffers
+ 0:     GL_NVX_conditional_render
+ 0:     GL_NVX_gpu_memory_info
+ 0:     GL_NVX_gpu_multicast2
+ 0:     GL_NVX_linked_gpu_multicast
+ 0:     GL_NVX_multigpu_info
+ 0:     GL_NVX_nvenc_interop
+ 0:     GL_NVX_progress_fence
+ 0:     GL_NV_ES1_1_compatibility
+ 0:     GL_NV_ES3_1_compatibility
+ 0:     GL_NV_alpha_to_coverage_dither_control
+ 0:     GL_NV_bindless_multi_draw_indirect
+ 0:     GL_NV_bindless_multi_draw_indirect_count
+ 0:     GL_NV_bindless_texture
+ 0:     GL_NV_blend_equation_advanced
+ 0:     GL_NV_blend_equation_advanced_coherent
+ 0:     GL_NV_blend_minmax_factor
  0:     GL_NV_blend_square
+ 0:     GL_NV_clip_space_w_scaling
+ 0:     GL_NV_command_list
+ 0:     GL_NV_compute_program5
+ 0:     GL_NV_compute_shader_derivatives
  0:     GL_NV_conditional_render
+ 0:     GL_NV_conservative_raster
+ 0:     GL_NV_conservative_raster_dilate
+ 0:     GL_NV_conservative_raster_pre_snap
+ 0:     GL_NV_conservative_raster_pre_snap_triangles
+ 0:     GL_NV_conservative_raster_underestimation
+ 0:     GL_NV_copy_depth_to_color
+ 0:     GL_NV_copy_image
+ 0:     GL_NV_depth_buffer_float
+ 0:     GL_NV_depth_clamp
+ 0:     GL_NV_draw_texture
+ 0:     GL_NV_draw_vulkan_image
+ 0:     GL_NV_explicit_multisample
+ 0:     GL_NV_feature_query
+ 0:     GL_NV_fence
+ 0:     GL_NV_fill_rectangle
+ 0:     GL_NV_float_buffer
+ 0:     GL_NV_fog_distance
+ 0:     GL_NV_fragment_coverage_to_color
+ 0:     GL_NV_fragment_program
+ 0:     GL_NV_fragment_program2
+ 0:     GL_NV_fragment_program_option
+ 0:     GL_NV_fragment_shader_barycentric
+ 0:     GL_NV_fragment_shader_interlock
+ 0:     GL_NV_framebuffer_mixed_samples
+ 0:     GL_NV_framebuffer_multisample_coverage
+ 0:     GL_NV_geometry_shader4
+ 0:     GL_NV_geometry_shader_passthrough
+ 0:     GL_NV_gpu_multicast
+ 0:     GL_NV_gpu_program4
+ 0:     GL_NV_gpu_program4_1
+ 0:     GL_NV_gpu_program5
+ 0:     GL_NV_gpu_program5_mem_extended
+ 0:     GL_NV_gpu_program_fp64
+ 0:     GL_NV_gpu_program_multiview
+ 0:     GL_NV_gpu_shader5
+ 0:     GL_NV_half_float
+ 0:     GL_NV_internalformat_sample_query
+ 0:     GL_NV_light_max_exponent
+ 0:     GL_NV_memory_attachment
+ 0:     GL_NV_memory_object_sparse
+ 0:     GL_NV_mesh_shader
+ 0:     GL_NV_multisample_coverage
+ 0:     GL_NV_multisample_filter_hint
+ 0:     GL_NV_occlusion_query
+ 0:     GL_NV_packed_depth_stencil
+ 0:     GL_NV_parameter_buffer_object
+ 0:     GL_NV_parameter_buffer_object2
+ 0:     GL_NV_path_rendering
+ 0:     GL_NV_path_rendering_shared_edge
+ 0:     GL_NV_pixel_data_range
+ 0:     GL_NV_point_sprite
  0:     GL_NV_primitive_restart
+ 0:     GL_NV_query_resource
+ 0:     GL_NV_query_resource_tag
+ 0:     GL_NV_register_combiners
+ 0:     GL_NV_register_combiners2
+ 0:     GL_NV_representative_fragment_test
+ 0:     GL_NV_sample_locations
+ 0:     GL_NV_sample_mask_override_coverage
+ 0:     GL_NV_scissor_exclusive
+ 0:     GL_NV_shader_atomic_counters
+ 0:     GL_NV_shader_atomic_float
+ 0:     GL_NV_shader_atomic_float64
+ 0:     GL_NV_shader_atomic_fp16_vector
+ 0:     GL_NV_shader_atomic_int64
+ 0:     GL_NV_shader_buffer_load
+ 0:     GL_NV_shader_storage_buffer_object
+ 0:     GL_NV_shader_subgroup_partitioned
+ 0:     GL_NV_shader_texture_footprint
+ 0:     GL_NV_shader_thread_group
+ 0:     GL_NV_shader_thread_shuffle
+ 0:     GL_NV_shading_rate_image
+ 0:     GL_NV_stereo_view_rendering
  0:     GL_NV_texgen_reflection
+ 0:     GL_NV_texture_barrier
+ 0:     GL_NV_texture_compression_vtc
+ 0:     GL_NV_texture_env_combine4
+ 0:     GL_NV_texture_multisample
+ 0:     GL_NV_texture_rectangle
+ 0:     GL_NV_texture_rectangle_compressed
+ 0:     GL_NV_texture_shader
+ 0:     GL_NV_texture_shader2
+ 0:     GL_NV_texture_shader3
  0:     GL_NV_timeline_semaphore
+ 0:     GL_NV_transform_feedback
+ 0:     GL_NV_transform_feedback2
+ 0:     GL_NV_uniform_buffer_std430_layout
+ 0:     GL_NV_uniform_buffer_unified_memory
+ 0:     GL_NV_vertex_array_range
+ 0:     GL_NV_vertex_array_range2
+ 0:     GL_NV_vertex_attrib_integer_64bit
+ 0:     GL_NV_vertex_buffer_unified_memory
+ 0:     GL_NV_vertex_program
+ 0:     GL_NV_vertex_program1_1
+ 0:     GL_NV_vertex_program2
+ 0:     GL_NV_vertex_program2_option
+ 0:     GL_NV_vertex_program3
+ 0:     GL_NV_viewport_array2
+ 0:     GL_NV_viewport_swizzle
  0:     GL_OVR_multiview
+ 0:     GL_OVR_multiview2
+ 0:     GL_S3_s3tc
  0:     GL_SGIS_generate_mipmap
- 0:     GL_SGIS_texture_edge_clamp
  0:     GL_SGIS_texture_lod
- 0:     GL_SUN_multi_draw_arrays
+ 0:     GL_SGIX_depth_texture
+ 0:     GL_SGIX_shadow
+ 0:     GL_SUN_slice_accum
  0:     GL_WIN_swap_hint
  0:     WGL_EXT_swap_control
- 0:   vendor:   Intel
- 0:   renderer: Intel(R) Iris(R) Xe Graphics
+ 0:   vendor:   NVIDIA Corporation
+ 0:   renderer: NVIDIA GeForce RTX 2080 Ti/PCIe/SSE2
  0:   version:  OpenGL 4.6.0 / GLSL 4.6.0 Core
  0:   probing paths for glvm
- 0:     C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Application.Slim\9618658d-d81e-38ec-8ba4-e51735e837a2\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Service\a07cedf8-9a46-7a0c-8f3f-138700248a75\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.Vulkan\5a2554c1-95d0-40bb-6ea0-c8f8189e388f\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\GLSLangSharp\d2d054ca-af95-fad3-43a0-0b947ababa67\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
- 0:   [Introspection] loaded native library glvm from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64\glvm.dll
+ 0:     C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Application.Slim\9618658d-d81e-38ec-8ba4-e51735e837a2\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Service\a07cedf8-9a46-7a0c-8f3f-138700248a75\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.Vulkan\5a2554c1-95d0-40bb-6ea0-c8f8189e388f\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\GLSLangSharp\d2d054ca-af95-fad3-43a0-0b947ababa67\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
+ 0:   [Introspection] loaded native library glvm from C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64\glvm.dll
  0:   probing paths for Opengl32
- 0:     C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Application.Slim\9618658d-d81e-38ec-8ba4-e51735e837a2\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Service\a07cedf8-9a46-7a0c-8f3f-138700248a75\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.Vulkan\5a2554c1-95d0-40bb-6ea0-c8f8189e388f\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\GLSLangSharp\d2d054ca-af95-fad3-43a0-0b947ababa67\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
+ 0:     C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Application.Slim\9618658d-d81e-38ec-8ba4-e51735e837a2\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Service\a07cedf8-9a46-7a0c-8f3f-138700248a75\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.Vulkan\5a2554c1-95d0-40bb-6ea0-c8f8189e388f\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\GLSLangSharp\d2d054ca-af95-fad3-43a0-0b947ababa67\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
  0:   [Introspection] loaded native library Opengl32.dll from Opengl32.dll
  0:   probing paths for opengl32
- 0:     C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
+ 0:     C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
  0:   [Introspection] loaded native library opengl32.dll from opengl32.dll
  0:   probing paths for kernel32
- 0:     C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
- 0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
+ 0:     C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
+ 0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
  0:   [Introspection] loaded native library kernel32.dll from kernel32.dll
- 0: initializing OpenGL runtime .......................................................... 0.024 s
- 0: Trying to resolve assembly: FSharp.Core.resources, Version=9.0.0.0, Culture=de-DE, PublicKeyToken=b03f5f7f11d50a3a - not found
+ 0: initializing OpenGL runtime .......................................................... 0.015 s
  0: Skipped loading native dependencies for System.ObjectModel, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: Skipped loading native dependencies for System.Runtime.Intrinsics, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0: [cache miss] PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
@@ -991,7 +1142,7 @@
  0: [cache hit ] FSys, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] HDF.PInvoke, Version=1.10.502.0, Culture=neutral, PublicKeyToken=18793c1fcffe58a3
  0: Skipped loading native dependencies for System.Threading.ThreadPool, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 0: WARNING: [aardvark.media] currently ThreadPool.MinThreads is (8,1)
+ 0: WARNING: [aardvark.media] currently ThreadPool.MinThreads is (24,1)
  0: WARNING: [aardvark.media] unfortunately, currently we need to adjust this to at least (12,12) due to an open issue https://github.com/aardvark-platform/aardvark.media/issues/19
  0: Aardvark.UI serves template.html
  0: Aardvark.UI serves resources/stats.html
@@ -1040,7 +1191,7 @@
  2: WARNING: The spectralPoints are empty
  2: Skipped loading native dependencies for System.Web.HttpUtility, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  3: Skipped loading native dependencies for System.Globalization, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: [Server] created client for (fb026b36-b14a-6ee2-5196-401d28723d49/n5), mapping enabled
+ 3: [Server] created client for (3547859f-b142-fc7a-3a2e-ff4352218811/n5), mapping enabled
  3: [Client] 1: running n5
  3: Skipped loading native dependencies for System.Runtime.Numerics, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  3: Skipped loading native dependencies for System.Reflection, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -1050,21 +1201,65 @@
  3: Skipped loading native dependencies for System.IO, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  4: [Scene] n5: created
  4: probing paths for jitmem
- 4:   C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
- 4:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
- 4: [Introspection] loaded native library jitmem from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64\jitmem.dll
- 4: [GL] Reading shader program file cache 'C:\Users\lucia\AppData\Local\Aardvark\Cache\Shaders\OpenGL\5a7de485-f0ab-be12-6c02-19be5075591e.bin: success 0.020 s
+ 4:   C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
+ 4:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
+ 4: [Introspection] loaded native library jitmem from C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64\jitmem.dll
+ 4: [GL] Reading shader program file cache 'C:\Users\kloos\AppData\Local\Aardvark\Cache\Shaders\OpenGL\9638dd46-4eb6-0397-4eac-908fb7775c70.bin: success 0.012 s
  4: Skipped loading native dependencies for System.Reflection.Emit, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 5: Trying to resolve assembly: System.Text.Json.resources, Version=9.0.0.0, Culture=de-DE, PublicKeyToken=cc7b13ffcd2ddd51 - not found
- 5: Trying to resolve assembly: System.Text.Json.resources, Version=9.0.0.0, Culture=de, PublicKeyToken=cc7b13ffcd2ddd51 - not found
- 5: WARNING: Could not read MBI manifest C:\Users\lucia\VrVis\rededge_geotiff_example2.tif: 'I' is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0.
+ 5: WARNING: Could not read MBI manifest C:\Users\kloos\Resources\rededge_geotiff_example2.tif: 'I' is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0.
  5: WARNING: Loaded TIFF band 0 with wavelength None
  5: WARNING: Loaded TIFF band 1 with wavelength None
  5: WARNING: Loaded TIFF band 2 with wavelength None
  5: WARNING: Loaded TIFF band 3 with wavelength None
- 5: WARNING: Loaded 4 image bands from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
- 2: WARNING: TIFF CACHE MISS: decoding channel 0 from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
- 2: WARNING: TIFF CACHE MISS: decoding channel 1 from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
- 2: WARNING: TIFF CACHE MISS: decoding channel 2 from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
- 2: WARNING: TIFF CACHE MISS: decoding channel 3 from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
+ 5: WARNING: Loaded 4 image bands from C:\Users\kloos\Resources\rededge_geotiff_example2.tif
+ 2: WARNING: TIFF CACHE MISS: decoding channel 0 from C:\Users\kloos\Resources\rededge_geotiff_example2.tif
+ 2: WARNING: TIFF CACHE MISS: decoding channel 1 from C:\Users\kloos\Resources\rededge_geotiff_example2.tif
+ 2: WARNING: TIFF CACHE MISS: decoding channel 2 from C:\Users\kloos\Resources\rededge_geotiff_example2.tif
+ 2: WARNING: TIFF CACHE MISS: decoding channel 3 from C:\Users\kloos\Resources\rededge_geotiff_example2.tif
+ 5: WARNING: Default NetCDF RGB ratio bands: R=Some 5/Some 4, G=Some 3/Some 2, B=Some 1/Some 0
+ 5: WARNING: Loaded 285 image bands from C:\Users\kloos\Resources\EMIT_LA2\EMIT_L2A_RFL_001_20260624T165457_2617511_036.nc
+ 2: WARNING: Band 132 contains no positive finite values
+ 2: WARNING: Band 133 contains no positive finite values
+ 2: WARNING: Band 134 contains no positive finite values
+ 2: WARNING: Band 135 contains no positive finite values
+ 2: WARNING: Band 136 contains no positive finite values
+ 2: WARNING: Band 137 contains no positive finite values
+ 2: WARNING: Band 138 contains no positive finite values
+ 2: WARNING: Band 191 contains no positive finite values
+ 2: WARNING: Band 192 contains no positive finite values
+ 2: WARNING: Band 193 contains no positive finite values
+ 2: WARNING: Band 194 contains no positive finite values
+ 2: WARNING: Band 195 contains no positive finite values
+ 2: WARNING: Band 196 contains no positive finite values
+ 2: WARNING: Band 197 contains no positive finite values
+ 2: WARNING: Band 198 contains no positive finite values
+ 2: WARNING: Band 199 contains no positive finite values
+ 2: WARNING: Band 200 contains no positive finite values
+ 2: WARNING: Band 201 contains no positive finite values
+ 2: WARNING: Band 202 contains no positive finite values
+ 2: WARNING: Band 203 contains no positive finite values
+ 2: WARNING: Band 204 contains no positive finite values
+ 2: WARNING: Band 205 contains no positive finite values
+ 2: WARNING: Band 206 contains no positive finite values
+ 2: WARNING: Band 207 contains no positive finite values
+ 2: WARNING: Band 208 contains no positive finite values
+ 2: WARNING: Band 209 contains no positive finite values
+ 2: WARNING: Band 210 contains no positive finite values
+ 2: WARNING: Band 211 contains no positive finite values
+ 2: WARNING: Band 212 contains no positive finite values
+ 2: WARNING: Band 213 contains no positive finite values
+ 2: WARNING: Reading RGB histogram image: path=Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 1.jpg, exists=true
+ 2: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 1.jpg' with FreeImage loader: success in 0.047 s
+ 2: WARNING: Extracted RGB histogram channels: R=4398290, G=4398290, B=4398290
+ 2: WARNING: Reading RGB histogram image: path=Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 1.jpg, exists=true
+ 2: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 1.jpg' with FreeImage loader: success in 0.027 s
+ 2: WARNING: Extracted RGB histogram channels: R=4398290, G=4398290, B=4398290
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 1.jpg' with FreeImage loader: success in 0.028 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 1.jpg' with FreeImage loader: success in 0.054 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 1.jpg' with FreeImage loader: success in 0.053 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 1.jpg' with FreeImage loader: success in 0.029 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 1.jpg' with FreeImage loader: success in 0.030 s
+ 4: Trying to load image from file 'Z:\projects\24-MSL-3D\data\Panos\SOL 1429 - mcam07068 - Butte 1.jpg' with FreeImage loader: success in 0.052 s
+ 5: WARNING: Default NetCDF RGB ratio bands: R=Some 5/Some 4, G=Some 3/Some 2, B=Some 1/Some 0
+ 5: WARNING: Loaded 285 image bands from C:\Users\kloos\Resources\EMIT_LA2\EMIT_L2A_RFL_001_20260624T165457_2617511_036.nc
  6: [Client] 1: stopped

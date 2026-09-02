@@ -568,6 +568,19 @@ module App =
                             yield node
                     }
                 )
+    
+        let onlyForPlainRGBImage (node : DomNode<Message>) =
+            Incremental.div
+                AttributeMap.empty
+                (
+                    alist {
+                        let! sourceKind = m.sourceImageKind
+
+                        if sourceKind = SourceImageKind.PlainRgbImage then
+                            yield node
+                    }
+                )
+
 
         let onlyIfCompleteSpectralProfile (node : DomNode<Message>) =
             Incremental.div
@@ -728,20 +741,16 @@ module App =
             computeNonMultispectralRgbHistograms m 32
 
         let rgbSelectedBandSpectralProfiles =
-            computeRgbSpectralProfiles m 32
+            computeRgbSpectralProfiles m 
 
         let allSpectralProfiles = 
             computeCompleteSpectralProfile m
 
-        // FIX: only call on user demand
         let spectralProfileOfAllBands =
             Incremental.div
                 AttributeMap.empty
                 (
                     alist {
-                        let! mode =
-                            m.visualizationMode
-
                         let! sourceKind =
                             m.sourceImageKind
 
@@ -1249,124 +1258,131 @@ module App =
 
                     visualizationModeSelector
                      
-                    accordionLists "Highlights and Shadows" "sliders horizontal" false
-                        [clazz "item"; style "margin-top: 10px;"]
-                        ResetHighlights
-                        [
-                            div [
-                                style "font-weight: bold; margin-bottom: 6px;"
-                            ] [
-                                text "Highlights"
-                            ]
+                    onlyForPlainRGBImage (
+                        accordionLists "Highlights and Shadows" "sliders horizontal" false
+                            [clazz "item"; style "margin-top: 10px;"]
+                            ResetHighlights
+                            [
+                                div [
+                                    style "font-weight: bold; margin-bottom: 6px;"
+                                ] [
+                                    text "Highlights"
+                                ]
 
+                                Html.table [
+                                    Html.row "Amount:" [
+                                        Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.amount
+                                        |> UI.map SetAmountHighlight
+
+                                        Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.amount
+                                        |> UI.map SetAmountHighlight
+                                    ]
+
+                                    Html.row "Tone:" [
+                                        Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.tone
+                                        |> UI.map SetToneHighlight
+
+                                        Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.tone
+                                        |> UI.map SetToneHighlight
+                                    ]
+
+                                    Html.row "Radius:" [
+                                        Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.radius
+                                        |> UI.map SetRadiusHighlight
+
+                                        Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.radius
+                                        |> UI.map SetRadiusHighlight
+                                    ]
+                                ]
+
+                                div [
+                                    style "font-weight: bold; margin-bottom: 6px;"
+                                ] [
+                                    text "Shadows"
+                                ]
+
+                                Html.table [
+                                    Html.row "Amount:" [
+                                        Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.amount
+                                        |> UI.map SetAmountShadow
+
+                                        Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.amount
+                                        |> UI.map SetAmountShadow
+                                    ]
+
+                                    Html.row "Tone:" [
+                                        Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.tone
+                                        |> UI.map SetToneShadow
+
+                                        Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.tone
+                                        |> UI.map SetToneShadow
+                                    ]
+
+                                    Html.row "Radius:" [
+                                        Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.radius
+                                        |> UI.map SetRadiusShadow
+
+                                        Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.radius
+                                        |> UI.map SetRadiusShadow
+                                    ]
+                                ]
+                            ]
+                        )
+
+                    onlyForPlainRGBImage (
+                        accordionLists "Adjustments" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] ResetAdjustments [
                             Html.table [
-                                Html.row "Amount:" [
-                                    Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.amount
-                                    |> UI.map SetAmountHighlight
+                                Html.row "Color (Saturation):" [
+                                    Numeric.view' [NumericInputType.Slider] m.saturation.gainFactor  
+                                    |> UI.map SetSaturationGainFactor
 
-                                    Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.amount
-                                    |> UI.map SetAmountHighlight
+                                    Numeric.view' [NumericInputType.InputBox] m.saturation.gainFactor
+                                    |> UI.map SetSaturationGainFactor
                                 ]
 
-                                Html.row "Tone:" [
-                                    Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.tone
-                                    |> UI.map SetToneHighlight
+                                Html.row "Brightness:" [
+                                    Numeric.view' [NumericInputType.Slider] m.brightness.gainFactor  
+                                    |> UI.map SetBrightnessGainFactor
 
-                                    Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.tone
-                                    |> UI.map SetToneHighlight
+                                    Numeric.view' [NumericInputType.InputBox] m.brightness.gainFactor
+                                    |> UI.map SetBrightnessGainFactor
                                 ]
 
-                                Html.row "Radius:" [
-                                    Numeric.view' [NumericInputType.Slider] m.highlightAdjustment.radius
-                                    |> UI.map SetRadiusHighlight
+                                Html.row "Midtone Contrast:" [
+                                    Numeric.view' [NumericInputType.Slider] m.midtoneContrastAdjustment.gainFactor  
+                                    |> UI.map SetMidtoneContrastGainFactor
 
-                                    Numeric.view' [NumericInputType.InputBox] m.highlightAdjustment.radius
-                                    |> UI.map SetRadiusHighlight
-                                ]
-                            ]
-
-                            div [
-                                style "font-weight: bold; margin-bottom: 6px;"
-                            ] [
-                                text "Shadows"
-                            ]
-
-                            Html.table [
-                                Html.row "Amount:" [
-                                    Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.amount
-                                    |> UI.map SetAmountShadow
-
-                                    Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.amount
-                                    |> UI.map SetAmountShadow
+                                    Numeric.view' [NumericInputType.InputBox] m.midtoneContrastAdjustment.gainFactor
+                                    |> UI.map SetMidtoneContrastGainFactor
                                 ]
 
-                                Html.row "Tone:" [
-                                    Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.tone
-                                    |> UI.map SetToneShadow
-
-                                    Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.tone
-                                    |> UI.map SetToneShadow
+                                Html.row "Black Clip:" [
+                                    Numeric.view' [NumericInputType.InputBox] m.blackWhiteClip.blackClipPercentile
+                                    |> UI.map SetBlackClipPercentile
                                 ]
 
-                                Html.row "Radius:" [
-                                    Numeric.view' [NumericInputType.Slider] m.shadowAdjustment.radius
-                                    |> UI.map SetRadiusShadow
-
-                                    Numeric.view' [NumericInputType.InputBox] m.shadowAdjustment.radius
-                                    |> UI.map SetRadiusShadow
+                                Html.row "White Clip:" [
+                                    Numeric.view' [NumericInputType.InputBox] m.blackWhiteClip.whiteClipPercentile
+                                    |> UI.map SetWhiteClipPercentile
                                 ]
                             ]
                         ]
+                    )
 
-                    accordionLists "Adjustments" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] ResetAdjustments [
-                        Html.table [
-                            Html.row "Color (Saturation):" [
-                                Numeric.view' [NumericInputType.Slider] m.saturation.gainFactor  
-                                |> UI.map SetSaturationGainFactor
-
-                                Numeric.view' [NumericInputType.InputBox] m.saturation.gainFactor
-                                |> UI.map SetSaturationGainFactor
-                            ]
-
-                            Html.row "Brightness:" [
-                                Numeric.view' [NumericInputType.Slider] m.brightness.gainFactor  
-                                |> UI.map SetBrightnessGainFactor
-
-                                Numeric.view' [NumericInputType.InputBox] m.brightness.gainFactor
-                                |> UI.map SetBrightnessGainFactor
-                            ]
-
-                            Html.row "Midtone Contrast:" [
-                                Numeric.view' [NumericInputType.Slider] m.midtoneContrastAdjustment.gainFactor  
-                                |> UI.map SetMidtoneContrastGainFactor
-
-                                Numeric.view' [NumericInputType.InputBox] m.midtoneContrastAdjustment.gainFactor
-                                |> UI.map SetMidtoneContrastGainFactor
-                            ]
-
-                            Html.row "Black Clip:" [
-                                Numeric.view' [NumericInputType.InputBox] m.blackWhiteClip.blackClipPercentile
-                                |> UI.map SetBlackClipPercentile
-                            ]
-
-                            Html.row "White Clip:" [
-                                Numeric.view' [NumericInputType.InputBox] m.blackWhiteClip.whiteClipPercentile
-                                |> UI.map SetWhiteClipPercentile
-                            ]
-                        ]
-                    ]
                     accordionHist "Selected Bands Spectral Analysis" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [                        
                         histogramsAndProfilesForCurrentMode
                     ]
                     
-                    div [style "display: flex; justify-content: flex-end; padding: 5px;"] [
-                        button [
-                            clazz "ui tiny inverted button"
-                            onClick (fun _ -> ToggleCompleteSpectralProfile)
-                        ] [
-                            text "Compute Complete Spectral Profile"
+                    onlyForMultispectral (
+                        div [style "display: flex; justify-content: flex-end; padding: 5px;"] [
+                            button [
+                                clazz "ui tiny inverted button"
+                                onClick (fun _ -> ToggleCompleteSpectralProfile)
+                            ] [
+                                text "Compute Complete Spectral Profile"
+                            ]
                         ]
-                    ]
+                    )
 
                     onlyIfCompleteSpectralProfile (
                         accordionHist "Complete Spectral Profile" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [

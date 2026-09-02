@@ -23,7 +23,6 @@ module NetCdfLoader =
         elif fileName.Contains("_L2A_MASK_") || fileName.Contains("_MASK_") then
             Mask
         else
-            // EMIT_L2A_RFL_*.nc is the product that contains the hyperspectral cube.
             Reflectance
 
     // caches to keep already-read metadata and bands in memory so changing one RGB ratio band

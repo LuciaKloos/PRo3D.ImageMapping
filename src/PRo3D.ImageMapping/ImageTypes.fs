@@ -126,7 +126,7 @@ type RgbSelectedBandHistogram =
         histogram : HistogramBin[]
     }
 
-type RGBSelectedBandSpectralProfile =
+type SpectralProfile =
     {
         label : string
         wavelengthSpan : Option<float * float>
