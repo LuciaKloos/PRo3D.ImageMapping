@@ -37,6 +37,10 @@ module App =
         brightness = Brightness.init
         visualizationMode = VisualizationMode.SingleBandTransferFunction
         loadCompleteSpectralProfile = false
+        pixelDetectionEnabled = false
+        imageWidth = 0
+        imageHeight = 0
+        clickedPixel = None
     }
 
     let private loadedLogicalBandIndices (images : IndexList<Image>) =
@@ -124,12 +128,18 @@ module App =
                 Path.GetFullPath path
 
             if isPlainRgbImagePath fullPath then
+                let image = PixImage<byte>(fullPath)
+                let width = image.Size.X
+                let height = image.Size.Y
+
                 {
                     m with
                         images = IndexList.Empty
                         selectedImage = None
                         sourceImagePath = Some fullPath
                         sourceImageKind = SourceImageKind.PlainRgbImage
+                        imageWidth = width
+                        imageHeight = height
                         editImages = []
                         blackWhiteClip = noBlackWhiteClip
                 }
@@ -142,6 +152,29 @@ module App =
                     Log.warn "No image bands were loaded from selected path: %s" fullPath
                     m
                 else
+                    let firstLoadedBand =
+                        loadedBands |> List.head
+
+                    let firstBandSource : RgbBandSource =
+                        {
+                            logicalIndex = firstLoadedBand.bandIndex
+                            filePath = firstLoadedBand.texture
+                            channelIndex = firstLoadedBand.selectedChannel.idx
+                            wavelength = firstLoadedBand.wavelength
+                        }
+
+                    let width, height =
+                        match BandHandler.readBandSourceAsFloat firstBandSource with
+                        | Result.Ok bandData ->
+                            bandData.width, bandData.height
+
+                        | Result.Error error ->
+                            Log.warn
+                                "Could not determine image dimensions: %s"
+                                error
+
+                            0, 0
+
                     let bands =
                         loadedBands
                         |> IndexList.ofList
@@ -208,6 +241,8 @@ module App =
                             selectedImage = firstBand
                             sourceImagePath = Some fullPath
                             sourceImageKind = SourceImageKind.Multispectral
+                            imageWidth = width
+                            imageHeight = height
                             editImages = []
                             rgbRatioComposite = defaultRgbComposite
                             bandMapping = defaultBandMappingForImages bands
@@ -512,6 +547,46 @@ module App =
         | ToggleCompleteSpectralProfile ->
              { m with loadCompleteSpectralProfile = not m.loadCompleteSpectralProfile }
 
+        | TogglePixelDetection ->
+            let enabled = not m.pixelDetectionEnabled
+
+            {
+                m with
+                    pixelDetectionEnabled = enabled
+                    clickedPixel =
+                        if enabled then m.clickedPixel
+                        else None
+            }
+
+        | ImageClicked position ->
+            if m.pixelDetectionEnabled then
+
+
+                let width = m.imageWidth
+                let height = m.imageHeight
+
+                if width > 0 && height > 0 then
+                    let u = (position.X + 1.0) * 0.5
+                    let v = (1.0 - position.Y) * 0.5
+                    let x =
+                        int (u * float width)
+                        |> max 0
+                        |> min (width - 1)
+
+                    let y =
+                        int (v * float height)
+                        |> max 0
+                        |> min (height - 1)
+
+                    Log.warn "Clicked pixel: x=%d, y=%d" x y
+
+                    { m with clickedPixel = Some (V2i(x, y)) }
+                else
+                    Log.warn "The loaded image has no valid dimensions."
+                    m
+            else
+                m
+
     let numericInputFromAdaptive
         (token : AdaptiveToken)
         (input : AdaptiveNumericInput)
@@ -555,8 +630,27 @@ module App =
                 "OBS Date"
             ]
 
-    let view (m : AdaptiveModel) (showDOM : AdaptiveImage -> DomNode<ImageMessage>) (showRelative2DImage : aval<ITexture> -> DomNode<Message>) (showAbsolute2DAnd3DImage : aval<Option<string>> -> aval<ITexture> -> DomNode<Message>) =
-    
+    let view
+        (m : AdaptiveModel)
+        (showDOM : AdaptiveImage -> DomNode<ImageMessage>)
+        (
+            showRelative2DImage :
+                aval<ITexture> ->
+                aval<Option<V2i>> ->
+                aval<int> ->
+                aval<int> ->
+                DomNode<Message>
+        )
+        (
+            showAbsolute2DAnd3DImage :
+                aval<Option<string>> ->
+                aval<ITexture> ->
+                aval<Option<V2i>> ->
+                aval<int> ->
+                aval<int> ->
+                DomNode<Message>
+        ) =
+
         let onlyForMultispectral (node : DomNode<Message>) =
             Incremental.div
                 AttributeMap.empty
@@ -1391,6 +1485,17 @@ module App =
                     )
 
                     onlyForMultispectral (
+                        div [style "display: flex; justify-content: flex-end; padding: 5px;"] [
+                            button [
+                                clazz "ui tiny inverted button"
+                                onClick (fun _ -> TogglePixelDetection)
+                            ] [
+                                text "Toggle Pixel Detection"
+                            ]
+                        ]
+                    )
+
+                    onlyForMultispectral (
                         div [style $"border: 2px solid black; margin-top: 10px"] [
                             contentImages
                         ]
@@ -1405,7 +1510,12 @@ module App =
             body [] [
 
                 div [] [
-                    showAbsolute2DAnd3DImage m.sourceImagePath outputTexture   
+                    showAbsolute2DAnd3DImage
+                        m.sourceImagePath
+                        outputTexture
+                        m.clickedPixel
+                        m.imageWidth
+                        m.imageHeight
                 ]
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
                     accordion "Texture Mapping" "file image outline" false (clazz "ui inverted segment") [ content ]

@@ -6,7 +6,7 @@ open Adaptify
 open PRo3D.InstrumentProjection
 
 open FSharp.Data.Adaptive
-
+open Aardvark.Base
 
 type ColorMap =
     | Magma = 0
@@ -188,7 +188,12 @@ type Model =
         brightness   : Brightness
         visualizationMode : VisualizationMode
         loadCompleteSpectralProfile : bool
+        pixelDetectionEnabled : bool
+        imageWidth : int
+        imageHeight : int
+        clickedPixel : Option<V2i>
     }
+
 
 module HighlightAdjustment =
     let init : HighlightAdjustment =
@@ -417,4 +422,6 @@ type Message =
     | ResetShadows
     | ResetAdjustments
     | ToggleCompleteSpectralProfile
+    | TogglePixelDetection
+    | ImageClicked of V3d
     | Nop

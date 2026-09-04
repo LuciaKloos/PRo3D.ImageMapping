@@ -38,6 +38,9 @@ module Shaders =
         member x.DataType : int = uniform?DataType
         member x.OverlayMax : V2d = uniform?OverlayMax
         member x.OverlayMin : V2d = uniform?OverlayMin
+        member x.ShowPixelMarker : bool = uniform?ShowPixelMarker
+        member x.PixelMarkerMin : V2d = uniform?PixelMarkerMin
+        member x.PixelMarkerMax : V2d = uniform?PixelMarkerMax
 
     let hshColors (v : Vertex)  = 
         fragment {
@@ -61,5 +64,19 @@ module Shaders =
 
     let displayRgbComposite (v : Vertex) =
         fragment {
-            return rgbCompositeSampler.Sample(v.tc)
+            if
+                uniform.ShowPixelMarker &&
+                v.tc.X >= uniform.PixelMarkerMin.X &&
+                v.tc.X <= uniform.PixelMarkerMax.X &&
+                v.tc.Y >= uniform.PixelMarkerMin.Y &&
+                v.tc.Y <= uniform.PixelMarkerMax.Y
+            then
+                return V4d(1.0, 0.0, 0.0, 1.0)
+            else
+                return rgbCompositeSampler.Sample(v.tc)
+        }
+
+    let solidRed (_ : Vertex) =
+        fragment {
+            return V4d(1.0, 0.0, 0.0, 1.0)
         }

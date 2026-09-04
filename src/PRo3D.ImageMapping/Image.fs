@@ -558,16 +558,97 @@ module Image =
 
     // the 2D view displays the texture directly
     let createInstrumentScene
-        (rgbTexture : aval<ITexture>) =
+        (rgbTexture : aval<ITexture>)
+        (clickedPixel : aval<Option<V2i>>)
+        (imageWidth : aval<int>)
+        (imageHeight : aval<int>) =
 
-        Sg.fullScreenQuad
-        |> Sg.noEvents
-        |> Sg.texture
-            "RgbCompositeTexture"
-            rgbTexture
-        |> Sg.shader {
-            do! Shaders.displayRgbComposite
-        }
+        let geometry =
+            IndexedGeometry(
+                Mode = IndexedGeometryMode.TriangleList,
+                IndexArray =
+                    ([| 0; 1; 2; 0; 2; 3 |] :> Array),
+                IndexedAttributes =
+                    SymDict.ofList [
+                        DefaultSemantic.Positions,
+                        ([|
+                            V3f(-1.0f, -1.0f, 0.0f)
+                            V3f( 1.0f, -1.0f, 0.0f)
+                            V3f( 1.0f,  1.0f, 0.0f)
+                            V3f(-1.0f,  1.0f, 0.0f)
+                        |] :> Array)
+
+                        DefaultSemantic.DiffuseColorCoordinates,
+                        ([|
+                            V2f(0.0f, 0.0f)
+                            V2f(1.0f, 0.0f)
+                            V2f(1.0f, 1.0f)
+                            V2f(0.0f, 1.0f)
+                        |] :> Array)
+                    ]
+            )
+           
+        let pixelMarkerPass =
+            RenderPass.after "pixel-marker" RenderPassOrder.FrontToBack RenderPass.main
+
+        let showPixelMarker =
+            (clickedPixel, imageWidth, imageHeight)
+            |||> AVal.map3 (fun clickedPixel width height ->
+                clickedPixel.IsSome && width > 0 && height > 0
+            )
+
+        let pixelMarkerBounds =
+            (clickedPixel, imageWidth, imageHeight)
+            |||> AVal.map3 (fun clickedPixel width height ->
+                match clickedPixel with
+                | Some pixel when width > 0 && height > 0 ->
+                    let markerRadius = 10.0
+
+                    let minX =
+                        (float pixel.X - markerRadius) / float width
+
+                    let maxX =
+                        (float pixel.X + markerRadius) / float width
+
+                    // Texture Y runs from bottom to top, while pixel Y runs top to bottom.
+                    let minY =
+                        1.0 - (float pixel.Y + markerRadius) / float height
+
+                    let maxY =
+                        1.0 - (float pixel.Y - markerRadius) / float height
+
+                    V2d(minX, minY), V2d(maxX, maxY)
+
+                | _ ->
+                    V2d.Zero, V2d.Zero
+            )
+
+        let pixelMarkerMin =
+            pixelMarkerBounds |> AVal.map fst
+
+        let pixelMarkerMax =
+            pixelMarkerBounds |> AVal.map snd
+
+        let imageSg =
+            Sg.ofIndexedGeometry geometry
+            |> Sg.texture "RgbCompositeTexture" rgbTexture
+            |> Sg.uniform "ShowPixelMarker" showPixelMarker
+            |> Sg.uniform "PixelMarkerMin" pixelMarkerMin
+            |> Sg.uniform "PixelMarkerMax" pixelMarkerMax
+            |> Sg.shader {
+                do! Shaders.displayRgbComposite
+            }
+            |> Sg.requirePicking
+            |> Sg.withEvents [
+                Sg.onClick (fun position ->
+                    Log.warn "Image clicked at position: %A" position
+                    Message.ImageClicked position
+                )
+            ]
+
+        Sg.ofList [
+            imageSg
+        ]
 
     let update (m : Image) (msg : ImageMessage) =
         match msg with
@@ -663,10 +744,17 @@ module Image =
         (boresightAdjustment : aval<Option<Trafo3d>>)
         (orbitState : AdaptiveOrbitState)
         (sourceImagePath : aval<Option<string>>)
-        (rgbTexture : aval<ITexture>) =
+        (rgbTexture : aval<ITexture>)         
+        clickedPixel
+        imageWidth
+        imageHeight =
 
         let instrumentVisualization =
-            createInstrumentScene rgbTexture
+            createInstrumentScene 
+                rgbTexture 
+                clickedPixel
+                imageWidth
+                imageHeight
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum2D = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
@@ -786,8 +874,13 @@ module Image =
                 ]
         )
 
-    let view2DRelative (rgbTexture : aval<ITexture>) =
-        let instrumentVisualization = createInstrumentScene rgbTexture
+    let view2DRelative 
+        (rgbTexture : aval<ITexture>) 
+        clickedPixel
+        imageWidth
+        imageHeight =
+
+        let instrumentVisualization = createInstrumentScene rgbTexture clickedPixel imageWidth imageHeight
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
