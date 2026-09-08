@@ -455,6 +455,71 @@ module SpectralAnalysis =
                 spectralProfile = spectralPoints
             }
 
+     let computePixelSpectralProfile
+        (m : AdaptiveModel)
+        label
+        : aval<SpectralProfile> =
+
+        let adaptiveImages =
+            AList.toAVal m.images
+
+        AVal.custom (fun token ->
+            match m.clickedPixel.GetValue token with
+            | None ->
+                emptyProfile label
+
+            | Some pixel -> 
+                let images = adaptiveImages.GetValue token
+
+                let sources =
+                    readAdaptiveBandSources images token
+                    |> List.distinctBy (fun source -> source.logicalIndex)
+                    |> List.sortBy (fun source -> source.logicalIndex)
+
+                let points =
+                    sources
+                    |> List.choose (fun source ->
+                        match readBandPixel source pixel.[0] pixel.[1] with
+                        | Result.Ok value 
+                            when Double.IsFinite value ->
+
+                            Some {
+                                wavelength = float (source.logicalIndex + 1)
+                                value = value
+                                color = "#ffffff"
+                            }
+
+                        | Result.Ok _ ->
+                            None
+
+                        | Result.Error error ->
+                            Log.warn
+                                "Could not read pixel (%d,%d), band %d: %s"
+                                pixel.X pixel.Y source.logicalIndex error
+
+                            None
+
+                    )
+                    |> List.toArray
+            
+                {
+                    label =
+                        sprintf "Pixel (%d, %d)" pixel.X pixel.Y
+
+                    wavelengthSpan =
+                        if Array.isEmpty points then
+                            None
+                        else
+                            Some (
+                                points.[0].wavelength,
+                                points.[points.Length - 1].wavelength
+                            )
+
+                    spectralProfile = points
+                }
+        )
+
+
      let averageRatio (numerator: float[]) (denominator: float[]) =
         let count = min numerator.Length denominator.Length
         let mutable sum = 0.0
@@ -554,6 +619,7 @@ module SpectralAnalysis =
 
                     spectralProfile = spectralPoints
                 }
+
 
      let computeCompleteSpectralProfile
         (m : AdaptiveModel)

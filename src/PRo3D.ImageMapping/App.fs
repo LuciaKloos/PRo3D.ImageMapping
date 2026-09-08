@@ -38,9 +38,11 @@ module App =
         visualizationMode = VisualizationMode.SingleBandTransferFunction
         loadCompleteSpectralProfile = false
         pixelDetectionEnabled = false
+        pixelDetected = false
         imageWidth = 0
         imageHeight = 0
         clickedPixel = None
+        viewportSize = V2i.Zero
     }
 
     let private loadedLogicalBandIndices (images : IndexList<Image>) =
@@ -558,31 +560,55 @@ module App =
                         else None
             }
 
-        | ImageClicked position ->
+        | SetPixelDetected detected ->
+            { m with pixelDetected = detected }
+
+        | ImageClicked (position, viewportSize) ->
             if m.pixelDetectionEnabled then
+                let viewportWidth  = float viewportSize.X
+                let viewportHeight = float viewportSize.Y
 
+                if
+                    viewportWidth > 0.0 &&
+                    viewportHeight > 0.0 &&
+                    m.imageWidth > 0 &&
+                    m.imageHeight > 0
+                then
+                    let viewportAspect =
+                        viewportWidth / viewportHeight
 
-                let width = m.imageWidth
-                let height = m.imageHeight
+                    let left   = -1.0
+                    let right  =  0.0
+                    let top    =  0.0
+                    let bottom = -1.0 / viewportAspect
 
-                if width > 0 && height > 0 then
-                    let u = (position.X + 1.0) * 0.5
-                    let v = (1.0 - position.Y) * 0.5
+                    let u =
+                        (position.X - left) / (right - left)
+
+                    let v =
+                        (top - position.Y) / (top - bottom)
+
                     let x =
-                        int (u * float width)
+                        int (u * float m.imageWidth)
                         |> max 0
-                        |> min (width - 1)
+                        |> min (m.imageWidth - 1)
 
                     let y =
-                        int (v * float height)
+                        int (v * float m.imageHeight)
                         |> max 0
-                        |> min (height - 1)
+                        |> min (m.imageHeight - 1)
 
-                    Log.warn "Clicked pixel: x=%d, y=%d" x y
+                    Log.warn
+                        "Clicked pixel: x=%d, y=%d, viewport=%A, aspect=%f"
+                        x y viewportSize viewportAspect
 
-                    { m with clickedPixel = Some (V2i(x, y)) }
+                    {
+                        m with
+                            pixelDetected = true
+                            clickedPixel = Some(V2i(x, y))
+                            viewportSize = viewportSize
+                    }
                 else
-                    Log.warn "The loaded image has no valid dimensions."
                     m
             else
                 m
@@ -684,6 +710,17 @@ module App =
                         let! loaded = m.loadCompleteSpectralProfile
 
                         if loaded = true then
+                            yield node
+                    }
+                )
+
+        let onlyIfPixelDetectionEnabled (node : DomNode<Message>) =
+            Incremental.div
+                AttributeMap.empty
+                (
+                    alist {
+                        let! enabled = m.pixelDetectionEnabled
+                        if enabled = true then
                             yield node
                     }
                 )
@@ -840,6 +877,9 @@ module App =
         let allSpectralProfiles = 
             computeCompleteSpectralProfile m
 
+        let pixelSpectralProfile =
+            computePixelSpectralProfile m "clicked pixel"
+
         let spectralProfileOfAllBands =
             Incremental.div
                 AttributeMap.empty
@@ -871,6 +911,37 @@ module App =
                     }
                 )
         
+        let spectralProfileOfPixel =
+            Incremental.div
+                AttributeMap.empty
+                (
+                    alist {
+                        let! sourceKind =
+                            m.sourceImageKind
+
+                        if sourceKind = SourceImageKind.Multispectral then
+                            yield
+                                div [
+                                    clazz "ui inverted segment"
+                                    style "margin-top: 10px;"
+                                ] [
+                                    div [
+                                        style "font-weight: bold; margin-bottom: 8px;"
+                                    ] [                                           
+                                    ]
+
+                                    div [
+                                        style "font-size: 11px; color: #aaa;"
+                                    ] [
+                                        text "Spectral Profile of clicked pixel"
+                                    ]
+
+                                    spectralProfileView
+                                        pixelSpectralProfile
+                                ]
+                    }
+                )
+
         let histogramsAndProfilesForCurrentMode =
             Incremental.div
                 AttributeMap.empty
@@ -978,6 +1049,7 @@ module App =
 
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({title: 'Select image', filters: [{name: 'Images', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc', 'png', 'jpg', 'jpeg', 'webp']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open image dialog:', error);});"
+
 
         let accordion text' icon active styling content' =
                 let title = if active then "title active inverted" else "title inverted"
@@ -1492,6 +1564,12 @@ module App =
                             ] [
                                 text "Toggle Pixel Detection"
                             ]
+                        ]
+                    )
+
+                    onlyIfPixelDetectionEnabled (
+                        accordionHist "Spectral Profile at Pixel" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
+                            spectralProfileOfPixel
                         ]
                     )
 

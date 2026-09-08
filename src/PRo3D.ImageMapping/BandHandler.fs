@@ -135,11 +135,6 @@ module BandHandler =
         (source: RgbBandSource)
         : Result<CachedBandPayload, string> =
 
-        //Log.warn
-        //    "NETCDF CACHE MISS: decoding channel %d from %s"
-        //    source.channelIndex
-        //    source.filePath
-
         try
             match tryReadNcDatasetInfoUncached source.filePath with
             | Result.Error error ->
@@ -410,6 +405,34 @@ module BandHandler =
                 payload.statistics.Value
             )
 
+    let readBandPixel
+        (source : RgbBandSource)
+        (x : int)
+        (y : int)
+        : Result<float, string> =
+
+        readBandSourceAsFloat source
+        |> Result.bind (fun bandData ->
+            if x < 0 || x >= bandData.width then
+                Result.Error (
+                    sprintf
+                        "X coordinate %d is out of bounds for width %d."
+                        x
+                        bandData.width
+                )
+            elif y < 0 || y >= bandData.height then
+                Result.Error (
+                    sprintf
+                        "Y coordinate %d is out of bounds for height %d."
+                        y
+                        bandData.height
+                )
+            else
+                let index = y * bandData.width + x
+                let value = bandData.values.[index]
+                Result.Ok value
+        )
+        
 
     let readLogicalBand
         (sources : list<RgbBandSource>)

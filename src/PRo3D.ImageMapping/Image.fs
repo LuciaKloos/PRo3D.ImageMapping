@@ -602,7 +602,7 @@ module Image =
             |||> AVal.map3 (fun clickedPixel width height ->
                 match clickedPixel with
                 | Some pixel when width > 0 && height > 0 ->
-                    let markerRadius = 10.0
+                    let markerRadius = 4.0
 
                     let minX =
                         (float pixel.X - markerRadius) / float width
@@ -610,7 +610,6 @@ module Image =
                     let maxX =
                         (float pixel.X + markerRadius) / float width
 
-                    // Texture Y runs from bottom to top, while pixel Y runs top to bottom.
                     let minY =
                         1.0 - (float pixel.Y + markerRadius) / float height
 
@@ -640,9 +639,14 @@ module Image =
             }
             |> Sg.requirePicking
             |> Sg.withEvents [
-                Sg.onClick (fun position ->
-                    Log.warn "Image clicked at position: %A" position
-                    Message.ImageClicked position
+                SceneEventKind.Click,
+                (fun (hit : SceneHit) ->
+                    let position = hit.globalPosition
+                    let viewportSize = hit.event.evtViewport
+
+                    Log.warn "Clicked at position: %A, viewport: %A" position viewportSize
+
+                    false, Seq.singleton (Message.ImageClicked (position, viewportSize))
                 )
             ]
 

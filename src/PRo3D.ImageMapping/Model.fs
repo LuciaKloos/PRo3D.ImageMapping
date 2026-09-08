@@ -189,9 +189,11 @@ type Model =
         visualizationMode : VisualizationMode
         loadCompleteSpectralProfile : bool
         pixelDetectionEnabled : bool
+        pixelDetected : bool
         imageWidth : int
         imageHeight : int
         clickedPixel : Option<V2i>
+        viewportSize : V2i
     }
 
 
@@ -423,5 +425,6 @@ type Message =
     | ResetAdjustments
     | ToggleCompleteSpectralProfile
     | TogglePixelDetection
-    | ImageClicked of V3d
+    | SetPixelDetected of bool
+    | ImageClicked of position : V3d * viewportSize : V2i
     | Nop

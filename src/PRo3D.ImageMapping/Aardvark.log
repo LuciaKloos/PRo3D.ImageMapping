@@ -22,7 +22,7 @@
  0:   Skipped loading native dependencies for Suave, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.003 s
+ 0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.002 s
  0:   Skipped loading native dependencies for FShade.Core, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
  0:   Loading native dependencies for Aardvark.Service, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Service, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
@@ -145,7 +145,7 @@
  0:     [IsPlugin] Ignoring assembly Suave due to filter
  0:     [IsPlugin] Cache found for: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\TinyEXR.NET.dll
  0:     [IsPlugin] Ignoring assembly Unofficial.Typography due to filter
- 0:   Loading plugins .................................................................... 0.734 s
+ 0:   Loading plugins .................................................................... 0.475 s
  0:   [Introspection] Entry assembly: PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null (path: C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.dll)
  0:   [Introspection] Ignoring assembly System.Runtime due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
@@ -243,7 +243,7 @@
  0:   [Introspection] Ignoring assembly FsPickler due to filter
  0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.014 s
+ 0:   Loading native dependencies for Aardvark.Rendering.Vulkan, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.019 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
@@ -253,7 +253,7 @@
  0:   [Introspection] Ignoring assembly FsPickler due to filter
  0:   Loading native dependencies for GLSLangSharp, Version=0.4.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for GLSLangSharp, Version=0.4.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for GLSLangSharp, Version=0.4.0.0, Culture=neutral, PublicKeyToken=null 0.004 s
+ 0:   Loading native dependencies for GLSLangSharp, Version=0.4.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
@@ -264,7 +264,7 @@
  0:   [Introspection] Ignoring assembly OpenTK due to filter
  0:   Loading native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null 0.002 s
+ 0:   Loading native dependencies for Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FSharp.Data.Adaptive due to filter
  0:   [Introspection] Ignoring assembly System.Memory due to filter
@@ -307,12 +307,12 @@
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.002 s
+ 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FShade.Core due to filter
  0:   Loading native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 0.002 s
+ 0:   Loading native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
  0:   [Introspection] Ignoring assembly System.Runtime due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
@@ -462,7 +462,7 @@
  0:     [cache hit ] FSys, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] HDF.PInvoke, Version=1.10.502.0, Culture=neutral, PublicKeyToken=18793c1fcffe58a3
  0:     installing pickler: Aardvark.Base.Picklers.AdaptivePicklers
- 0:   Initializing CustomPicklerProvider ................................................. 0.354 s
+ 0:   Initializing CustomPicklerProvider ................................................. 0.074 s
  0:     [cache hit ] Aardvark.Base, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:   Initializing Constants ............................................................. 0.001 s
  0:     [cache hit ] SingleFileExtractor.Core, Version=2.2.1.0, Culture=neutral, PublicKeyToken=null
@@ -493,7 +493,7 @@
  0:     [cache hit ] Aardvark.Data.Opc, Version=0.11.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] TinyEXR.NET, Version=0.3.11.0, Culture=neutral, PublicKeyToken=9b5ae88730b3cee9
  0:     [cache hit ] Aardvark.PixImage.Pfim, Version=0.9.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Initializing PixImagePfim .......................................................... 0.015 s
+ 0:   Initializing PixImagePfim .......................................................... 0.010 s
  0:     [cache hit ] Pfim, Version=0.11.3.0, Culture=neutral, PublicKeyToken=c0ebc20d008ae134
  0:     [cache hit ] Aardvark.PixImage.DevIL, Version=5.2.0.0, Culture=neutral, PublicKeyToken=null
  0:   Initializing PixImageDevil .................................................................
@@ -501,7 +501,7 @@
  0:       C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
  0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
  0:     [Introspection] loaded native library DevIL from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64\DevIL.dll
- 0:   Initializing PixImageDevil ......................................................... 0.038 s
+ 0:   Initializing PixImageDevil ......................................................... 0.013 s
  0:     [cache hit ] DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Fonts, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -538,11 +538,11 @@
  0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
  0:       C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
  0:     [Introspection] loaded native library FreeImage from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64\FreeImage.dll
- 0:   Initializing PixImageFreeImage ..................................................... 0.473 s
- 0: initializing aardvark ........................................................ [0.03x] 5.670 s
+ 0:   Initializing PixImageFreeImage ..................................................... 0.025 s
+ 0: initializing aardvark ........................................................ [0.10x] 0.843 s
  0: Initializing Aardium .........................................................................
  0:   Binary: C:\Users\lucia\AppData\Local\Aardium\x64\2.1.2\tools\Aardium.exe
- 0: Initializing Aardium ................................................................. 0.028 s
+ 0: Initializing Aardium ................................................................. 0.023 s
  0: log path for coo trafo: .\logs\CooTrafo.Log
  0: probing paths for CooTransformation
  0:   C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
@@ -869,7 +869,7 @@
  0:     C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
  0:     C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
  0:   [Introspection] loaded native library kernel32.dll from kernel32.dll
- 0: initializing OpenGL runtime .......................................................... 0.033 s
+ 0: initializing OpenGL runtime .......................................................... 0.153 s
  0: Trying to resolve assembly: FSharp.Core.resources, Version=9.0.0.0, Culture=de-DE, PublicKeyToken=b03f5f7f11d50a3a - not found
  0: Skipped loading native dependencies for System.ObjectModel, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: Skipped loading native dependencies for System.Runtime.Intrinsics, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
@@ -1039,45 +1039,72 @@
  1: Skipped loading native dependencies for System.Diagnostics.DiagnosticSource, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  2: WARNING: The spectralPoints are empty
  2: Skipped loading native dependencies for System.Web.HttpUtility, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
- 3: Skipped loading native dependencies for System.Globalization, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: [Server] created client for (155f4201-47e7-d63a-ce33-dfe45f7e677b/n5), mapping enabled
- 3: [Client] 1: running n5
- 3: Skipped loading native dependencies for System.Runtime.Numerics, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: Skipped loading native dependencies for System.Reflection, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: Skipped loading native dependencies for System.Linq.Expressions, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: Skipped loading native dependencies for System.Runtime.Serialization.Formatters, Version=8.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: Skipped loading native dependencies for Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed
- 3: Skipped loading native dependencies for System.IO, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 4: [Scene] n5: created
- 4: probing paths for jitmem
- 4:   C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
- 4:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
- 4: [Introspection] loaded native library jitmem from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64\jitmem.dll
- 4: Skipped loading native dependencies for System.Reflection.Emit, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 5: Trying to resolve assembly: System.Text.Json.resources, Version=9.0.0.0, Culture=de-DE, PublicKeyToken=cc7b13ffcd2ddd51 - not found
- 5: Trying to resolve assembly: System.Text.Json.resources, Version=9.0.0.0, Culture=de, PublicKeyToken=cc7b13ffcd2ddd51 - not found
- 5: WARNING: Could not read MBI manifest C:\Users\lucia\VrVis\rededge_geotiff_example2.tif: 'I' is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0.
- 5: WARNING: Loaded TIFF band 0 with wavelength None
- 5: WARNING: Loaded TIFF band 1 with wavelength None
- 5: WARNING: Loaded TIFF band 2 with wavelength None
- 5: WARNING: Loaded TIFF band 3 with wavelength None
- 5: WARNING: TIFF CACHE MISS: decoding channel 0 from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
- 5: WARNING: Loaded 4 image bands from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
- 5: WARNING: Image clicked at position: [-0.38465346534653466, -0.20544554455445543, 0]
- 5: WARNING: Clicked pixel: x=1405, y=1130
- 5: WARNING: Image clicked at position: [-0.4004950495049505, -0.2747524752475248, 0]
- 5: WARNING: Clicked pixel: x=1368, y=1195
- 5: WARNING: Image clicked at position: [-0.4915841584158416, -0.31534653465346535, 0]
- 5: WARNING: Image clicked at position: [-0.46089108910891086, -0.40742574257425745, 0]
- 5: WARNING: Image clicked at position: [-0.443069306930693, -0.35099009900990097, 0]
- 5: WARNING: Clicked pixel: x=1271, y=1267
- 5: WARNING: Image clicked at position: [-0.5054455445544555, -0.17475247524752477, 0]
- 5: WARNING: Image clicked at position: [-0.2727722772277228, -0.18168316831683165, 0]
- 5: WARNING: Clicked pixel: x=1660, y=1108
- 5: WARNING: Image clicked at position: [-0.48267326732673266, -0.148019801980198, 0]
- 5: WARNING: Image clicked at position: [-0.37673267326732673, -0.1599009900990099, 0]
- 5: WARNING: Clicked pixel: x=1423, y=1087
- 5: WARNING: Image clicked at position: [-0.5004950495049505, -0.20445544554455444, 0]
- 5: WARNING: Image clicked at position: [-0.23118811881188117, -0.3608910891089109, 0]
- 5: WARNING: Clicked pixel: x=1755, y=1276
- 6: [Client] 1: stopped
+ 1: Skipped loading native dependencies for System.Globalization, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 1: [Server] created client for (5e49d551-f1a6-db93-545f-4a42385d5f1d/n5), mapping enabled
+ 1: [Client] 1: running n5
+ 1: Skipped loading native dependencies for System.Runtime.Numerics, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 1: Skipped loading native dependencies for System.Reflection, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 1: Skipped loading native dependencies for System.Linq.Expressions, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 1: Skipped loading native dependencies for System.Runtime.Serialization.Formatters, Version=8.1.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 1: Skipped loading native dependencies for Newtonsoft.Json, Version=13.0.0.0, Culture=neutral, PublicKeyToken=30ad4fe6b2a6aeed
+ 1: Skipped loading native dependencies for System.IO, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 3: [Scene] n5: created
+ 3: probing paths for jitmem
+ 3:   C:\Users\lucia\VrVis\repos\PRo3D-ImageMapping\bin\Debug\net9.0
+ 3:   C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
+ 3: [Introspection] loaded native library jitmem from C:\Users\lucia\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64\jitmem.dll
+ 3: [GL] Reading shader program file cache 'C:\Users\lucia\AppData\Local\Aardvark\Cache\Shaders\OpenGL\4b907ec6-72a1-3cfa-fa0e-91b9ed8026b3.bin: success 0.124 s
+ 3: Skipped loading native dependencies for System.Reflection.Emit, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 4: Trying to resolve assembly: System.Text.Json.resources, Version=9.0.0.0, Culture=de-DE, PublicKeyToken=cc7b13ffcd2ddd51 - not found
+ 4: Trying to resolve assembly: System.Text.Json.resources, Version=9.0.0.0, Culture=de, PublicKeyToken=cc7b13ffcd2ddd51 - not found
+ 4: WARNING: Could not read MBI manifest C:\Users\lucia\VrVis\rededge_geotiff_example2.tif: 'I' is an invalid start of a value. LineNumber: 0 | BytePositionInLine: 0.
+ 4: WARNING: Loaded TIFF band 0 with wavelength None
+ 4: WARNING: Loaded TIFF band 1 with wavelength None
+ 4: WARNING: Loaded TIFF band 2 with wavelength None
+ 4: WARNING: Loaded TIFF band 3 with wavelength None
+ 4: WARNING: TIFF CACHE MISS: decoding channel 0 from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
+ 4: WARNING: Loaded 4 image bands from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
+ 4: WARNING: Clicked at position: [-0.5743995313415349, -0.31253661394258936, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=1943, y=1004, viewport=[1707, 996], aspect=1.713855
+ 2: WARNING: TIFF CACHE MISS: decoding channel 1 from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
+ 2: WARNING: TIFF CACHE MISS: decoding channel 2 from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
+ 2: WARNING: TIFF CACHE MISS: decoding channel 3 from C:\Users\lucia\VrVis\rededge_geotiff_example2.tif
+ 4: WARNING: Clicked at position: [-0.5410076157000585, -0.41681312243702406, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=2096, y=1340, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.5855301698886937, -0.276215582893966, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=1892, y=888, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.18365553602811946, -0.30667838312829526, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=3728, y=986, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.19302870533099004, -0.40509666080843587, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=3685, y=1302, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.19478617457527825, -0.4355594610427651, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=3677, y=1400, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.47949619214997075, -0.4308728763913298, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=2377, y=1385, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.5913884007029877, -0.3804920913884007, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=1866, y=1223, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.6300527240773286, -0.17369654364381956, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=1689, y=558, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.6195079086115993, -0.078207381370826, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=1737, y=251, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.4912126537785588, -0.0418863503222027, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=2323, y=134, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.15905096660808438, -0.12272993555946105, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=3840, y=394, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.0723491505565319, -0.08172231985940245, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=4236, y=262, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.12214411247803159, -0.40158172231985945, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=4009, y=1291, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.13913298183948453, -0.5521382542472173, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=3931, y=1775, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.09226713532513175, -0.512888107791447, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=4145, y=1649, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.14381956649091976, -0.47539543057996486, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=3910, y=1528, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.14440538957234916, -0.4601640304628003, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=3907, y=1479, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.14440538957234916, -0.4150556531927358, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=3907, y=1334, viewport=[1707, 996], aspect=1.713855
+ 4: WARNING: Clicked at position: [-0.10398359695371995, -0.34885764499121263, 0], viewport: [1707, 996]
+ 4: WARNING: Clicked pixel: x=4092, y=1121, viewport=[1707, 996], aspect=1.713855
+ 5: [Client] 1: stopped
