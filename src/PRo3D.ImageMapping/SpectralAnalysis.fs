@@ -1363,7 +1363,7 @@ module SpectralAnalysis =
                     )
             ]
 
-     let spectralProfileView
+     let completeSpectralProfileView
         (profile : aval<SpectralProfile>)
         : DomNode<Message> =
         Incremental.div
@@ -1375,6 +1375,21 @@ module SpectralAnalysis =
                     let maximumValue = spectralProfileMaximum item
 
                     yield rgbSpectralProfilesView [ item ] true maximumValue
+                }
+            )
+
+     let localSpectralProfileView
+        (profile : aval<SpectralProfile>)
+        : DomNode<Message> =
+        Incremental.div
+            AttributeMap.empty
+            (
+                alist {
+                    let! item = profile 
+
+                    let maximumValue = spectralProfileMaximum item
+
+                    yield rgbSpectralProfilesView [ item ] false maximumValue
                 }
             )
 
@@ -1415,15 +1430,3 @@ module SpectralAnalysis =
                 }
             )
 
-     let completeSpectralProfileView
-        (completeProfile : aval<SpectralProfile>)
-        : DomNode<Message> =
-        Incremental.div
-            AttributeMap.empty
-            (
-                alist {
-                    let! item = completeProfile 
-                    let maximumValue = spectralProfileMaximum item
-                    yield rgbSpectralProfilesView [ item ] true maximumValue
-                }
-            )

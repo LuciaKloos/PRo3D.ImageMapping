@@ -905,7 +905,7 @@ module App =
                                         text "Spectral Profile of all bands"
                                     ]
 
-                                    spectralProfileView
+                                    completeSpectralProfileView
                                         allSpectralProfiles
                                 ]
                     }
@@ -936,7 +936,7 @@ module App =
                                         text "Spectral Profile of clicked pixel"
                                     ]
 
-                                    spectralProfileView
+                                    localSpectralProfileView
                                         pixelSpectralProfile
                                 ]
                     }
