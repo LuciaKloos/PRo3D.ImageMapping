@@ -367,6 +367,7 @@ module ImageMath =
 
                 {
                     wavelength = wavelength
+                    displayLabel = sprintf "Band %f" wavelength
                     value = bin.fraction
                     color = color
                 }

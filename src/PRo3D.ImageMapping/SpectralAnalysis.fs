@@ -259,12 +259,12 @@ module SpectralAnalysis =
             | Some bandIndices when bandIndices.Length > 0 ->
                 sprintf "%s, band %d — %d bins"
                     item.label
-                    bandIndices.[0]
+                    (bandIndices.[0] + 1)
                     item.histogram.Length
 
             | _ ->
                 sprintf "%s — %d bins"
-                    item.label
+                    item.label 
                     item.histogram.Length
 
         div [
@@ -408,6 +408,7 @@ module SpectralAnalysis =
 
                             Some {
                                 wavelength = xValue
+                                displayLabel = sprintf "Band %d" (selectedBandIndex + 1)
                                 value = average
                                 color = color
                             }
@@ -489,6 +490,7 @@ module SpectralAnalysis =
 
                                 Some {
                                     wavelength = float (source.logicalIndex + 1)
+                                    displayLabel = sprintf "Band %d" (source.logicalIndex + 1)
                                     value = value
                                     color = "#ffffff"
                                 }
@@ -579,6 +581,7 @@ module SpectralAnalysis =
 
                                 Some {
                                     wavelength = float (source.logicalIndex + 1)
+                                    displayLabel = sprintf "Band %d" (source.logicalIndex + 1)
                                     value = value
                                     color = "#ffffff"
                                 }
@@ -671,6 +674,7 @@ module SpectralAnalysis =
 
                                     Some {
                                         wavelength = float (source.logicalIndex + 1)
+                                        displayLabel = sprintf "Band %d" (source.logicalIndex + 1)
                                         value = value
                                         color = "#ffffff"
                                     }
@@ -745,7 +749,7 @@ module SpectralAnalysis =
                 Array.zip
                     numeratorBandIndices
                     denominatorBandIndices
-                |> Array.choose (fun (numeratorIndex, denominatorIndex) ->
+                    |> Array.mapi (fun ratioIndex (numeratorIndex, denominatorIndex) ->
 
                     match
                         readLogicalBand sources numeratorIndex,
@@ -758,20 +762,28 @@ module SpectralAnalysis =
 
                         match averageRatio with
                         | Some ratio ->
-                            let xValue = float (numeratorIndex + 1)
 
-                            Some {
-                                wavelength = xValue
-                                value = ratio
-                                color = color
-                            }
+                                let numeratorBand = numeratorIndex + 1
+                                let denominatorBand = denominatorIndex + 1
 
+                                // The chart still requires a numeric x-coordinate.
+                                let xValue = float numeratorBand
+
+                                Some {
+                                    wavelength = float (ratioIndex + 1)
+                                    displayLabel =
+                                        sprintf "Bands %d/%d"
+                                            (numeratorIndex + 1)
+                                            (denominatorIndex + 1)
+                                    value = ratio
+                                    color = color
+                                }
                         | None ->
                             Log.warn
                                 "Ratio %d/%d has no valid values"
                                 numeratorIndex
                                 denominatorIndex
-
+                            
                             None
 
                     | Result.Error error, _ ->
@@ -779,7 +791,7 @@ module SpectralAnalysis =
                             "Could not read numerator band %d: %s"
                             numeratorIndex
                             error
-
+                        
                         None
 
                     | _, Result.Error error ->
@@ -787,9 +799,11 @@ module SpectralAnalysis =
                             "Could not read denominator band %d: %s"
                             denominatorIndex
                             error
-
+                        
                         None
                 )
+                
+                |> Array.choose id
                 |> Array.sortBy (fun point -> point.wavelength)
 
             if Array.isEmpty spectralPoints then
@@ -963,6 +977,7 @@ module SpectralAnalysis =
                                 3.0, blue
                             |]
 
+
                         let spectralPoints =
                             channels
                             |> Array.choose (fun (wavelength, values) ->
@@ -970,10 +985,15 @@ module SpectralAnalysis =
                                 | Some average ->
                                     Some {
                                         wavelength = wavelength
+                                        displayLabel =
+                                            match int wavelength with
+                                            | 1 -> "R"
+                                            | 2 -> "G"
+                                            | 3 -> "B"
+                                            | _ -> sprintf "%.0f" wavelength
                                         value = average
                                         color = "#ffffff"
                                     }
-
                                 | None ->
                                     None
                             )
@@ -1021,6 +1041,7 @@ module SpectralAnalysis =
      let rgbSpectralProfilesView
         (profiles : SpectralProfile list)
         (isCompleteProfile : bool)
+        (isRatioProfile : bool)
         (sharedMaximumValue : float)
         =
 
@@ -1207,7 +1228,7 @@ module SpectralAnalysis =
                                 attribute "fill" "white"
                                 attribute "pointer-events" "none"
                                 style "display: none;"
-                            ] (sprintf "Band %.0f" point.wavelength)
+                            ] point.displayLabel
                         ]
                     )
                     |> Array.toList
@@ -1247,26 +1268,44 @@ module SpectralAnalysis =
                 [| minimumWavelength; maximumWavelength |]
 
             let bandLabels =
-                visibleBandNumbers
-                |> List.map (fun bandNumber ->
-                    let label =
-                        if isPlainRgbProfile then
-                            match int bandNumber with
-                            | 1 -> "R"
-                            | 2 -> "G"
-                            | 3 -> "B"
-                            | _ -> sprintf "%.0f" bandNumber
-                        else
-                            sprintf "%.0f" bandNumber
+                if isRatioProfile then
+                    profiles
+                    |> List.map (fun profile ->
+                    
+                        let label = profile.spectralProfile
+                                    |> Array.map (fun point -> point.displayLabel)
+                                    |> String.concat ", "
+                        Svg.text [
+                            attribute "x" label
+                            attribute "y" (string (height - 10.0))
+                            attribute "text-anchor" "middle"
+                            attribute "font-size" "10"
+                            attribute "fill" "#aaa"
+                        ] profile.label
+                    )
+                    
+                else
+                    visibleBandNumbers
+                    |> List.map (fun bandNumber ->
+                        let label =
+                            if isPlainRgbProfile then
+                                match int bandNumber with
+                                | 1 -> "R"
+                                | 2 -> "G"
+                                | 3 -> "B"
+                                | _ -> sprintf "%.0f" bandNumber
+                            
+                            else
+                                sprintf "%.0f" bandNumber
 
-                    Svg.text [
-                        attribute "x" (string (toX bandNumber))
-                        attribute "y" (string (height - 10.0))
-                        attribute "text-anchor" "middle"
-                        attribute "font-size" "10"
-                        attribute "fill" "#aaa"
-                    ] label
-                )
+                        Svg.text [
+                            attribute "x" (string (toX bandNumber))
+                            attribute "y" (string (height - 10.0))
+                            attribute "text-anchor" "middle"
+                            attribute "font-size" "10"
+                            attribute "fill" "#aaa"
+                        ] label
+                    )
 
             let axisAndLabels =
                     [
@@ -1374,7 +1413,7 @@ module SpectralAnalysis =
 
                     let maximumValue = spectralProfileMaximum item
 
-                    yield rgbSpectralProfilesView [ item ] true maximumValue
+                    yield rgbSpectralProfilesView [ item ] true false maximumValue
                 }
             )
 
@@ -1389,12 +1428,13 @@ module SpectralAnalysis =
 
                     let maximumValue = spectralProfileMaximum item
 
-                    yield rgbSpectralProfilesView [ item ] false maximumValue
+                    yield rgbSpectralProfilesView [ item ] false false maximumValue
                 }
             )
 
      let selectedSpectralProfilesView
         (profiles : aval<SpectralProfile list>)
+        (isRatioProfile : bool)
         : DomNode<Message> =
 
         Incremental.div
@@ -1426,6 +1466,7 @@ module SpectralAnalysis =
                         rgbSpectralProfilesView
                             items
                             false
+                            isRatioProfile
                             maximumValue
                 }
             )

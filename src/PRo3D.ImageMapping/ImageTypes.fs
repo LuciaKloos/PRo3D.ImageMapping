@@ -115,7 +115,8 @@ type HistogramBin =
 type SpectralProfilePoint =
     {
         wavelength : float
-        value : float    
+        displayLabel : string
+        value : float
         color : string
     }
 

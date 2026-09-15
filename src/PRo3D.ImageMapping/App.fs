@@ -973,7 +973,7 @@ module App =
                                             ]
 
                                             selectedSpectralProfilesView
-                                                rgbSelectedBandSpectralProfiles
+                                                rgbSelectedBandSpectralProfiles true
                                         ]
 
                                 yield
@@ -996,7 +996,7 @@ module App =
 
 
                                             selectedSpectralProfilesView
-                                                rgbSelectedBandSpectralProfiles
+                                                rgbSelectedBandSpectralProfiles false
                                         ]
 
                                 yield
@@ -1017,7 +1017,7 @@ module App =
                                             ]
 
                                             selectedSpectralProfilesView
-                                                rgbSelectedBandSpectralProfiles
+                                                rgbSelectedBandSpectralProfiles false
                                         ]
 
                                 yield
@@ -1038,6 +1038,7 @@ module App =
 
                                         selectedSpectralProfilesView
                                             rgbSelectedBandSpectralProfiles
+                                            false
                                     ]
 
                             yield
