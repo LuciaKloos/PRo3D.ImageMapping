@@ -602,7 +602,7 @@ module Image =
             |||> AVal.map3 (fun clickedPixel width height ->
                 match clickedPixel with
                 | Some pixel when width > 0 && height > 0 ->
-                    let markerRadius = 4.0
+                    let markerRadius = 1.0
 
                     let minX =
                         (float pixel.X - markerRadius) / float width

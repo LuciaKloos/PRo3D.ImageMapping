@@ -771,10 +771,7 @@ module SpectralAnalysis =
 
                                 Some {
                                     wavelength = float (ratioIndex + 1)
-                                    displayLabel =
-                                        sprintf "Bands %d/%d"
-                                            (numeratorIndex + 1)
-                                            (denominatorIndex + 1)
+                                    displayLabel = sprintf "%d / %d" numeratorBand denominatorBand
                                     value = ratio
                                     color = color
                                 }
@@ -1268,44 +1265,35 @@ module SpectralAnalysis =
                 [| minimumWavelength; maximumWavelength |]
 
             let bandLabels =
-                if isRatioProfile then
-                    profiles
-                    |> List.map (fun profile ->
-                    
-                        let label = profile.spectralProfile
-                                    |> Array.map (fun point -> point.displayLabel)
-                                    |> String.concat ", "
-                        Svg.text [
-                            attribute "x" label
-                            attribute "y" (string (height - 10.0))
-                            attribute "text-anchor" "middle"
-                            attribute "font-size" "10"
-                            attribute "fill" "#aaa"
-                        ] profile.label
-                    )
-                    
-                else
-                    visibleBandNumbers
-                    |> List.map (fun bandNumber ->
-                        let label =
-                            if isPlainRgbProfile then
-                                match int bandNumber with
-                                | 1 -> "R"
-                                | 2 -> "G"
-                                | 3 -> "B"
-                                | _ -> sprintf "%.0f" bandNumber
+                
+                //Log.warn "Band labels."
+                visibleBandNumbers
+                |> List.map (fun bandNumber ->
+                    let label =
+                        if isPlainRgbProfile then
+                            match int bandNumber with
+                            | 1 -> "R"
+                            | 2 -> "G"
+                            | 3 -> "B"
+                            | _ -> sprintf "%.0f" bandNumber
                             
+                        else
+                            if isRatioProfile then
+                                allSpectralPoints
+                                |> List.tryFind (fun point -> point.wavelength = bandNumber)
+                                |> Option.map (fun point -> point.displayLabel)
+                                |> Option.defaultValue (sprintf "%.0f" bandNumber)
                             else
                                 sprintf "%.0f" bandNumber
 
-                        Svg.text [
-                            attribute "x" (string (toX bandNumber))
-                            attribute "y" (string (height - 10.0))
-                            attribute "text-anchor" "middle"
-                            attribute "font-size" "10"
-                            attribute "fill" "#aaa"
-                        ] label
-                    )
+                    Svg.text [
+                        attribute "x" (string (toX bandNumber))
+                        attribute "y" (string (height - 10.0))
+                        attribute "text-anchor" "middle"
+                        attribute "font-size" "10"
+                        attribute "fill" "#aaa"
+                    ] label
+                )
 
             let axisAndLabels =
                     [
