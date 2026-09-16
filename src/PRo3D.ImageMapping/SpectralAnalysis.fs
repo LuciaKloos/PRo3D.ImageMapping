@@ -329,6 +329,101 @@ module SpectralAnalysis =
                 ]
         ]
 
+     let combinedRgbHistogramsView
+        (title : string)
+        (histograms : aval<RgbSelectedBandHistogram list>)
+        : DomNode<Message> =
+
+        Incremental.div
+            (AttributeMap.ofList [
+                clazz "ui inverted segment"
+                style "margin-top: 10px;"
+            ])
+            (alist {
+                yield div [style "font-size: 11px; color: #aaa; margin-bottom: 8px;"] [
+                    text title
+                ]
+
+                let! items = histograms
+
+                let channels =
+                    items
+                    |> List.choose (fun item ->
+                        let color =
+                            match item.label with
+                            | "R" -> Some "rgba(255, 65, 65, 0.65)"
+                            | "G" -> Some "rgba(65, 210, 65, 0.65)"
+                            | "B" -> Some "rgba(65, 130, 255, 0.65)"
+                            | _ -> None
+
+                        color
+                        |> Option.map (fun color -> item, color)
+                    )
+                    |> List.filter (fun (item, _) -> item.histogram.Length > 0)
+
+                if List.isEmpty channels then
+                    yield div [style "opacity: 0.7;"] [
+                        text "No histogram available."
+                    ]
+                else
+                    // All three channels use the same horizontal and vertical scales.
+                    let bins =
+                        channels
+                        |> List.collect (fun (item, color) ->
+                            item.histogram
+                            |> Array.toList
+                            |> List.map (fun bin -> bin, color)
+                        )
+
+                    let minimum =
+                        bins |> List.minBy (fun (bin, _) -> bin.lower)
+                        |> fun (bin, _) -> bin.lower
+
+                    let maximum =
+                        bins |> List.maxBy (fun (bin, _) -> bin.upper)
+                        |> fun (bin, _) -> bin.upper
+
+                    let range = max 1.0e-12 (maximum - minimum)
+
+                    let maxCount =
+                        bins
+                        |> List.maxBy (fun (bin, _) -> bin.count)
+                        |> fun (bin, _) -> max 1 bin.count
+
+                    yield div [
+                        style "height: 90px; position: relative; overflow: hidden; border-left: 1px solid #666; border-bottom: 1px solid #666;"
+                    ] [
+                        for bin, color in bins do
+                            let left =
+                                100.0 * (bin.lower - minimum) / range
+
+                            let width =
+                                100.0 * (bin.upper - bin.lower) / range
+
+                            let height =
+                                100.0 * float bin.count / float maxCount
+
+                            div [
+                                attribute "title" (
+                                    sprintf "%.6g – %.6g: %d"
+                                        bin.lower bin.upper bin.count
+                                )
+                                style (
+                                    sprintf
+                                        "position: absolute; bottom: 0; left: %.4f%%; width: %.4f%%; height: %.2f%%; background: %s;"
+                                        left width height color
+                                )
+                            ] []
+                    ]
+
+                    yield div [
+                        style "display: flex; justify-content: space-between; font-size: 11px; opacity: 0.8; margin-top: 4px;"
+                    ] [
+                        div [] [text (sprintf "%.6g" minimum)]
+                        div [] [text (sprintf "%.6g" maximum)]
+                    ]
+            })
+
      let selectedHistogramsView
         (title : string)
         (histograms : aval<RgbSelectedBandHistogram list>)

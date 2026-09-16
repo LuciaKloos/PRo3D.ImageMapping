@@ -36,6 +36,7 @@ module App =
         saturation = Saturation.init
         brightness = Brightness.init
         visualizationMode = VisualizationMode.SingleBandTransferFunction
+        activeCategory = ActiveCategory.GreyscaleImage
         loadCompleteSpectralProfile = false
         pixelDetectionEnabled = false
         pixelDetected = false
@@ -546,6 +547,9 @@ module App =
                         editImages = []
                 }
 
+        | SetActiveCategory category ->
+            { m with activeCategory = category }
+
         | ToggleCompleteSpectralProfile ->
              { m with loadCompleteSpectralProfile = not m.loadCompleteSpectralProfile }
 
@@ -682,21 +686,34 @@ module App =
                 AttributeMap.empty
                 (
                     alist {
-                        let! sourceKind = m.sourceImageKind
+                        let! activeCategory = m.activeCategory
 
-                        if sourceKind = SourceImageKind.Multispectral then
+                        if activeCategory = ActiveCategory.MultispectralImage then
                             yield node
                     }
                 )
+
+        let onlyForGreyscaleImage (node : DomNode<Message>) =
+            Incremental.div
+                AttributeMap.empty
+                (
+                    alist {
+                        let! activeCategory = m.activeCategory
+
+                        if activeCategory = ActiveCategory.GreyscaleImage then
+                            yield node
+                    }
+                )
+
     
         let onlyForPlainRGBImage (node : DomNode<Message>) =
             Incremental.div
                 AttributeMap.empty
                 (
                     alist {
-                        let! sourceKind = m.sourceImageKind
+                        let! activeCategory = m.activeCategory
 
-                        if sourceKind = SourceImageKind.PlainRgbImage then
+                        if activeCategory = ActiveCategory.RgbImage then
                             yield node
                     }
                 )
@@ -1042,9 +1059,9 @@ module App =
                                     ]
 
                             yield
-                                selectedHistogramsView                                    
-                                        "Original image RGB channel histograms"
-                                        transferFunctionNonMultispectralRgbHistograms
+                                combinedRgbHistogramsView
+                                    "Original image RGB channel histograms"
+                                    transferFunctionNonMultispectralRgbHistograms
                     }
                 )
 
@@ -1237,6 +1254,7 @@ module App =
                             ]
                         }
                     )
+
             Incremental.div (AttributeMap.ofList [ attribute "class" "table-container" ]) (
                 alist {
                     yield header
@@ -1422,8 +1440,9 @@ module App =
                             |> UI.map SetProjectionOpacity
                         ]
                     ]
-
-                    visualizationModeSelector
+                    onlyForMultispectral (
+                        visualizationModeSelector
+                    )
                      
                     onlyForPlainRGBImage (
                         accordionLists "Highlights and Shadows" "sliders horizontal" false
@@ -1535,10 +1554,18 @@ module App =
                             ]
                         ]
                     )
-
-                    accordionHist "Selected Bands Spectral Analysis" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [                        
-                        histogramsAndProfilesForCurrentMode
-                    ]
+                    
+                    onlyForMultispectral (
+                        accordionHist "Selected Bands Spectral Analysis" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [                        
+                            histogramsAndProfilesForCurrentMode
+                        ]
+                    )
+                    
+                    onlyForPlainRGBImage (
+                        accordionHist "Selected Bands Spectral Analysis" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [                        
+                            histogramsAndProfilesForCurrentMode
+                        ]
+                    )
                     
                     onlyForMultispectral (
                         div [style "display: flex; justify-content: flex-end; padding: 5px;"] [
@@ -1597,6 +1624,33 @@ module App =
                         m.imageHeight
                 ]
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
+                    Incremental.div
+                        (AttributeMap.ofList [
+                            style "display: flex; gap: 6px; margin-bottom: 10px;"
+                        ])
+                        (
+                            alist {
+                                let! selected = m.activeCategory
+
+                                for label, category in 
+                                    [
+                                        "Greyscale", ActiveCategory.GreyscaleImage
+                                        "RGB", ActiveCategory.RgbImage
+                                        "Multispectral", ActiveCategory.MultispectralImage
+                                    ] do
+
+                                    let background = if selected = category then "#000" else "#777"
+
+                                    yield button [
+                                        attribute "type" "button"
+                                        onClick (fun _ -> SetActiveCategory category)
+                                        style (sprintf
+                                            "flex: 1; padding: 8px; background: %s; color: white; border: 1px solid #999; border-radius: 4px; cursor: pointer;"
+                                            background)
+                                    ] [ text label ]
+
+                            }
+                        )
                     accordion "Texture Mapping" "file image outline" false (clazz "ui inverted segment") [ content ]
                 ]
             ])

@@ -162,6 +162,11 @@ type VisualizationMode =
     | RgbRatioComposite
     | SingleBandTransferFunction    
 
+type ActiveCategory =
+    | GreyscaleImage
+    | RgbImage
+    | MultispectralImage
+
 type SourceImageKind =
     | Multispectral
     | PlainRgbImage
@@ -187,6 +192,7 @@ type Model =
         saturation   : Saturation
         brightness   : Brightness
         visualizationMode : VisualizationMode
+        activeCategory : ActiveCategory
         loadCompleteSpectralProfile : bool
         pixelDetectionEnabled : bool
         pixelDetected : bool
@@ -405,6 +411,7 @@ type Message =
     | SetYaw of Numeric.Action
     | SetPitch of Numeric.Action
     | SetVisualizationMode of VisualizationMode
+    | SetActiveCategory of ActiveCategory
     | SetBandRatioBand of RgbChannel * RgbBandRole * Index
     | SetRgbMappingBand of RgbChannel * Index
     | SetTransferFunctionBand of Index
