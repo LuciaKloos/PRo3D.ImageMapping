@@ -200,6 +200,9 @@ type Model =
         imageHeight : int
         clickedPixel : Option<V2i>
         viewportSize : V2i
+        greyscaleColorMap : ColorMap
+        greyscaleBlackPoint : NumericInput
+        greyscaleWhitePoint : NumericInput
     }
 
 
@@ -434,4 +437,8 @@ type Message =
     | TogglePixelDetection
     | SetPixelDetected of bool
     | ImageClicked of position : V3d * viewportSize : V2i
+    | SetGreyscaleColorMap of ColorMap
+    | SetGreyscaleBlackPoint of Numeric.Action
+    | SetGreyscaleWhitePoint of Numeric.Action
+    | AutoStretchGreyscale
     | Nop

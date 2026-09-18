@@ -556,6 +556,42 @@ module Image =
                 DefaultTextures.checkerboard.GetValue()
         )
 
+    let createStretchedGreyscaleTexture
+        (sourcePath : aval<Option<string>>)
+        (blackPoint : aval<float>)
+        (whitePoint : aval<float>)
+        : aval<ITexture> =
+
+        AVal.custom (fun token ->
+            match sourcePath.GetValue token with
+            | Some path when File.Exists path ->
+                let source = PixImage<byte>(path)
+                let input = source.GetMatrix<byte>()
+                let output = PixImage<byte>(Col.Format.RGBA, source.Size)
+                let mutable pixels = output.GetMatrix<C4b>() 
+
+                let black = blackPoint.GetValue token
+                let white = max (black + 1.0) (whitePoint.GetValue token)
+
+                for y in 0 .. source.Size.Y - 1 do
+                    for x in 0 .. source.Size.X - 1 do
+                        let grey = float input.[x, y]
+                        let stretched =
+                            255.0 * ImageMath.clamp01 ((grey - black) / (white - black))
+                            |> round
+                            |> byte
+
+                        pixels.[x, y] <- C4b(stretched, stretched, stretched, 255uy)
+
+                PixTexture2d(
+                    PixImageMipMap [| output :> PixImage |],
+                    false
+                ) :> ITexture
+
+            | _ ->
+                DefaultTextures.checkerboard.GetValue()
+        )
+
     // the 2D view displays the texture directly
     let createInstrumentScene
         (rgbTexture : aval<ITexture>)

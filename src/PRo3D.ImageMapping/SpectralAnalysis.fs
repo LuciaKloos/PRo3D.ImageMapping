@@ -250,6 +250,38 @@ module SpectralAnalysis =
                 ]
         )
 
+     let computeGreyscaleHistogram
+        (m : AdaptiveModel)
+        (binCount : int)
+        : aval<RgbSelectedBandHistogram list> =
+
+        AVal.custom (fun token ->
+            let selectedBand = m.transferFunctionMapping.selectedBand.GetValue token
+            let images = m.images |> AList.force
+            let sources = readAdaptiveBandSources images token
+
+            let histogram =
+                selectedBand
+                |> Option.bind (fun band ->
+                    sources
+                    |> List.tryFind (fun source -> source.logicalIndex = band))
+                |> Option.map (fun source ->
+                    match readBandSourceHistogram binCount Double.NegativeInfinity source with
+                    | Result.Ok bins -> bins
+                    | Result.Error error ->
+                        Log.warn "Could not compute greyscale histogram: %s" error
+                        [||])
+                |> Option.defaultValue [||]
+
+            [
+                {
+                    label = "Grey values"
+                    bandIndices = None
+                    histogram = histogram
+                }
+            ]
+        )
+
      let histogramItemView
         (item : RgbSelectedBandHistogram)
         : DomNode<Message> =

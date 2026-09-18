@@ -44,6 +44,9 @@ module App =
         imageHeight = 0
         clickedPixel = None
         viewportSize = V2i.Zero
+        greyscaleColorMap = ColorMap.Viridis
+        greyscaleBlackPoint = { Numeric.init with min = 0.0; max = 254.0; step = 1.0; value = 0.0 }
+        greyscaleWhitePoint = { Numeric.init with min = 0.0; max = 255.0; step = 1.0; value = 255.0 }
     }
 
     let private loadedLogicalBandIndices (images : IndexList<Image>) =
@@ -617,6 +620,62 @@ module App =
             else
                 m
 
+        | SetGreyscaleColorMap colorMap ->
+            { m with greyscaleColorMap = colorMap }
+
+        | SetGreyscaleBlackPoint action ->
+            let input = Numeric.update m.greyscaleBlackPoint action
+            let blackPoint = min input.value (m.greyscaleWhitePoint.value - 1.0)
+            { m with
+                greyscaleBlackPoint = { input with value = blackPoint }
+            }
+
+        | SetGreyscaleWhitePoint action ->
+            let input = Numeric.update m.greyscaleWhitePoint action
+            let whitePoint = max input.value (m.greyscaleBlackPoint.value + 1.0)
+            { m with
+                greyscaleWhitePoint = { input with value = whitePoint }
+            }
+        | AutoStretchGreyscale ->
+            match m.sourceImagePath with
+            | None -> m
+            | Some path ->
+                let image = PixImage<byte>(path)
+                let pixels = image.GetMatrix<byte>()
+                let counts = Array.zeroCreate<int> 256
+
+                for y in 0 .. image.Size.Y - 1 do
+                    for x in 0 .. image.Size.X - 1 do
+                        let grey = int pixels.[x, y]
+                        counts.[grey] <- counts.[grey] + 1
+
+                let total = int64 image.Size.X * int64 image.Size.Y
+
+                let percentile fraction =
+                    let target = int64 (float total * fraction)
+                    let mutable accumulated = 0L
+                    let mutable result = 255
+                    let mutable found = false
+
+                    for i in 0 .. 255 do
+                        accumulated <- accumulated + int64 counts.[i]
+                        if not found && accumulated > target then
+                            result <- i
+                            found <- true
+
+                    result
+
+                let black = percentile 0.01
+                let white = percentile 0.99
+
+                if black >= white then m
+                else
+                    { m with
+                        greyscaleBlackPoint =
+                            { m.greyscaleBlackPoint with value = float black }
+                        greyscaleWhitePoint =
+                            { m.greyscaleWhitePoint with value = float white } }
+
     let numericInputFromAdaptive
         (token : AdaptiveToken)
         (input : AdaptiveNumericInput)
@@ -848,10 +907,18 @@ module App =
             |> AVal.bind (fun sourceKind ->
                 match sourceKind with
                 | SourceImageKind.PlainRgbImage ->
-                    RgbComposite.createPlainRgbTexture
-                        m.sourceImagePath
-                        shadowsHighlightsAdjustmentsRenderSettings
-
+                    m.activeCategory
+                    |> AVal.bind (fun category ->
+                        if category = ActiveCategory.GreyscaleImage then
+                            Image.createStretchedGreyscaleTexture
+                                m.sourceImagePath
+                                m.greyscaleBlackPoint.value
+                                m.greyscaleWhitePoint.value
+                        else
+                            RgbComposite.createPlainRgbTexture
+                                m.sourceImagePath
+                                shadowsHighlightsAdjustmentsRenderSettings
+                    )
                 | SourceImageKind.Multispectral ->
                     m.visualizationMode
                     |> AVal.bind (fun mode ->
@@ -887,6 +954,9 @@ module App =
 
         let transferFunctionNonMultispectralRgbHistograms =
             computeNonMultispectralRgbHistograms m 32
+
+        let greyscaleHistogram =
+            computeGreyscaleHistogram m 256
 
         let rgbSelectedBandSpectralProfiles =
             computeRgbSpectralProfiles m 
@@ -1419,6 +1489,60 @@ module App =
                     ]
                 })
 
+        let greyscaleCounts : aval<int[]> =
+            AVal.custom (fun token ->
+                let counts = Array.zeroCreate<int> 256
+                let black = m.greyscaleBlackPoint.value.GetValue token
+                let white =
+                    max (black + 1.0) (m.greyscaleWhitePoint.value.GetValue token)
+
+                match m.sourceImagePath.GetValue token with
+                | None -> ()
+                | Some filePath ->
+                    let image = PixImage<byte>(filePath)
+                    let pixels = image.GetMatrix<byte>()
+
+                    for y in 0 .. image.Size.Y - 1 do
+                        for x in 0 .. image.Size.X - 1 do
+                            let grey = float pixels.[x, y]
+                            let stretched =
+                                255.0 * ImageMath.clamp01 ((grey - black) / (white - black))
+                                |> round
+                                |> int
+
+                            counts.[stretched] <- counts.[stretched] + 1
+
+                counts
+            )
+
+        let greyscaleHistogramView =
+            Incremental.div AttributeMap.empty (
+                alist {
+                    let! counts = greyscaleCounts
+                    let maxCount = counts |> Array.max |> max 1
+
+                    yield div [] [
+                        text "Pixels"
+                        div [
+                            style "height: 120px; display: flex; align-items: flex-end; border-left: 1px solid #aaa; border-bottom: 1px solid #aaa;"
+                        ] [
+                            for grey in 0 .. 255 do
+                                div [
+                                    attribute "title" (sprintf "Grey value %d: %d pixels" grey counts.[grey])
+                                    style (sprintf
+                                        "flex: 1; min-width: 1px; height: %.2f%%; background: #aaa;"
+                                        (100.0 * float counts.[grey] / float maxCount))
+                                ] []
+                        ]
+                        div [style "display: flex; justify-content: space-between;"] [
+                            text "0 (black)"
+                            text "Grey value"
+                            text "255 (white)"
+                        ]
+                    ]
+                }
+            )
+
         let content = 
             div [style "overlow-y: auto; max-height: calc(100vh - 95px);"] [
 
@@ -1444,6 +1568,15 @@ module App =
                         visualizationModeSelector
                     )
                      
+                    onlyForGreyscaleImage (
+                        accordionHist
+                            "Grey-value histogram"
+                            "chart bar"
+                            false
+                            [clazz "item"; style "margin-top: 10px;"]
+                            [greyscaleHistogramView]
+                    )
+
                     onlyForPlainRGBImage (
                         accordionLists "Highlights and Shadows" "sliders horizontal" false
                             [clazz "item"; style "margin-top: 10px;"]
@@ -1567,6 +1700,29 @@ module App =
                         ]
                     )
                     
+                    onlyForGreyscaleImage (
+                        Html.table [
+                            Html.row "Transfer function:" [
+                                Html.SemUi.dropDown
+                                    m.greyscaleColorMap
+                                    SetGreyscaleColorMap
+                            ]
+                            Html.row "Black point:" [
+                                Numeric.view' [NumericInputType.Slider] m.greyscaleBlackPoint
+                                |> UI.map SetGreyscaleBlackPoint
+                            ]
+                            Html.row "White point:" [
+                                Numeric.view' [NumericInputType.Slider] m.greyscaleWhitePoint
+                                |> UI.map SetGreyscaleWhitePoint
+                            ]
+                            Html.row "" [
+                                button
+                                    [ clazz "ui inverted button"; onClick (fun _ -> AutoStretchGreyscale) ]
+                                    [ text "Auto stretch (1–99%)" ]
+                            ]
+                        ]
+                    )
+
                     onlyForMultispectral (
                         div [style "display: flex; justify-content: flex-end; padding: 5px;"] [
                             button [
