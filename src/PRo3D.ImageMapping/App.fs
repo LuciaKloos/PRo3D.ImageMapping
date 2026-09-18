@@ -99,6 +99,10 @@ module App =
                 selectedBand = pickBand 0 0 bands
         }
 
+    let private isSingleChannelImage (path : string) =
+        let image = PixImage<byte>(path)
+        image.ChannelCount = 1
+
     let private isPlainRgbImagePath (path : string) =
         match Path.GetExtension(path).ToLowerInvariant() with
         | ".png"
@@ -635,47 +639,8 @@ module App =
             let whitePoint = max input.value (m.greyscaleBlackPoint.value + 1.0)
             { m with
                 greyscaleWhitePoint = { input with value = whitePoint }
-            }
-        | AutoStretchGreyscale ->
-            match m.sourceImagePath with
-            | None -> m
-            | Some path ->
-                let image = PixImage<byte>(path)
-                let pixels = image.GetMatrix<byte>()
-                let counts = Array.zeroCreate<int> 256
-
-                for y in 0 .. image.Size.Y - 1 do
-                    for x in 0 .. image.Size.X - 1 do
-                        let grey = int pixels.[x, y]
-                        counts.[grey] <- counts.[grey] + 1
-
-                let total = int64 image.Size.X * int64 image.Size.Y
-
-                let percentile fraction =
-                    let target = int64 (float total * fraction)
-                    let mutable accumulated = 0L
-                    let mutable result = 255
-                    let mutable found = false
-
-                    for i in 0 .. 255 do
-                        accumulated <- accumulated + int64 counts.[i]
-                        if not found && accumulated > target then
-                            result <- i
-                            found <- true
-
-                    result
-
-                let black = percentile 0.01
-                let white = percentile 0.99
-
-                if black >= white then m
-                else
-                    { m with
-                        greyscaleBlackPoint =
-                            { m.greyscaleBlackPoint with value = float black }
-                        greyscaleWhitePoint =
-                            { m.greyscaleWhitePoint with value = float white } }
-
+            }        
+       
     let numericInputFromAdaptive
         (token : AdaptiveToken)
         (input : AdaptiveNumericInput)
@@ -902,6 +867,11 @@ module App =
                     )
             }
 
+        let adjustedPlainRgbImage =
+            RgbComposite.createPlainRgbPixImage
+                m.sourceImagePath
+                shadowsHighlightsAdjustmentsRenderSettings
+
         let outputTexture : aval<ITexture> =
             m.sourceImageKind
             |> AVal.bind (fun sourceKind ->
@@ -910,14 +880,17 @@ module App =
                     m.activeCategory
                     |> AVal.bind (fun category ->
                         if category = ActiveCategory.GreyscaleImage then
-                            Image.createStretchedGreyscaleTexture
-                                m.sourceImagePath
-                                m.greyscaleBlackPoint.value
-                                m.greyscaleWhitePoint.value
+                            m.sourceImagePath
+                            |> AVal.bind (function
+                                | Some path when File.Exists path && isSingleChannelImage path ->
+                                    Image.createStretchedGreyscaleTexture
+                                        m.sourceImagePath
+                                        m.greyscaleBlackPoint.value
+                                        m.greyscaleWhitePoint.value
+                                | _ ->
+                                    RgbComposite.createPlainRgbTexture adjustedPlainRgbImage)
                         else
-                            RgbComposite.createPlainRgbTexture
-                                m.sourceImagePath
-                                shadowsHighlightsAdjustmentsRenderSettings
+                            RgbComposite.createPlainRgbTexture adjustedPlainRgbImage
                     )
                 | SourceImageKind.Multispectral ->
                     m.visualizationMode
@@ -953,7 +926,9 @@ module App =
             computeTransferFunctionSelectedBandHistogram m 32
 
         let transferFunctionNonMultispectralRgbHistograms =
-            computeNonMultispectralRgbHistograms m 32
+            computeNonMultispectralRgbHistograms
+                adjustedPlainRgbImage
+                32
 
         let greyscaleHistogram =
             computeGreyscaleHistogram m 256
@@ -1112,21 +1087,21 @@ module App =
                                             "Selected transfer-function band histogram and spectral profile"
                                             transferFunctionSelectedBandHistogram
                         else 
-                            yield
-                                    div [
-                                        clazz "ui inverted segment"
-                                        style "margin-top: 10px;"
-                                    ] [
-                                        div [
-                                            style "font-size: 11px; color: #aaa;"
-                                        ] [
-                                            text "Spectral Profile of the R G B channels"
-                                        ]
+                            //yield
+                            //        div [
+                            //            clazz "ui inverted segment"
+                            //            style "margin-top: 10px;"
+                            //        ] [
+                            //            div [
+                            //                style "font-size: 11px; color: #aaa;"
+                            //            ] [
+                            //                text "Spectral Profile of the R G B channels"
+                            //            ]
 
-                                        selectedSpectralProfilesView
-                                            rgbSelectedBandSpectralProfiles
-                                            false
-                                    ]
+                            //            selectedSpectralProfilesView
+                            //                rgbSelectedBandSpectralProfiles
+                            //                false
+                            //        ]
 
                             yield
                                 combinedRgbHistogramsView
@@ -1498,7 +1473,7 @@ module App =
 
                 match m.sourceImagePath.GetValue token with
                 | None -> ()
-                | Some filePath ->
+                | Some filePath when File.Exists filePath && isSingleChannelImage filePath ->
                     let image = PixImage<byte>(filePath)
                     let pixels = image.GetMatrix<byte>()
 
@@ -1511,7 +1486,7 @@ module App =
                                 |> int
 
                             counts.[stretched] <- counts.[stretched] + 1
-
+                | Some _ -> ()
                 counts
             )
 
@@ -1695,7 +1670,7 @@ module App =
                     )
                     
                     onlyForPlainRGBImage (
-                        accordionHist "Selected Bands Spectral Analysis" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [                        
+                        accordionHist "RGB Histogram" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [                        
                             histogramsAndProfilesForCurrentMode
                         ]
                     )
@@ -1714,11 +1689,6 @@ module App =
                             Html.row "White point:" [
                                 Numeric.view' [NumericInputType.Slider] m.greyscaleWhitePoint
                                 |> UI.map SetGreyscaleWhitePoint
-                            ]
-                            Html.row "" [
-                                button
-                                    [ clazz "ui inverted button"; onClick (fun _ -> AutoStretchGreyscale) ]
-                                    [ text "Auto stretch (1–99%)" ]
                             ]
                         ]
                     )

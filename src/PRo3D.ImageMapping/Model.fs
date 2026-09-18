@@ -440,5 +440,4 @@ type Message =
     | SetGreyscaleColorMap of ColorMap
     | SetGreyscaleBlackPoint of Numeric.Action
     | SetGreyscaleWhitePoint of Numeric.Action
-    | AutoStretchGreyscale
     | Nop

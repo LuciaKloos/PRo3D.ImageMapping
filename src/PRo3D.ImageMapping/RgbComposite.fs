@@ -878,63 +878,55 @@ module RgbComposite =
         with error ->
             Result.Error error.Message
 
-    let createPlainRgbTexture
+    let createPlainRgbPixImage
         (sourceImagePath : aval<Option<string>>)
-        (shadowsHighlightsAdjustmentsRenderSettings : ShadowsHighlightsAdjustmentsRenderSettings)
-        : aval<ITexture> =
+        (settings : ShadowsHighlightsAdjustmentsRenderSettings)
+        : aval<Result<PixImage<byte>, string>> =
 
         AVal.custom (fun token ->
-
-            let highlightAdjustmentValue =
-                shadowsHighlightsAdjustmentsRenderSettings.highlightAdjustments.GetValue token
-
-            let shadowAdjustmentValue =
-                shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
-
-            let midtoneContrastValue =
-                shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
-
-            let blackWhiteClipValue =
-                shadowsHighlightsAdjustmentsRenderSettings.blackWhiteClip.GetValue token
-
-            let saturationValue =
-                shadowsHighlightsAdjustmentsRenderSettings.saturation.GetValue token
-
-            let brightnessValue =
-                shadowsHighlightsAdjustmentsRenderSettings.brightness.GetValue token
+            let highlights = settings.highlightAdjustments.GetValue token
+            let shadows = settings.shadowAdjustments.GetValue token
+            let midtones = settings.midtoneContrast.GetValue token
+            let clip = settings.blackWhiteClip.GetValue token
+            let saturation = settings.saturation.GetValue token
+            let brightness = settings.brightness.GetValue token
 
             match sourceImagePath.GetValue token with
             | Some path when File.Exists path ->
-                match
-                    createPlainRgbPixImageFromPath
-                        path
-                        highlightAdjustmentValue.amount.value
-                        highlightAdjustmentValue.tone.value
-                        highlightAdjustmentValue.radius.value
-                        shadowAdjustmentValue.amount.value
-                        shadowAdjustmentValue.tone.value
-                        shadowAdjustmentValue.radius.value
-                        midtoneContrastValue.gainFactor.value
-                        blackWhiteClipValue.blackClipPercentile.value
-                        blackWhiteClipValue.whiteClipPercentile.value
-                        saturationValue.gainFactor.value
-                        brightnessValue.gainFactor.value
-                with
+                createPlainRgbPixImageFromPath
+                    path
+                    highlights.amount.value
+                    highlights.tone.value
+                    highlights.radius.value
+                    shadows.amount.value
+                    shadows.tone.value
+                    shadows.radius.value
+                    midtones.gainFactor.value
+                    clip.blackClipPercentile.value
+                    clip.whiteClipPercentile.value
+                    saturation.gainFactor.value
+                    brightness.gainFactor.value
+
+            | _ ->
+                Result.Error "No plain RGB source image is available."
+        )
+
+    let createPlainRgbTexture
+            (adjustedImage : aval<Result<PixImage<byte>, string>>)
+            : aval<ITexture> =
+
+            adjustedImage
+            |> AVal.map (function
                 | Result.Ok image ->
                     PixTexture2d(
-                        PixImageMipMap [|
-                            image :> PixImage
-                        |],
+                        PixImageMipMap [| image :> PixImage |],
                         false
                     ) :> ITexture
 
                 | Result.Error error ->
                     Log.warn "Could not create plain RGB image texture: %s" error
                     DefaultTextures.checkerboard.GetValue()
-
-            | _ ->
-                DefaultTextures.checkerboard.GetValue()
-        )
+            )
 
     // raw band ratio values
     //-> percentile stretch / black-white clip

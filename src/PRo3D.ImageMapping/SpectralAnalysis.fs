@@ -159,41 +159,47 @@ module SpectralAnalysis =
             )              
 
      let computeNonMultispectralRgbHistograms
-        (m : AdaptiveModel)
+        (adjustedImage : aval<Result<PixImage<byte>, string>>)
         (binCount : int)
         : aval<RgbSelectedBandHistogram list> =
 
-        AVal.custom (fun token ->
-
-            match m.sourceImagePath.GetValue token with
-            | None ->
+        adjustedImage
+        |> AVal.map (function
+            | Result.Error error ->
+                Log.warn "Could not compute adjusted RGB histograms: %s" error
                 emptyRGBHistograms ()
 
-            | Some imagePath ->            
-                match readSourceImageRGBChannels imagePath with
-                | Result.Error error ->
-                    Log.warn
-                        "Could not compute RGB histograms for band %s: %s"
-                        imagePath
-                        error
-                    emptyRGBHistograms ()
+            | Result.Ok image ->
+                let pixels = image.GetMatrix<C4b>()
+                let red = ResizeArray<float>()
+                let green = ResizeArray<float>()
+                let blue = ResizeArray<float>()
 
-                | Result.Ok (red, green, blue) -> 
-                    let computeChannel label values =
-                        {
-                            label = label
-                            bandIndices = None
-                            histogram =
-                                ImageMath.computeHistogram
-                                    binCount
-                                    1.0e-4
-                                    values
-                        }
-                    [
-                        computeChannel "R" red
-                        computeChannel "G" green
-                        computeChannel "B" blue
-                    ]
+                for y in 0 .. image.Size.Y - 1 do
+                    for x in 0 .. image.Size.X - 1 do
+                        let color = pixels.[x, y]
+
+                        if color.A > 0uy then
+                            red.Add(float color.R)
+                            green.Add(float color.G)
+                            blue.Add(float color.B)
+
+                let computeChannel label (values : ResizeArray<float>) =
+                    {
+                        label = label
+                        bandIndices = None
+                        histogram =
+                            ImageMath.computeHistogram
+                                binCount
+                                Double.NegativeInfinity
+                                (values.ToArray())
+                    }
+
+                [
+                    computeChannel "R" red
+                    computeChannel "G" green
+                    computeChannel "B" blue
+                ]
         )
   
      let computeMultispectralRgbHistograms
