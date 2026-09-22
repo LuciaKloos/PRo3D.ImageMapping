@@ -1467,54 +1467,97 @@ module App =
         let greyscaleCounts : aval<int[]> =
             AVal.custom (fun token ->
                 let counts = Array.zeroCreate<int> 256
-                let black = m.greyscaleBlackPoint.value.GetValue token
-                let white =
-                    max (black + 1.0) (m.greyscaleWhitePoint.value.GetValue token)
+                let sourceKind = m.sourceImageKind.GetValue token
 
-                match m.sourceImagePath.GetValue token with
-                | None -> ()
-                | Some filePath when File.Exists filePath && isSingleChannelImage filePath ->
+                let black =
+                    m.greyscaleBlackPoint.value.GetValue token
+
+                let white =
+                    max
+                        (black + 1.0)
+                        (m.greyscaleWhitePoint.value.GetValue token)
+
+                // This implementation is only valid for ordinary image files.
+                // Multispectral datasets use BandHandler instead.
+                match sourceKind, m.sourceImagePath.GetValue token with
+                | SourceImageKind.PlainRgbImage, Some filePath
+                    when File.Exists filePath && isSingleChannelImage filePath ->
+
                     let image = PixImage<byte>(filePath)
                     let pixels = image.GetMatrix<byte>()
 
                     for y in 0 .. image.Size.Y - 1 do
                         for x in 0 .. image.Size.X - 1 do
                             let grey = float pixels.[x, y]
+
                             let stretched =
-                                255.0 * ImageMath.clamp01 ((grey - black) / (white - black))
+                                255.0
+                                * ImageMath.clamp01
+                                    ((grey - black) / (white - black))
                                 |> round
                                 |> int
 
-                            counts.[stretched] <- counts.[stretched] + 1
-                | Some _ -> ()
+                            counts.[stretched] <-
+                                counts.[stretched] + 1
+
+                | _ ->
+                    // Unsupported source type: the optional feature does nothing.
+                    ()
+
                 counts
             )
 
         let greyscaleHistogramView =
             Incremental.div AttributeMap.empty (
                 alist {
-                    let! counts = greyscaleCounts
-                    let maxCount = counts |> Array.max |> max 1
+                    let! sourceKind = m.sourceImageKind
 
-                    yield div [] [
-                        text "Pixels"
-                        div [
-                            style "height: 120px; display: flex; align-items: flex-end; border-left: 1px solid #aaa; border-bottom: 1px solid #aaa;"
-                        ] [
-                            for grey in 0 .. 255 do
+                    match sourceKind with
+                    | SourceImageKind.Multispectral ->
+                        // Uses BandHandler, so NetCDF, MBI and TIFF datasets work.
+                        yield
+                            selectedHistogramsView
+                                "Selected band grey-value histogram"
+                                greyscaleHistogram
+
+                    | SourceImageKind.PlainRgbImage ->
+                        let! counts = greyscaleCounts
+                        let maxCount = counts |> Array.max |> max 1
+
+                        yield
+                            div [] [
+                                text "Pixels"
+
                                 div [
-                                    attribute "title" (sprintf "Grey value %d: %d pixels" grey counts.[grey])
-                                    style (sprintf
-                                        "flex: 1; min-width: 1px; height: %.2f%%; background: #aaa;"
-                                        (100.0 * float counts.[grey] / float maxCount))
-                                ] []
-                        ]
-                        div [style "display: flex; justify-content: space-between;"] [
-                            text "0 (black)"
-                            text "Grey value"
-                            text "255 (white)"
-                        ]
-                    ]
+                                    style "height: 120px; display: flex; align-items: flex-end; border-left: 1px solid #aaa; border-bottom: 1px solid #aaa;"
+                                ] [
+                                    for grey in 0 .. 255 do
+                                        div [
+                                            attribute
+                                                "title"
+                                                (sprintf
+                                                    "Grey value %d: %d pixels"
+                                                    grey
+                                                    counts.[grey])
+
+                                            style (
+                                                sprintf
+                                                    "flex: 1; min-width: 1px; height: %.2f%%; background: #aaa;"
+                                                    (100.0
+                                                     * float counts.[grey]
+                                                     / float maxCount)
+                                            )
+                                        ] []
+                                ]
+
+                                div [
+                                    style "display: flex; justify-content: space-between;"
+                                ] [
+                                    text "0 (black)"
+                                    text "Grey value"
+                                    text "255 (white)"
+                                ]
+                            ]
                 }
             )
 
@@ -1676,20 +1719,46 @@ module App =
                     )
                     
                     onlyForGreyscaleImage (
-                        Html.table [
-                            Html.row "Transfer function:" [
-                                Html.SemUi.dropDown
-                                    m.greyscaleColorMap
-                                    SetGreyscaleColorMap
+                        div [] [
+                            Html.table [
+                                Html.row "Transfer function:" [
+                                    Html.SemUi.dropDown
+                                        m.greyscaleColorMap
+                                        SetGreyscaleColorMap
+                                ]
+
+                                Html.row "Black point:" [
+                                    Numeric.view'
+                                        [NumericInputType.Slider]
+                                        m.greyscaleBlackPoint
+                                    |> UI.map SetGreyscaleBlackPoint
+                                ]
+
+                                Html.row "White point:" [
+                                    Numeric.view'
+                                        [NumericInputType.Slider]
+                                        m.greyscaleWhitePoint
+                                    |> UI.map SetGreyscaleWhitePoint
+                                ]
                             ]
-                            Html.row "Black point:" [
-                                Numeric.view' [NumericInputType.Slider] m.greyscaleBlackPoint
-                                |> UI.map SetGreyscaleBlackPoint
-                            ]
-                            Html.row "White point:" [
-                                Numeric.view' [NumericInputType.Slider] m.greyscaleWhitePoint
-                                |> UI.map SetGreyscaleWhitePoint
-                            ]
+
+                            Incremental.div
+                                AttributeMap.empty
+                                (
+                                    alist {
+                                        let! colorMap = m.greyscaleColorMap
+
+                                        yield
+                                            img [
+                                                attribute
+                                                    "src"
+                                                    (Image.colorMapDataUrl colorMap)
+
+                                                style
+                                                    "display: block; width: 100%; height: 28px; margin-top: 10px;"
+                                            ]
+                                    }
+                                )
                         ]
                     )
 
