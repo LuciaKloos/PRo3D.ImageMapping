@@ -841,58 +841,105 @@ module Image =
     let whiteTex =
         PixTexture2d(PixImageMipMap [| whitePix :> PixImage |], false) :> ITexture
 
+    let colorMapDataUrl (colorMap : ColorMap) =
+        let fileName = ColorMap.getColorMapFileName colorMap
+
+        let resource =
+            AppDomain.CurrentDomain.GetAssemblies()
+            |> Array.tryPick (fun assembly ->
+                assembly.GetManifestResourceNames()
+                |> Array.tryFind (fun name ->
+                    name.EndsWith(fileName, StringComparison.OrdinalIgnoreCase)
+                )
+                |> Option.map (fun resourceName ->
+                    assembly, resourceName
+                )
+            )
+
+        match resource with
+        | Some (assembly, resourceName) ->
+            use stream = assembly.GetManifestResourceStream(resourceName)
+            use memory = new MemoryStream()
+
+            stream.CopyTo(memory)
+
+            sprintf
+                "data:image/png;base64,%s"
+                (Convert.ToBase64String(memory.ToArray()))
+
+        | None ->
+            ""
+
     let view (m : AdaptiveImage) =
         let content = 
             Html.table [ 
-                Html.row "EXR Channel:" [
-                    div [style "color: white;"] [
-                        let channelRepr (c : Channel) = 
-                            match c.name with
-                            | None -> string c.idx
-                            | Some name -> name
-                        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.selectedChannel (fun value -> SetEXRChannel value) channelRepr
-                    ]
-                ]
+                //Html.row "EXR Channel:" [
+                //    div [style "color: white;"] [
+                //        let channelRepr (c : Channel) = 
+                //            match c.name with
+                //            | None -> string c.idx
+                //            | Some name -> name
+                //        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.selectedChannel (fun value -> SetEXRChannel value) channelRepr
+                //    ]
+                //]
                 Html.row "False Color:" [
                     
                     Html.SemUi.dropDown m.colorMap SetColorMap
                 ]
-                Html.row "Minimum:" [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.inputMinValue.value) SetCustomMin
-                    br []
-                    Numeric.view' [Slider] m.inputMinValue
-                    |> UI.map (fun action -> 
-                        match action with
-                        | Numeric.Action.SetValue v ->
-                            SetCustomMin v
-                        | _ ->
-                            ImageMessage.Empty
-                        )
-                    ]
-                Html.row "Maximum:"  [
-                    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.inputMaxValue.value) SetCustomMax
-                    br []
-                    div [style "width: 100%"] [
-                        Numeric.numericField' m.inputMaxValue Slider
-                        |> UI.map (fun action -> 
-                            match action with
-                            | Numeric.Action.SetValue v ->
-                                SetCustomMax v
-                            | _ ->
-                                ImageMessage.Empty
-                            )
-                        ]
-                    ] 
-                Html.row "" [button [clazz "ui inverted button"; onClick (fun _ -> ResetCustomMinMax)] [
-                        text "Reset"
-                    ]
-                ]
+                //Html.row "Minimum:" [
+                //    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.inputMinValue.value) SetCustomMin
+                //    br []
+                //    Numeric.view' [Slider] m.inputMinValue
+                //    |> UI.map (fun action -> 
+                //        match action with
+                //        | Numeric.Action.SetValue v ->
+                //            SetCustomMin v
+                //        | _ ->
+                //            ImageMessage.Empty
+                //        )
+                //    ]
+                //Html.row "Maximum:"  [
+                //    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.inputMaxValue.value) SetCustomMax
+                //    br []
+                //    div [style "width: 100%"] [
+                //        Numeric.numericField' m.inputMaxValue Slider
+                //        |> UI.map (fun action -> 
+                //            match action with
+                //            | Numeric.Action.SetValue v ->
+                //                SetCustomMax v
+                //            | _ ->
+                //                ImageMessage.Empty
+                //            )
+                //        ]
+                //    ] 
+                //Html.row "" [button [clazz "ui inverted button"; onClick (fun _ -> ResetCustomMinMax)] [
+                //        text "Reset"
+                //    ]
+                //]
             ]
+
+        let transferFunctionPreview =
+            Incremental.div
+                AttributeMap.empty
+                (
+                    alist {
+                        let! active = m.useFalseColor
+                        let! colorMap = m.colorMap
+
+                        if active then
+                            yield
+                                img [
+                                    attribute "src" (colorMapDataUrl colorMap)
+                                    style "display: block; width: 100%; height: 28px; margin-top: 10px;"
+                                ]
+                    }
+                )
 
         require Html.semui (
             div [] [
                 div [style "position: relative; paddingLeft: 25px; paddingTop: 25px; width: 100%"] [
                     content
+                    transferFunctionPreview
                 ]
             ]
         )

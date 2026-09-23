@@ -1757,20 +1757,46 @@ module App =
                     )
                     
                     onlyForGreyscaleImage (
-                        Html.table [
-                            Html.row "Transfer function:" [
-                                Html.SemUi.dropDown
-                                    m.greyscaleColorMap
-                                    SetGreyscaleColorMap
+                        div [] [
+                            Html.table [
+                                Html.row "Transfer function:" [
+                                    Html.SemUi.dropDown
+                                        m.greyscaleColorMap
+                                        SetGreyscaleColorMap
+                                ]
+
+                                Html.row "Black point:" [
+                                    Numeric.view'
+                                        [NumericInputType.Slider]
+                                        m.greyscaleBlackPoint
+                                    |> UI.map SetGreyscaleBlackPoint
+                                ]
+
+                                Html.row "White point:" [
+                                    Numeric.view'
+                                        [NumericInputType.Slider]
+                                        m.greyscaleWhitePoint
+                                    |> UI.map SetGreyscaleWhitePoint
+                                ]
                             ]
-                            Html.row "Black point:" [
-                                Numeric.view' [NumericInputType.Slider] m.greyscaleBlackPoint
-                                |> UI.map SetGreyscaleBlackPoint
-                            ]
-                            Html.row "White point:" [
-                                Numeric.view' [NumericInputType.Slider] m.greyscaleWhitePoint
-                                |> UI.map SetGreyscaleWhitePoint
-                            ]
+
+                            Incremental.div
+                                AttributeMap.empty
+                                (
+                                    alist {
+                                        let! colorMap = m.greyscaleColorMap
+
+                                        yield
+                                            img [
+                                                attribute
+                                                    "src"
+                                                    (Image.colorMapDataUrl colorMap)
+
+                                                style
+                                                    "display: block; width: 100%; height: 28px; margin-top: 10px;"
+                                            ]
+                                    }
+                                )
                         ]
                     )
 
