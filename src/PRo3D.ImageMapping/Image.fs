@@ -289,6 +289,94 @@ module Image =
             | _ ->
                 DefaultTextures.checkerboard.GetValue()
         )
+        
+    // read the selected band and make a raw-value texture
+    // Read the selected band into a raw-value texture.
+    let createSelectedBandTexture
+        (images : alist<AdaptiveImage>)
+        (transferFunctionRenderSettings : TransferFunctionRenderSettings)
+        : aval<ITexture> =
+
+        let adaptiveImages = AList.toAVal images
+
+        AVal.custom (fun token ->
+            let sources =
+                adaptiveImages.GetValue token
+                |> fun images -> readAdaptiveBandSources images token
+
+            match transferFunctionRenderSettings.selectedBand.GetValue token with
+            | None ->
+                DefaultTextures.checkerboard.GetValue()
+
+            | Some selectedBand ->
+                match loadSelectedTransferFunctionBand sources selectedBand with
+                | Result.Error error ->
+                    Log.warn "Could not load selected band texture: %s" error
+                    DefaultTextures.checkerboard.GetValue()
+
+                | Result.Ok band ->
+                    let image =
+                        PixImage<float32>(
+                            Col.Format.Gray,
+                            V2i(band.width, band.height)
+                        )
+
+                    let mutable pixels = image.GetMatrix<float32>()
+
+                    for y in 0 .. band.height - 1 do
+                        for x in 0 .. band.width - 1 do
+                            let value = band.values.[y * band.width + x]
+
+                            pixels.[x, y] <-
+                                if Double.IsFinite value then
+                                    float32 value
+                                else
+                                    0.0f
+
+                    PixTexture2d(
+                        PixImageMipMap [| image :> PixImage |],
+                        false
+                    ) :> ITexture
+        )
+
+    // makes a horizontal lookup texture from the selected colormap
+    // Create a 256 × 1 lookup texture for the selected band's colormap.
+    let createColormapTexture
+        (images : alist<AdaptiveImage>)
+        (transferFunctionRenderSettings : TransferFunctionRenderSettings)
+        : aval<ITexture> =
+
+        let adaptiveImages = AList.toAVal images
+
+        AVal.custom (fun token ->
+            let selectedBand =
+                transferFunctionRenderSettings.selectedBand.GetValue token
+
+            let selectedImage =
+                adaptiveImages.GetValue token
+                |> IndexList.toList
+                |> List.tryFind (fun image ->
+                    Some (image.bandIndex.GetValue token) = selectedBand
+                )
+
+            match selectedImage with
+            | None ->
+                DefaultTextures.checkerboard.GetValue()
+
+            | Some image ->
+                let colorMap = image.colorMap.GetValue token
+                let palette = PixImage<byte>(Col.Format.RGBA, V2i(256, 1))
+                let mutable pixels = palette.GetMatrix<C4b>()
+
+                for x in 0 .. 255 do
+                    let t = float x / 255.0
+                    pixels.[x, 0] <- RgbComposite.sampleColorMap colorMap t
+
+                PixTexture2d(
+                    PixImageMipMap [| palette :> PixImage |],
+                    false
+                ) :> ITexture
+        )
 
     let createTransferFunctionTexture 
         (images : alist<AdaptiveImage>)
@@ -595,6 +683,10 @@ module Image =
     // the 2D view displays the texture directly
     let createInstrumentScene
         (rgbTexture : aval<ITexture>)
+        (bandTexture : aval<ITexture>)
+        (colormapTexture : aval<ITexture>) 
+        (gpuSettings : aval<float * float * bool>) 
+        (useGpu : aval<bool>) 
         (clickedPixel : aval<Option<V2i>>)
         (imageWidth : aval<int>)
         (imageHeight : aval<int>) =
@@ -664,8 +756,10 @@ module Image =
         let pixelMarkerMax =
             pixelMarkerBounds |> AVal.map snd
 
-        let imageSg =
-            Sg.ofIndexedGeometry geometry
+        let baseSg = Sg.ofIndexedGeometry geometry
+
+        let rgbSg =
+            baseSg
             |> Sg.texture "RgbCompositeTexture" rgbTexture
             |> Sg.uniform "ShowPixelMarker" showPixelMarker
             |> Sg.uniform "PixelMarkerMin" pixelMarkerMin
@@ -673,6 +767,30 @@ module Image =
             |> Sg.shader {
                 do! Shaders.displayRgbComposite
             }
+
+        let minValue = gpuSettings |> AVal.map (fun (minimum, _, _) -> minimum)
+        let maxValue = gpuSettings |> AVal.map (fun (_, maximum, _) -> maximum)
+        let shaderFalseColor = gpuSettings |> AVal.map (fun (_, _, flag) -> flag)
+
+        let gpuSg =
+            baseSg
+            |> Sg.texture "InstrumentImage" bandTexture
+            |> Sg.texture "ColormapTexture" colormapTexture
+            |> Sg.uniform "MinValue" minValue
+            |> Sg.uniform "MaxValue" maxValue
+            |> Sg.uniform "UseFalseColor" shaderFalseColor
+            |> Sg.uniform "DataType" (AVal.constant 2)
+            |> Sg.shader {
+                do! Shaders.hshColors
+            }
+
+        let selectedSg =
+            useGpu
+            |> AVal.map (fun enabled -> if enabled then gpuSg else rgbSg)
+            |> Sg.dynamic
+
+        let imageSg =
+            selectedSg
             |> Sg.requirePicking
             |> Sg.withEvents [
                 SceneEventKind.Click,
@@ -784,14 +902,22 @@ module Image =
         (boresightAdjustment : aval<Option<Trafo3d>>)
         (orbitState : AdaptiveOrbitState)
         (sourceImagePath : aval<Option<string>>)
-        (rgbTexture : aval<ITexture>)         
+        (rgbTexture : aval<ITexture>)
+        (bandTexture : aval<ITexture>)
+        (colormapTexture : aval<ITexture>)
+        (gpuSettings : aval<float * float * bool>)
+        (useGpu : aval<bool>)
         clickedPixel
         imageWidth
         imageHeight =
 
         let instrumentVisualization =
-            createInstrumentScene 
-                rgbTexture 
+            createInstrumentScene
+                rgbTexture
+                bandTexture
+                colormapTexture
+                gpuSettings
+                useGpu
                 clickedPixel
                 imageWidth
                 imageHeight
@@ -920,7 +1046,16 @@ module Image =
         imageWidth
         imageHeight =
 
-        let instrumentVisualization = createInstrumentScene rgbTexture clickedPixel imageWidth imageHeight
+        let instrumentVisualization =
+            createInstrumentScene
+                rgbTexture
+                rgbTexture
+                rgbTexture
+                (AVal.constant (0.0, 1.0, true))
+                (AVal.constant false)
+                clickedPixel
+                imageWidth
+                imageHeight
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))

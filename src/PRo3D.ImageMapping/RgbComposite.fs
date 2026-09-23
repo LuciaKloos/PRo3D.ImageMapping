@@ -21,7 +21,7 @@ module RgbComposite =
         |> fun v -> byte (round (v * 255.0))
 
 
-    let private sampleColorMap
+    let sampleColorMap
         (colorMap : ColorMap)
         (normalizedValue : float)
         : C4b =

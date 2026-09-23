@@ -698,10 +698,14 @@ module App =
         (
             showAbsolute2DAnd3DImage :
                 aval<Option<string>> ->
-                aval<ITexture> ->
-                aval<Option<V2i>> ->
-                aval<int> ->
-                aval<int> ->
+                aval<ITexture> ->                 // outputTexture
+                aval<ITexture> ->                 // bandTexture
+                aval<ITexture> ->                 // colormapTexture
+                aval<float * float * bool> ->     // gpuSettings
+                aval<bool> ->                     // useGpu
+                aval<Option<V2i>> ->              // clickedPixel
+                aval<int> ->                      // imageWidth
+                aval<int> ->                      // imageHeight
                 DomNode<Message>
         ) =
 
@@ -871,6 +875,40 @@ module App =
             RgbComposite.createPlainRgbPixImage
                 m.sourceImagePath
                 shadowsHighlightsAdjustmentsRenderSettings
+
+
+        let bandTexture =
+            Image.createSelectedBandTexture m.images transferFunctionRenderSettings
+
+        let colormapTexture =
+            Image.createColormapTexture m.images transferFunctionRenderSettings
+
+        let gpuSettings =
+            AVal.custom (fun token ->
+                let selectedBand =
+                    transferFunctionRenderSettings.selectedBand.GetValue token
+
+                let selectedImage =
+                    (AList.toAVal m.images).GetValue token
+                    |> IndexList.toList
+                    |> List.tryFind (fun image ->
+                        Some (image.bandIndex.GetValue token) = selectedBand)
+
+                match selectedImage with
+                | Some image ->
+                    image.inputMinValue.value.GetValue token,
+                    image.inputMaxValue.value.GetValue token,
+                    not (image.useFalseColor.GetValue token)
+                | None ->
+                    0.0, 1.0, true
+            )
+
+        let useGpu =
+            (m.sourceImageKind, m.visualizationMode)
+            ||> AVal.map2 (fun kind mode ->
+                kind = SourceImageKind.Multispectral &&
+                mode = VisualizationMode.SingleBandTransferFunction
+            )
 
         let outputTexture : aval<ITexture> =
             m.sourceImageKind
@@ -1467,54 +1505,97 @@ module App =
         let greyscaleCounts : aval<int[]> =
             AVal.custom (fun token ->
                 let counts = Array.zeroCreate<int> 256
-                let black = m.greyscaleBlackPoint.value.GetValue token
-                let white =
-                    max (black + 1.0) (m.greyscaleWhitePoint.value.GetValue token)
+                let sourceKind = m.sourceImageKind.GetValue token
 
-                match m.sourceImagePath.GetValue token with
-                | None -> ()
-                | Some filePath when File.Exists filePath && isSingleChannelImage filePath ->
+                let black =
+                    m.greyscaleBlackPoint.value.GetValue token
+
+                let white =
+                    max
+                        (black + 1.0)
+                        (m.greyscaleWhitePoint.value.GetValue token)
+
+                // This implementation is only valid for ordinary image files.
+                // Multispectral datasets use BandHandler instead.
+                match sourceKind, m.sourceImagePath.GetValue token with
+                | SourceImageKind.PlainRgbImage, Some filePath
+                    when File.Exists filePath && isSingleChannelImage filePath ->
+
                     let image = PixImage<byte>(filePath)
                     let pixels = image.GetMatrix<byte>()
 
                     for y in 0 .. image.Size.Y - 1 do
                         for x in 0 .. image.Size.X - 1 do
                             let grey = float pixels.[x, y]
+
                             let stretched =
-                                255.0 * ImageMath.clamp01 ((grey - black) / (white - black))
+                                255.0
+                                * ImageMath.clamp01
+                                    ((grey - black) / (white - black))
                                 |> round
                                 |> int
 
-                            counts.[stretched] <- counts.[stretched] + 1
-                | Some _ -> ()
+                            counts.[stretched] <-
+                                counts.[stretched] + 1
+
+                | _ ->
+                    // Unsupported source type: the optional feature does nothing.
+                    ()
+
                 counts
             )
 
         let greyscaleHistogramView =
             Incremental.div AttributeMap.empty (
                 alist {
-                    let! counts = greyscaleCounts
-                    let maxCount = counts |> Array.max |> max 1
+                    let! sourceKind = m.sourceImageKind
 
-                    yield div [] [
-                        text "Pixels"
-                        div [
-                            style "height: 120px; display: flex; align-items: flex-end; border-left: 1px solid #aaa; border-bottom: 1px solid #aaa;"
-                        ] [
-                            for grey in 0 .. 255 do
+                    match sourceKind with
+                    | SourceImageKind.Multispectral ->
+                        // Uses BandHandler, so NetCDF, MBI and TIFF datasets work.
+                        yield
+                            selectedHistogramsView
+                                "Selected band grey-value histogram"
+                                greyscaleHistogram
+
+                    | SourceImageKind.PlainRgbImage ->
+                        let! counts = greyscaleCounts
+                        let maxCount = counts |> Array.max |> max 1
+
+                        yield
+                            div [] [
+                                text "Pixels"
+
                                 div [
-                                    attribute "title" (sprintf "Grey value %d: %d pixels" grey counts.[grey])
-                                    style (sprintf
-                                        "flex: 1; min-width: 1px; height: %.2f%%; background: #aaa;"
-                                        (100.0 * float counts.[grey] / float maxCount))
-                                ] []
-                        ]
-                        div [style "display: flex; justify-content: space-between;"] [
-                            text "0 (black)"
-                            text "Grey value"
-                            text "255 (white)"
-                        ]
-                    ]
+                                    style "height: 120px; display: flex; align-items: flex-end; border-left: 1px solid #aaa; border-bottom: 1px solid #aaa;"
+                                ] [
+                                    for grey in 0 .. 255 do
+                                        div [
+                                            attribute
+                                                "title"
+                                                (sprintf
+                                                    "Grey value %d: %d pixels"
+                                                    grey
+                                                    counts.[grey])
+
+                                            style (
+                                                sprintf
+                                                    "flex: 1; min-width: 1px; height: %.2f%%; background: #aaa;"
+                                                    (100.0
+                                                     * float counts.[grey]
+                                                     / float maxCount)
+                                            )
+                                        ] []
+                                ]
+
+                                div [
+                                    style "display: flex; justify-content: space-between;"
+                                ] [
+                                    text "0 (black)"
+                                    text "Grey value"
+                                    text "255 (white)"
+                                ]
+                            ]
                 }
             )
 
@@ -1745,6 +1826,10 @@ module App =
                     showAbsolute2DAnd3DImage
                         m.sourceImagePath
                         outputTexture
+                        bandTexture
+                        colormapTexture
+                        gpuSettings
+                        useGpu
                         m.clickedPixel
                         m.imageWidth
                         m.imageHeight
