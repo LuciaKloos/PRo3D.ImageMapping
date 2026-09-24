@@ -47,6 +47,7 @@ module App =
         greyscaleColorMap = ColorMap.Viridis
         greyscaleBlackPoint = { Numeric.init with min = 0.0; max = 254.0; step = 1.0; value = 0.0 }
         greyscaleWhitePoint = { Numeric.init with min = 0.0; max = 255.0; step = 1.0; value = 255.0 }
+        applyGreyscaleTransferFunction = false
     }
 
     let private loadedLogicalBandIndices (images : IndexList<Image>) =
@@ -640,6 +641,11 @@ module App =
             { m with
                 greyscaleWhitePoint = { input with value = whitePoint }
             }        
+
+        | ToggleGreyscaleTransferFunction ->
+            { m with 
+                applyGreyscaleTransferFunction = not m.applyGreyscaleTransferFunction
+            }
        
     let numericInputFromAdaptive
         (token : AdaptiveToken)
@@ -876,7 +882,6 @@ module App =
                 m.sourceImagePath
                 shadowsHighlightsAdjustmentsRenderSettings
 
-
         let bandTexture =
             Image.createSelectedBandTexture m.images transferFunctionRenderSettings
 
@@ -925,6 +930,9 @@ module App =
                                         m.sourceImagePath
                                         m.greyscaleBlackPoint.value
                                         m.greyscaleWhitePoint.value
+                                        m.applyGreyscaleTransferFunction
+                                        m.greyscaleColorMap
+                                        
                                 | _ ->
                                     RgbComposite.createPlainRgbTexture adjustedPlainRgbImage)
                         else
@@ -950,7 +958,6 @@ module App =
                             Image.createTransferFunctionTexture
                                 m.images
                                 transferFunctionRenderSettings
-                                shadowsHighlightsAdjustmentsRenderSettings
                     )
             )
 
@@ -1125,22 +1132,6 @@ module App =
                                             "Selected transfer-function band histogram and spectral profile"
                                             transferFunctionSelectedBandHistogram
                         else 
-                            //yield
-                            //        div [
-                            //            clazz "ui inverted segment"
-                            //            style "margin-top: 10px;"
-                            //        ] [
-                            //            div [
-                            //                style "font-size: 11px; color: #aaa;"
-                            //            ] [
-                            //                text "Spectral Profile of the R G B channels"
-                            //            ]
-
-                            //            selectedSpectralProfilesView
-                            //                rgbSelectedBandSpectralProfiles
-                            //                false
-                            //        ]
-
                             yield
                                 combinedRgbHistogramsView
                                     "Original image RGB channel histograms"
@@ -1757,46 +1748,67 @@ module App =
                     )
                     
                     onlyForGreyscaleImage (
-                        div [] [
-                            Html.table [
-                                Html.row "Transfer function:" [
-                                    Html.SemUi.dropDown
-                                        m.greyscaleColorMap
-                                        SetGreyscaleColorMap
+                        accordionHist "Edit" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
+                            div [] [
+                                Html.table [
+                                
+                                    Html.row "Black point:" [
+                                        Numeric.view'
+                                            [NumericInputType.Slider]
+                                            m.greyscaleBlackPoint
+                                        |> UI.map SetGreyscaleBlackPoint
+                                    ]
+
+                                    Html.row "White point:" [
+                                        Numeric.view'
+                                            [NumericInputType.Slider]
+                                            m.greyscaleWhitePoint
+                                        |> UI.map SetGreyscaleWhitePoint
+                                    ]
+
+                                    Html.row "Apply transfer function:" [
+                                        Incremental.div AttributeMap.empty (
+                                            alist {
+                                                let! enabled = m.applyGreyscaleTransferFunction
+
+                                                yield
+                                                    input [
+                                                        attribute "type" "checkbox"
+                                                        onClick (fun _ -> ToggleGreyscaleTransferFunction)
+
+                                                        if enabled then
+                                                            attribute "checked" "checked"
+                                                    ]
+                                            }
+                                        )
+                                    ]
+
+                                    Html.row "Transfer function:" [
+                                        Html.SemUi.dropDown
+                                            m.greyscaleColorMap
+                                            SetGreyscaleColorMap
+                                   
+                                    ]
                                 ]
 
-                                Html.row "Black point:" [
-                                    Numeric.view'
-                                        [NumericInputType.Slider]
-                                        m.greyscaleBlackPoint
-                                    |> UI.map SetGreyscaleBlackPoint
-                                ]
+                                Incremental.div
+                                    AttributeMap.empty
+                                    (
+                                        alist {
+                                            let! colorMap = m.greyscaleColorMap
 
-                                Html.row "White point:" [
-                                    Numeric.view'
-                                        [NumericInputType.Slider]
-                                        m.greyscaleWhitePoint
-                                    |> UI.map SetGreyscaleWhitePoint
-                                ]
+                                            yield
+                                                img [
+                                                    attribute
+                                                        "src"
+                                                        (Image.colorMapDataUrl colorMap)
+
+                                                    style
+                                                        "display: block; width: 100%; height: 28px; margin-top: 10px;"
+                                                ]
+                                        }
+                                    )
                             ]
-
-                            Incremental.div
-                                AttributeMap.empty
-                                (
-                                    alist {
-                                        let! colorMap = m.greyscaleColorMap
-
-                                        yield
-                                            img [
-                                                attribute
-                                                    "src"
-                                                    (Image.colorMapDataUrl colorMap)
-
-                                                style
-                                                    "display: block; width: 100%; height: 28px; margin-top: 10px;"
-                                            ]
-                                    }
-                                )
                         ]
                     )
 
@@ -1908,5 +1920,5 @@ module App =
             update = update
             view = viewFull
             threads = constF ThreadPool.empty
-            unpersist = Unpersist.instance
+            unpersist = Unpersist.instance 
         }

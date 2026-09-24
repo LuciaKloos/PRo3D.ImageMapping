@@ -289,6 +289,52 @@ module Image =
             | _ ->
                 DefaultTextures.checkerboard.GetValue()
         )
+
+    let createRawGreyscaleTexture
+        (sourcePath : aval<Option<string>>)
+        : aval<ITexture> =
+
+        AVal.custom (fun token ->
+            match sourcePath.GetValue token with
+            | Some path when File.Exists path ->
+                let source = PixImage<byte>(path)
+                let input = source.GetMatrix<byte>()
+                let output = PixImage<float32>(Col.Format.Gray, source.Size)
+                let mutable pixels = output.GetMatrix<float32>()
+
+                for y in 0 .. source.Size.Y - 1 do
+                    for x in 0 .. source.Size.X - 1 do
+                        pixels.[x, y] <- float32 input.[x, y] / 255.0f
+
+                PixTexture2d(
+                    PixImageMipMap [| output :> PixImage |],
+                    false
+                ) :> ITexture
+
+            | _ ->
+                DefaultTextures.checkerboard.GetValue()
+        )
+
+    let createGreyscaleColormapTexture
+        (colorMap : aval<ColorMap>)
+        : aval<ITexture> =
+
+        AVal.custom (fun token ->
+            let selectedMap = colorMap.GetValue token
+            let palette = PixImage<byte>(Col.Format.RGBA, V2i(256, 1))
+            let mutable  pixels = palette.GetMatrix<C4b>()
+
+            for x in 0 .. 255 do
+                pixels.[x, 0] <-
+                    RgbComposite.sampleColorMap selectedMap (float x / 255.0)
+
+            PixTexture2d(
+                PixImageMipMap [| palette :> PixImage |],
+                false
+            ) :> ITexture
+        )
+            
+
         
     // read the selected band and make a raw-value texture
     // Read the selected band into a raw-value texture.
@@ -381,7 +427,6 @@ module Image =
     let createTransferFunctionTexture 
         (images : alist<AdaptiveImage>)
         (transferFunctionRenderSettings : TransferFunctionRenderSettings)
-        (shadowsHighlightsAdjustmentsRenderSettings : ShadowsHighlightsAdjustmentsRenderSettings)
         : aval<ITexture> =
 
         let adaptiveImages =
@@ -401,38 +446,6 @@ module Image =
             let gammaValue =
                 transferFunctionRenderSettings.gamma.GetValue token
 
-            let highlightAdjustmentValue =
-                shadowsHighlightsAdjustmentsRenderSettings.highlightAdjustments.GetValue token
-            let highlightAmountValue =
-                highlightAdjustmentValue.amount.value
-            let highlightToneValue =
-                highlightAdjustmentValue.tone.value
-            let highlightRadiusValue =
-                highlightAdjustmentValue.radius.value
-
-            let shadowAdjustmentValue =
-                shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
-            let shadowAmountValue =
-                shadowAdjustmentValue.amount.value
-            let shadowToneValue =
-                shadowAdjustmentValue.tone.value
-            let shadowRadiusValue =
-                shadowAdjustmentValue.radius.value
-
-            let midtoneContrastValue =
-                shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
-            let midtoneContrastGainFactorValue =
-                midtoneContrastValue.gainFactor.value
-
-            let saturationValue = 
-                shadowsHighlightsAdjustmentsRenderSettings.saturation.GetValue token
-            let saturationGainFactorValue =
-                saturationValue.gainFactor.value
-
-            let brightnessValue = 
-                shadowsHighlightsAdjustmentsRenderSettings.brightness.GetValue token
-            let brightnessGainFactorValue =
-                brightnessValue.gainFactor.value
 
             match sources, selectedBandValue with
             | [], _ ->
@@ -477,15 +490,6 @@ module Image =
                             gammaValue
                             useFalseColorValue
                             colorMapValue
-                            highlightAmountValue
-                            highlightToneValue
-                            highlightRadiusValue
-                            shadowAmountValue
-                            shadowToneValue
-                            shadowRadiusValue
-                            midtoneContrastGainFactorValue
-                            saturationGainFactorValue
-                            brightnessGainFactorValue
                     with
                     | Result.Ok pixImage ->
                         PixTexture2d(
@@ -648,6 +652,8 @@ module Image =
         (sourcePath : aval<Option<string>>)
         (blackPoint : aval<float>)
         (whitePoint : aval<float>)
+        (applyColormap : aval<bool>)
+        (colormap : aval<ColorMap>)
         : aval<ITexture> =
 
         AVal.custom (fun token ->
@@ -661,6 +667,9 @@ module Image =
                 let black = blackPoint.GetValue token
                 let white = max (black + 1.0) (whitePoint.GetValue token)
 
+                let applyColormap = applyColormap.GetValue token
+                let selectedColorMap = colormap.GetValue token
+
                 for y in 0 .. source.Size.Y - 1 do
                     for x in 0 .. source.Size.X - 1 do
                         let grey = float input.[x, y]
@@ -669,7 +678,13 @@ module Image =
                             |> round
                             |> byte
 
-                        pixels.[x, y] <- C4b(stretched, stretched, stretched, 255uy)
+                        pixels.[x, y] <- 
+                            if applyColormap then
+                                RgbComposite.sampleColorMap
+                                    selectedColorMap
+                                    (float stretched / 255.0)
+                            else
+                                C4b(stretched, stretched, stretched, 255uy)
 
                 PixTexture2d(
                     PixImageMipMap [| output :> PixImage |],
@@ -873,49 +888,10 @@ module Image =
     let view (m : AdaptiveImage) =
         let content = 
             Html.table [ 
-                //Html.row "EXR Channel:" [
-                //    div [style "color: white;"] [
-                //        let channelRepr (c : Channel) = 
-                //            match c.name with
-                //            | None -> string c.idx
-                //            | Some name -> name
-                //        Html.SemUi.dropDown' (AList.ofAVal m.channelOptions) m.selectedChannel (fun value -> SetEXRChannel value) channelRepr
-                //    ]
-                //]
                 Html.row "False Color:" [
                     
                     Html.SemUi.dropDown m.colorMap SetColorMap
                 ]
-                //Html.row "Minimum:" [
-                //    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.inputMinValue.value) SetCustomMin
-                //    br []
-                //    Numeric.view' [Slider] m.inputMinValue
-                //    |> UI.map (fun action -> 
-                //        match action with
-                //        | Numeric.Action.SetValue v ->
-                //            SetCustomMin v
-                //        | _ ->
-                //            ImageMessage.Empty
-                //        )
-                //    ]
-                //Html.row "Maximum:"  [
-                //    SimplePrimitives.numeric { min = 0.0; max = 65535.0; largeStep = 0.1; smallStep = 0.01 } AttributeMap.empty (m.inputMaxValue.value) SetCustomMax
-                //    br []
-                //    div [style "width: 100%"] [
-                //        Numeric.numericField' m.inputMaxValue Slider
-                //        |> UI.map (fun action -> 
-                //            match action with
-                //            | Numeric.Action.SetValue v ->
-                //                SetCustomMax v
-                //            | _ ->
-                //                ImageMessage.Empty
-                //            )
-                //        ]
-                //    ] 
-                //Html.row "" [button [clazz "ui inverted button"; onClick (fun _ -> ResetCustomMinMax)] [
-                //        text "Reset"
-                //    ]
-                //]
             ]
 
         let transferFunctionPreview =

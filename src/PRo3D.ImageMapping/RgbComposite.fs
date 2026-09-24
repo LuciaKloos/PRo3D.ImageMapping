@@ -234,15 +234,6 @@ module RgbComposite =
         (gamma : float)
         (useFalseColor : bool)
         (colorMap : ColorMap)
-        (highlightAmount : float)
-        (highlightTone : float)
-        (highlightRadius : float)
-        (shadowAmount : float)
-        (shadowTone : float)
-        (shadowRadius : float)
-        (midtoneContrastGainFactor : float)
-        (saturation : float)
-        (brightness : float)
         : Result<PixImage<byte>, string> =
 
         try
@@ -323,30 +314,7 @@ module RgbComposite =
                         luminance.[index] <-
                             0.2126 * rf + 0.7152 * gf + 0.0722 * bf
 
-                let shadowMask, highlightMask = 
-                    createShadowsHighlightsMask
-                        highlightTone
-                        highlightRadius
-                        shadowTone
-                        shadowRadius
-                        pixelCount
-                        alphaBytes
-                        luminance
-                        height
-                        width
-
-                let clampedAmountHighlight =
-                    clamp01 highlightAmount
-
-                let clampedAmountShadow =
-                    clamp01 shadowAmount
-
-                let midtoneGainFactor = calculateMidtoneContrast midtoneContrastGainFactor
-
-                let midtoneMask = createMidtoneMask pixelCount alphaBytes luminance
-
-                let saturationGain = calculateSaturationGain saturation
-
+               
                 let adjustedRedBytes =
                     Array.zeroCreate<byte> pixelCount
 
@@ -356,77 +324,7 @@ module RgbComposite =
                 let adjustedBlueBytes =
                     Array.zeroCreate<byte> pixelCount
 
-                // Second pass:
-                // transfer-function RGB -> highlights/shadows/midtones/saturation/brightness.
-                for index in 0 .. pixelCount - 1 do
-                    if alphaBytes.[index] > 0uy then
-                        
-                        let r =
-                            applyAdjustments 
-                                redBytes.[index]
-                                clampedAmountHighlight
-                                clampedAmountShadow
-                                midtoneGainFactor
-                                Midtone.init.mid
-                                highlightMask
-                                shadowMask
-                                midtoneMask
-                                index
-
-                        let g =
-                            applyAdjustments 
-                                greenBytes.[index]
-                                clampedAmountHighlight
-                                clampedAmountShadow
-                                midtoneGainFactor
-                                Midtone.init.mid
-                                highlightMask
-                                shadowMask
-                                midtoneMask
-                                index
-
-                        let b =
-                            applyAdjustments 
-                                blueBytes.[index]
-                                clampedAmountHighlight
-                                clampedAmountShadow
-                                midtoneGainFactor
-                                Midtone.init.mid
-                                highlightMask
-                                shadowMask
-                                midtoneMask
-                                index
-
-                        let luminanceAfterAdjustments =
-                            Luminance.init.red * r + Luminance.init.green * g + Luminance.init.blue * b
-
-                        let saturatedRed =
-                            luminanceAfterAdjustments + saturationGain * (r - luminanceAfterAdjustments)
-
-                        let saturatedGreen =
-                            luminanceAfterAdjustments + saturationGain * (g - luminanceAfterAdjustments)
-
-                        let saturatedBlue =
-                            luminanceAfterAdjustments + saturationGain * (b - luminanceAfterAdjustments)
-
-                        let brightenedRed =
-                            adjustBrightness brightness saturatedRed
-
-                        let brightenedGreen =
-                            adjustBrightness brightness saturatedGreen
-
-                        let brightenedBlue =
-                            adjustBrightness brightness saturatedBlue
-
-                        adjustedRedBytes.[index] <-
-                            byte (round (255.0 * brightenedRed))
-
-                        adjustedGreenBytes.[index] <-
-                            byte (round (255.0 * brightenedGreen))
-
-                        adjustedBlueBytes.[index] <-
-                            byte (round (255.0 * brightenedBlue))
-
+                
                 image
                     .GetMatrix<C4b>()
                     .SetByCoord(fun (position : V2l) ->

@@ -203,6 +203,7 @@ type Model =
         greyscaleColorMap : ColorMap
         greyscaleBlackPoint : NumericInput
         greyscaleWhitePoint : NumericInput
+        applyGreyscaleTransferFunction : bool
     }
 
 
@@ -440,4 +441,5 @@ type Message =
     | SetGreyscaleColorMap of ColorMap
     | SetGreyscaleBlackPoint of Numeric.Action
     | SetGreyscaleWhitePoint of Numeric.Action
+    | ToggleGreyscaleTransferFunction
     | Nop
