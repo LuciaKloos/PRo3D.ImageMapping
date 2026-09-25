@@ -297,7 +297,8 @@ module Image =
         AVal.custom (fun token ->
             match sourcePath.GetValue token with
             | Some path when File.Exists path ->
-                let source = PixImage<byte>(path)
+                let source =
+                    PixImage<byte>(path).ToPixImage<byte>(Col.Format.Gray)
                 let input = source.GetMatrix<byte>()
                 let output = PixImage<float32>(Col.Format.Gray, source.Size)
                 let mutable pixels = output.GetMatrix<float32>()
@@ -700,7 +701,7 @@ module Image =
         (rgbTexture : aval<ITexture>)
         (bandTexture : aval<ITexture>)
         (colormapTexture : aval<ITexture>) 
-        (gpuSettings : aval<float * float * bool>) 
+        (gpuSettings : aval<float * float * bool * float>) 
         (useGpu : aval<bool>) 
         (clickedPixel : aval<Option<V2i>>)
         (imageWidth : aval<int>)
@@ -783,9 +784,10 @@ module Image =
                 do! Shaders.displayRgbComposite
             }
 
-        let minValue = gpuSettings |> AVal.map (fun (minimum, _, _) -> minimum)
-        let maxValue = gpuSettings |> AVal.map (fun (_, maximum, _) -> maximum)
-        let shaderFalseColor = gpuSettings |> AVal.map (fun (_, _, flag) -> flag)
+        let minValue = gpuSettings |> AVal.map (fun (minimum, _, _, _) -> minimum)
+        let maxValue = gpuSettings |> AVal.map (fun (_, maximum, _, _) -> maximum)
+        let shaderFalseColor = gpuSettings |> AVal.map (fun (_, _, flag, _) -> flag)
+        let shaderBrightness = gpuSettings |> AVal.map (fun (_, _, _, brightness) -> brightness) 
 
         let gpuSg =
             baseSg
@@ -793,6 +795,8 @@ module Image =
             |> Sg.texture "ColormapTexture" colormapTexture
             |> Sg.uniform "MinValue" minValue
             |> Sg.uniform "MaxValue" maxValue
+            |> Sg.uniform "Brightness" shaderBrightness
+            |> Sg.texture "RgbCompositeTexture" rgbTexture
             |> Sg.uniform "UseFalseColor" shaderFalseColor
             |> Sg.uniform "DataType" (AVal.constant 2)
             |> Sg.shader {
@@ -928,7 +932,7 @@ module Image =
         (rgbTexture : aval<ITexture>)
         (bandTexture : aval<ITexture>)
         (colormapTexture : aval<ITexture>)
-        (gpuSettings : aval<float * float * bool>)
+        (gpuSettings : aval<float * float * bool * float>)
         (useGpu : aval<bool>)
         clickedPixel
         imageWidth
@@ -1074,7 +1078,7 @@ module Image =
                 rgbTexture
                 rgbTexture
                 rgbTexture
-                (AVal.constant (0.0, 1.0, true))
+                (AVal.constant (0.0, 1.0, true, 0.0))
                 (AVal.constant false)
                 clickedPixel
                 imageWidth

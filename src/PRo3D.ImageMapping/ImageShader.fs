@@ -35,6 +35,7 @@ module Shaders =
         member x.MinValue : float = uniform?MinValue
         member x.MaxValue : float = uniform?MaxValue
         member x.UseFalseColor : bool = uniform?UseFalseColor
+        member x.Brightness : float = uniform?Brightness
         member x.DataType : int = uniform?DataType
         member x.OverlayMax : V2d = uniform?OverlayMax
         member x.OverlayMin : V2d = uniform?OverlayMin
@@ -58,7 +59,18 @@ module Shaders =
                         1.0
                     )
                 else 
-                    colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
+                    if uniform.Brightness <> 0.0 then
+                        let rgb = rgbCompositeSampler.Sample(v.tc)
+
+                        let r = min 1.0 (max 0.0 (rgb.X + uniform.Brightness))
+                        let g = min 1.0 (max 0.0 (rgb.Y + uniform.Brightness))
+                        let b = min 1.0 (max 0.0 (rgb.Z + uniform.Brightness))
+
+                        V4d(r, g, b, rgb.W)
+                        
+                    else
+                        colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
+
             return remapClampNormalize
         }
 

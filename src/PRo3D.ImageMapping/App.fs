@@ -707,7 +707,7 @@ module App =
                 aval<ITexture> ->                 // outputTexture
                 aval<ITexture> ->                 // bandTexture
                 aval<ITexture> ->                 // colormapTexture
-                aval<float * float * bool> ->     // gpuSettings
+                aval<float * float * bool * float> ->     // gpuSettings
                 aval<bool> ->                     // useGpu
                 aval<Option<V2i>> ->              // clickedPixel
                 aval<int> ->                      // imageWidth
@@ -903,11 +903,19 @@ module App =
             AVal.custom (fun token ->
                 match m.sourceImageKind.GetValue token with
                 | SourceImageKind.PlainRgbImage ->
-                    let blackPoint = m.greyscaleBlackPoint.value.GetValue token
-                    let whitePoint = m.greyscaleWhitePoint.value.GetValue token
+                    match m.activeCategory.GetValue token with
+                    | ActiveCategory.GreyscaleImage ->
+                        let blackPoint = m.greyscaleBlackPoint.value.GetValue token
+                        let whitePoint = m.greyscaleWhitePoint.value.GetValue token
 
-                    blackPoint / 255.0, whitePoint / 255.0, false
-                    
+                        blackPoint / 255.0, whitePoint / 255.0, false, 0.0
+
+                    | ActiveCategory.RgbImage ->
+                        let brightness = m.brightness.gainFactor.value.GetValue token
+                        0.0, 1.0, false, brightness
+                    | ActiveCategory.MultispectralImage ->
+                        0.0, 1.0, true, 0.0
+
                 | SourceImageKind.Multispectral ->
                     let selectedBand =
                         transferFunctionRenderSettings.selectedBand.GetValue token
@@ -922,21 +930,28 @@ module App =
                     | Some image ->
                         image.inputMinValue.value.GetValue token,
                         image.inputMaxValue.value.GetValue token,
-                        not (image.useFalseColor.GetValue token)
+                        not (image.useFalseColor.GetValue token),
+                        0.0
                     | None ->
-                        0.0, 1.0, true
+                        0.0, 1.0, true, 0.0
             )
 
         let useGpu =
             AVal.custom (fun token ->
                 match m.sourceImageKind.GetValue token with
                 | SourceImageKind.PlainRgbImage ->
-                    m.activeCategory.GetValue token = ActiveCategory.GreyscaleImage 
+                    (m.activeCategory.GetValue token = ActiveCategory.GreyscaleImage 
                     && m.applyGreyscaleTransferFunction.GetValue token
                     &&
                         (match m.sourceImagePath.GetValue token with
                         | Some path -> File.Exists path && isSingleChannelImage path
-                        | None -> false)
+                        | None -> false))
+                    ||
+                    (m.activeCategory.GetValue token = ActiveCategory.RgbImage
+                    &&
+                        (match m.sourceImagePath.GetValue token with
+                        | Some path -> File.Exists path
+                        | None -> false))
 
                 | SourceImageKind.Multispectral ->
                     m.visualizationMode.GetValue token =
