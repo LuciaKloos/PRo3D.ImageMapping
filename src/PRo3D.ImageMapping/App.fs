@@ -881,38 +881,66 @@ module App =
             RgbComposite.createPlainRgbPixImage
                 m.sourceImagePath
                 shadowsHighlightsAdjustmentsRenderSettings
+        
+        let bandTexture = 
+            m.sourceImageKind
+            |> AVal.bind (function
+                | SourceImageKind.PlainRgbImage ->
+                    Image.createRawGreyscaleTexture m.sourceImagePath 
+                | SourceImageKind.Multispectral ->
+                    Image.createSelectedBandTexture m.images transferFunctionRenderSettings)
+        
+        let colormapTexture = 
+            m.sourceImageKind
+            |> AVal.bind (function
+                | SourceImageKind.PlainRgbImage ->
+                    Image.createGreyscaleColormapTexture m.greyscaleColorMap
+                | SourceImageKind.Multispectral ->
+                    Image.createColormapTexture m.images transferFunctionRenderSettings)
 
-        let bandTexture =
-            Image.createSelectedBandTexture m.images transferFunctionRenderSettings
-
-        let colormapTexture =
-            Image.createColormapTexture m.images transferFunctionRenderSettings
 
         let gpuSettings =
             AVal.custom (fun token ->
-                let selectedBand =
-                    transferFunctionRenderSettings.selectedBand.GetValue token
+                match m.sourceImageKind.GetValue token with
+                | SourceImageKind.PlainRgbImage ->
+                    let blackPoint = m.greyscaleBlackPoint.value.GetValue token
+                    let whitePoint = m.greyscaleWhitePoint.value.GetValue token
 
-                let selectedImage =
-                    (AList.toAVal m.images).GetValue token
-                    |> IndexList.toList
-                    |> List.tryFind (fun image ->
-                        Some (image.bandIndex.GetValue token) = selectedBand)
+                    blackPoint / 255.0, whitePoint / 255.0, false
+                    
+                | SourceImageKind.Multispectral ->
+                    let selectedBand =
+                        transferFunctionRenderSettings.selectedBand.GetValue token
 
-                match selectedImage with
-                | Some image ->
-                    image.inputMinValue.value.GetValue token,
-                    image.inputMaxValue.value.GetValue token,
-                    not (image.useFalseColor.GetValue token)
-                | None ->
-                    0.0, 1.0, true
+                    let selectedImage =
+                        (AList.toAVal m.images).GetValue token
+                        |> IndexList.toList
+                        |> List.tryFind (fun image ->
+                            Some (image.bandIndex.GetValue token) = selectedBand)
+
+                    match selectedImage with
+                    | Some image ->
+                        image.inputMinValue.value.GetValue token,
+                        image.inputMaxValue.value.GetValue token,
+                        not (image.useFalseColor.GetValue token)
+                    | None ->
+                        0.0, 1.0, true
             )
 
         let useGpu =
-            (m.sourceImageKind, m.visualizationMode)
-            ||> AVal.map2 (fun kind mode ->
-                kind = SourceImageKind.Multispectral &&
-                mode = VisualizationMode.SingleBandTransferFunction
+            AVal.custom (fun token ->
+                match m.sourceImageKind.GetValue token with
+                | SourceImageKind.PlainRgbImage ->
+                    m.activeCategory.GetValue token = ActiveCategory.GreyscaleImage 
+                    && m.applyGreyscaleTransferFunction.GetValue token
+                    &&
+                        (match m.sourceImagePath.GetValue token with
+                        | Some path -> File.Exists path && isSingleChannelImage path
+                        | None -> false)
+
+                | SourceImageKind.Multispectral ->
+                    m.visualizationMode.GetValue token =
+                        VisualizationMode.SingleBandTransferFunction
             )
 
         let outputTexture : aval<ITexture> =
