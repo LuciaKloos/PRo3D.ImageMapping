@@ -113,15 +113,15 @@ module ImageMath =
     
     let calculateMidtoneContrast
         (midtoneContrastGainFactor : float) =
-                    let clampedMidtoneContrastGainFactor =
-                        if Double.IsFinite midtoneContrastGainFactor then  
-                            midtoneContrastGainFactor |> max -1.0 |> min 1.0
-                        else 
-                            0.0
+            let clampedMidtoneContrastGainFactor =
+                if Double.IsFinite midtoneContrastGainFactor then  
+                    midtoneContrastGainFactor |> max -1.0 |> min 1.0
+                else 
+                    0.0
 
-                    let midtoneGainFactor = 1.0 + clampedMidtoneContrastGainFactor
+            let midtoneGainFactor = 1.0 + clampedMidtoneContrastGainFactor
 
-                    midtoneGainFactor
+            midtoneGainFactor
 
     let calculateSaturationGain
         (saturation : float) =

@@ -20,7 +20,6 @@ module RgbComposite =
         |> clamp01
         |> fun v -> byte (round (v * 255.0))
 
-
     let sampleColorMap
         (colorMap : ColorMap)
         (normalizedValue : float)
@@ -93,7 +92,7 @@ module RgbComposite =
         else
             c
 
-    let private createMidtoneMask 
+    let createMidtoneMask 
         (pixelCount : int)
         (alphaBytes : byte[]) 
         (luminance : float[]) =
@@ -111,7 +110,6 @@ module RgbComposite =
                                 0.0
                         )
             midtoneMask
-
 
     let createShadowsHighlightsMask 
         (highlightTone : float)
@@ -202,26 +200,26 @@ module RgbComposite =
                 * (shadowCorrected - c)
 
             // Midtone contrast correction
-            let midtoneCorrected =
-                contrastPointOperation
-                    midtoneGainFactor
-                    midtoneMidpoint
-                    c
+            //let midtoneCorrected =
+            //    contrastPointOperation
+            //        midtoneGainFactor
+            //        midtoneMidpoint
+            //        c
 
-            let midtoneStrength =
-                midtoneMask.[index]
-                |> clamp01
+            //let midtoneStrength =
+            //    midtoneMask.[index]
+            //    |> clamp01
 
-            let midtoneDelta =
-                midtoneStrength
-                * (midtoneCorrected - c)
+            //let midtoneDelta =
+            //    midtoneStrength
+            //    * (midtoneCorrected - c)
 
             // Combine independent changes
             let adjusted =
                 c
                 + highlightDelta
                 + shadowDelta
-                + midtoneDelta
+              //  + midtoneDelta
                 |> clamp01
 
             adjusted
@@ -355,7 +353,6 @@ module RgbComposite =
             Result.Error error.Message
 
     
-
     let private computeValidForeground
         (pixelCount : int)
         (redNumerator : RgbBandData)
@@ -524,7 +521,7 @@ module RgbComposite =
         (whiteClipPercentile : float)
         (saturation : float)
         (brightness : float)
-        : Result<PixImage<byte>, string> =
+        : Result<PixImage<byte> * PixImage<byte>, string> =
 
         try
             let sourceImage =
@@ -605,6 +602,7 @@ module RgbComposite =
                 blackClipFraction > 0.0 || whiteClipFraction > 0.0
 
             let redBytes, greenBytes, blueBytes, luminance =
+                // clipping
                 if shouldApplyClip then
                     let lowerPercentileFraction =
                         blackClipFraction
@@ -669,15 +667,23 @@ module RgbComposite =
                         height
                         width
 
-            
-            let midtoneMask = createMidtoneMask pixelCount alphaBytes luminance
-
             let clampedAmountHighlight =
                 clamp01 highlightAmount
 
             let clampedAmountShadow =
                 clamp01 shadowAmount
-            
+
+            // TODO: pass to shader
+            let midtoneMask = createMidtoneMask pixelCount alphaBytes luminance
+
+            let maskImage = PixImage<byte>(Col.Format.RGBA, V2i(width, height))
+            maskImage.GetMatrix<C4b>().SetByCoord(fun (position : V2l) ->
+                let index = int position.Y * width + int position.X
+                let value = if midtoneMask.[index] > 0.0 then 255uy else 0uy
+                C4b(value, value, value, 255uy)
+            )
+            |> ignore
+
             let midtoneGainFactor = calculateMidtoneContrast midtoneContrastGainFactor
 
             let saturationGain = calculateSaturationGain saturation
@@ -771,7 +777,7 @@ module RgbComposite =
                 )
             |> ignore
 
-            Result.Ok output
+            Result.Ok (output, maskImage)
 
         with error ->
             Result.Error error.Message
@@ -779,7 +785,7 @@ module RgbComposite =
     let createPlainRgbPixImage
         (sourceImagePath : aval<Option<string>>)
         (settings : ShadowsHighlightsAdjustmentsRenderSettings)
-        : aval<Result<PixImage<byte>, string>> =
+        : aval<Result<PixImage<byte> * PixImage<byte>, string>> =
 
         AVal.custom (fun token ->
             let highlights = settings.highlightAdjustments.GetValue token
@@ -810,21 +816,21 @@ module RgbComposite =
         )
 
     let createPlainRgbTexture
-            (adjustedImage : aval<Result<PixImage<byte>, string>>)
-            : aval<ITexture> =
+        (adjustedImage : aval<Result<PixImage<byte>, string>>)
+        : aval<ITexture> =
 
-            adjustedImage
-            |> AVal.map (function
-                | Result.Ok image ->
-                    PixTexture2d(
-                        PixImageMipMap [| image :> PixImage |],
-                        false
-                    ) :> ITexture
+        adjustedImage
+        |> AVal.map (function
+            | Result.Ok image ->
+                PixTexture2d(
+                    PixImageMipMap [| image :> PixImage |],
+                    false
+                ) :> ITexture
 
-                | Result.Error error ->
-                    Log.warn "Could not create plain RGB image texture: %s" error
-                    DefaultTextures.checkerboard.GetValue()
-            )
+            | Result.Error error ->
+                Log.warn "Could not create plain RGB image texture: %s" error
+                DefaultTextures.checkerboard.GetValue()
+        )
 
     // raw band ratio values
     let createRgbRatioCompositePixImageFromSources
