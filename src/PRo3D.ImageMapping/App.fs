@@ -709,7 +709,7 @@ module App =
                 aval<ITexture> ->                 // bandTexture
                 aval<ITexture> ->                 // colormapTexture
                 aval<ITexture> ->                 // midtoneTexture
-                aval<float * float * bool * float * float> ->     // gpuSettings
+                aval<float * float * bool * float * float * float> ->     // gpuSettings
                 aval<bool> ->                     // useGpu
                 aval<Option<V2i>> ->              // clickedPixel
                 aval<int> ->                      // imageWidth
@@ -879,14 +879,15 @@ module App =
                     )
             }
 
-        let adjustedPlainRgbImageAndMidMask =
+        let adjustedPlainRgbImageAndMidMaskAndSaturation =
             RgbComposite.createPlainRgbPixImage
                 m.sourceImagePath
                 shadowsHighlightsAdjustmentsRenderSettings
         
-        let adjustedPlainRgbImage = adjustedPlainRgbImageAndMidMask |> AVal.map (Result.map fst)
-        let midMaskImage = adjustedPlainRgbImageAndMidMask |> AVal.map (Result.map snd)
+        let adjustedPlainRgbImage = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (image, _ , _) -> image))
+        let midMaskImage = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (_, mask, _) -> mask))
         let midtoneTexture = RgbComposite.createPlainRgbTexture midMaskImage
+        let saturation = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (_, _, saturation) -> saturation))
 
         let bandTexture = 
             m.sourceImageKind
@@ -904,7 +905,7 @@ module App =
                 | SourceImageKind.Multispectral ->
                     Image.createColormapTexture m.images transferFunctionRenderSettings)
 
-        // <blackpoint, whitepoint, multispectral flag, brightness, midgain>
+        // <blackpoint, whitepoint, multispectral flag, brightness, midgain, saturation>
         let gpuSettings =
             AVal.custom (fun token ->
                 match m.sourceImageKind.GetValue token with
@@ -914,15 +915,17 @@ module App =
                         let blackPoint = m.greyscaleBlackPoint.value.GetValue token
                         let whitePoint = m.greyscaleWhitePoint.value.GetValue token
 
-                        blackPoint / 255.0, whitePoint / 255.0, false, 0.0, 0.0
+                        blackPoint / 255.0, whitePoint / 255.0, false, 0.0, 0.0, 0.0
 
                     | ActiveCategory.RgbImage ->
                         let brightness = m.brightness.gainFactor.value.GetValue token
                         let midpContrast = m.midtoneContrastAdjustment.gainFactor.value.GetValue token
+                        let saturation = m.saturation.gainFactor.value.GetValue token
 
-                        0.0, 1.0, false, brightness, midpContrast
+                        0.0, 1.0, false, brightness, midpContrast, saturation
+
                     | ActiveCategory.MultispectralImage ->
-                        0.0, 1.0, true, 0.0, 0.0
+                        0.0, 1.0, true, 0.0, 0.0, 0.0
 
                 | SourceImageKind.Multispectral ->
                     let selectedBand =
@@ -940,9 +943,10 @@ module App =
                         image.inputMaxValue.value.GetValue token,
                         not (image.useFalseColor.GetValue token),
                         0.0,
+                        0.0,
                         0.0
                     | None ->
-                        0.0, 1.0, true, 0.0, 0.0
+                        0.0, 1.0, true, 0.0, 0.0, 0.0
             )
 
         let useGpu =

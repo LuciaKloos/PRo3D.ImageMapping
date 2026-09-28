@@ -52,6 +52,7 @@ module Shaders =
         member x.PixelMarkerMax : V2d = uniform?PixelMarkerMax
         member x.MidtoneContrastAdjustment : float = uniform?MidtoneContrastAdjustment
         member x.Midpoint : float = uniform?Midpoint
+        member x.Saturation : float = uniform?Saturation
 
     let hshColors (v : Vertex)  = 
         fragment {
@@ -87,11 +88,23 @@ module Shaders =
                     let gCorrected = min 1.0 (max 0.0 (rgb.Y + midtoneMask * (gTarget - rgb.Y)))
                     let bCorrected = min 1.0 (max 0.0 (rgb.Z + midtoneMask * (bTarget - rgb.Z)))
 
-                    let brightness = min 1.0 (max 0.0 uniform.Brightness)
+                    let luminance =
+                        0.2126 * rCorrected +
+                        0.7152 * gCorrected +
+                        0.0722 * bCorrected
 
-                    let r = rCorrected + (1.0 - rCorrected) * brightness
-                    let g = gCorrected + (1.0 - gCorrected) * brightness
-                    let b = bCorrected + (1.0 - bCorrected) * brightness
+                    let saturationGain = 1.0 + uniform?Saturation
+                    
+                    let rSaturated = luminance + saturationGain * (rCorrected - luminance)
+                    let gSaturated = luminance + saturationGain * (gCorrected - luminance)
+                    let bSaturated = luminance + saturationGain * (bCorrected - luminance)
+
+                    let brightness = min 1.0 (max -1.0 uniform.Brightness)
+
+                    // nonlinear brightening: move toward sqrt(c) (or toward c*c)
+                    let r = (if (brightness > 0.0) then (rSaturated + brightness * (sqrt(rSaturated) - rSaturated)) else (rSaturated + (-brightness) * (rSaturated * rSaturated - rSaturated)))
+                    let g = (if (brightness > 0.0) then (gSaturated + brightness * (sqrt(gSaturated) - gSaturated)) else (gSaturated + (-brightness) * (gSaturated * gSaturated - gSaturated)))
+                    let b = (if (brightness > 0.0) then (bSaturated + brightness * (sqrt(bSaturated) - bSaturated)) else (bSaturated + (-brightness) * (bSaturated * bSaturated - bSaturated)))
                         
                     V4d(r, g, b, rgb.W)
 

@@ -443,14 +443,13 @@ module Image =
                 DefaultTextures.checkerboard.GetValue()
         )
 
-    // TODO: check if parameter for first three textures always rgbTexture
     // the 2D view displays the texture directly
     let createInstrumentScene
         (rgbTexture : aval<ITexture>)
         (bandTexture : aval<ITexture>)
         (colormapTexture : aval<ITexture>) 
         (midtoneTexture : aval<ITexture>)
-        (gpuSettings : aval<float * float * bool * float * float>) 
+        (gpuSettings : aval<float * float * bool * float * float * float>) 
         (useGpu : aval<bool>) 
         (clickedPixel : aval<Option<V2i>>)
         (imageWidth : aval<int>)
@@ -533,11 +532,12 @@ module Image =
                 do! Shaders.displayRgbComposite
             }
 
-        let minValue = gpuSettings |> AVal.map (fun (minimum, _, _, _, _) -> minimum)
-        let maxValue = gpuSettings |> AVal.map (fun (_, maximum, _, _, _) -> maximum)
-        let shaderFalseColor = gpuSettings |> AVal.map (fun (_, _, flag, _, _) -> flag)
-        let shaderBrightness = gpuSettings |> AVal.map (fun (_, _, _, brightness, _) -> brightness) 
-        let shaderMidContrast = gpuSettings |> AVal.map (fun (_, _, _, _, midContrast) -> midContrast)
+        let minValue = gpuSettings |> AVal.map (fun (minimum, _, _, _, _, _) -> minimum)
+        let maxValue = gpuSettings |> AVal.map (fun (_, maximum, _, _, _, _) -> maximum)
+        let shaderFalseColor = gpuSettings |> AVal.map (fun (_, _, flag, _, _, _) -> flag)
+        let shaderBrightness = gpuSettings |> AVal.map (fun (_, _, _, brightness, _, _) -> brightness) 
+        let shaderMidContrast = gpuSettings |> AVal.map (fun (_, _, _, _, midContrast, _) -> midContrast)
+        let shaderSaturation = gpuSettings |> AVal.map (fun (_, _, _, _, _, saturation) -> saturation)
 
         let gpuSg =
             baseSg
@@ -552,6 +552,7 @@ module Image =
             |> Sg.uniform "Midpoint" (AVal.constant Midtone.init.mid)
             |> Sg.uniform "MidtoneContrastAdjustment" shaderMidContrast 
             |> Sg.texture "MidtoneMaskTexture" midtoneTexture
+            |> Sg.uniform "Saturation" shaderSaturation
             |> Sg.shader {
                 do! Shaders.hshColors
             }
@@ -686,7 +687,7 @@ module Image =
         (bandTexture : aval<ITexture>)
         (colormapTexture : aval<ITexture>)
         (midtoneTexture : aval<ITexture>)
-        (gpuSettings : aval<float * float * bool * float * float>)
+        (gpuSettings : aval<float * float * bool * float * float * float>)
         (useGpu : aval<bool>)
         clickedPixel
         imageWidth
@@ -835,7 +836,7 @@ module Image =
                 rgbTexture
                 rgbTexture
                 midtoneTexture
-                (AVal.constant (0.0, 1.0, true, 0.0, 0.0))
+                (AVal.constant (0.0, 1.0, true, 0.0, 0.0, 0.0))
                 (AVal.constant false)
                 clickedPixel
                 imageWidth

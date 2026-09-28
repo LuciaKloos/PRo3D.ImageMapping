@@ -70,28 +70,6 @@ module RgbComposite =
             255uy
         )
 
-    let private adjustBrightness
-        (brightness : float)
-        (channel : float)
-        =
-        let c =
-            clamp01 channel
-
-        let b =
-            if Double.IsFinite brightness then
-                brightness |> max -1.0 |> min 1.0
-            else
-                0.0
-
-        if b > 0.0 then
-            // Nonlinear brightening: move toward sqrt(c).
-            c + b * (Math.Sqrt(c) - c)
-        elif b < 0.0 then
-            // Nonlinear darkening: move toward c�.
-            c + (-b) * (c * c - c)
-        else
-            c
-
     let createMidtoneMask 
         (pixelCount : int)
         (alphaBytes : byte[]) 
@@ -164,11 +142,8 @@ module RgbComposite =
         (channel : byte)
         (clampedAmountHighlight : float)
         (clampedAmountShadow : float)
-        (midtoneGainFactor : float)
-        (midtoneMidpoint : float)
         (highlightMask : float[])
         (shadowMask : float[])
-        (midtoneMask : float[])
         (index : int) =
 
             let c = float channel / 255.0
@@ -199,27 +174,11 @@ module RgbComposite =
                 shadowStrength
                 * (shadowCorrected - c)
 
-            // Midtone contrast correction
-            //let midtoneCorrected =
-            //    contrastPointOperation
-            //        midtoneGainFactor
-            //        midtoneMidpoint
-            //        c
-
-            //let midtoneStrength =
-            //    midtoneMask.[index]
-            //    |> clamp01
-
-            //let midtoneDelta =
-            //    midtoneStrength
-            //    * (midtoneCorrected - c)
-
             // Combine independent changes
             let adjusted =
                 c
                 + highlightDelta
                 + shadowDelta
-              //  + midtoneDelta
                 |> clamp01
 
             adjusted
@@ -521,7 +480,7 @@ module RgbComposite =
         (whiteClipPercentile : float)
         (saturation : float)
         (brightness : float)
-        : Result<PixImage<byte> * PixImage<byte>, string> =
+        : Result<PixImage<byte> * PixImage<byte> * float, string> =
 
         try
             let sourceImage =
@@ -602,7 +561,7 @@ module RgbComposite =
                 blackClipFraction > 0.0 || whiteClipFraction > 0.0
 
             let redBytes, greenBytes, blueBytes, luminance =
-                // clipping
+
                 if shouldApplyClip then
                     let lowerPercentileFraction =
                         blackClipFraction
@@ -673,7 +632,6 @@ module RgbComposite =
             let clampedAmountShadow =
                 clamp01 shadowAmount
 
-            // TODO: pass to shader
             let midtoneMask = createMidtoneMask pixelCount alphaBytes luminance
 
             let maskImage = PixImage<byte>(Col.Format.RGBA, V2i(width, height))
@@ -714,11 +672,8 @@ module RgbComposite =
                                 redBytes.[index]
                                 clampedAmountHighlight
                                 clampedAmountShadow
-                                midtoneGainFactor
-                                Midtone.init.mid
                                 highlightMask
                                 shadowMask
-                                midtoneMask
                                 index
 
                         let g =
@@ -726,11 +681,8 @@ module RgbComposite =
                                 greenBytes.[index]
                                 clampedAmountHighlight
                                 clampedAmountShadow
-                                midtoneGainFactor
-                                Midtone.init.mid
                                 highlightMask
                                 shadowMask
-                                midtoneMask
                                 index
 
                         let b =
@@ -738,38 +690,14 @@ module RgbComposite =
                                 blueBytes.[index]
                                 clampedAmountHighlight
                                 clampedAmountShadow
-                                midtoneGainFactor
-                                Midtone.init.mid
                                 highlightMask
                                 shadowMask
-                                midtoneMask
                                 index
 
-                        let l =
-                            Luminance.init.red * r + Luminance.init.green * g + Luminance.init.blue * b
-
-                        let r =
-                            l + saturationGain * (r - l)
-
-                        let g =
-                            l + saturationGain * (g - l)
-
-                        let b =
-                            l + saturationGain * (b - l)
-
-                        let brightenedRed =
-                            adjustBrightness brightness r
-
-                        let brightenedGreen =
-                            adjustBrightness brightness g
-
-                        let brightenedBlue =
-                            adjustBrightness brightness b
-
                         C4b(
-                            byte (round (255.0 * clamp01 (brightenedRed))),
-                            byte (round (255.0 * clamp01 (brightenedGreen))),
-                            byte (round (255.0 * clamp01 (brightenedBlue))),
+                            byte (round (255.0 * clamp01 (r))),
+                            byte (round (255.0 * clamp01 (g))),
+                            byte (round (255.0 * clamp01 (b))),
                             alphaBytes.[index]
                         )
                     else
@@ -777,7 +705,7 @@ module RgbComposite =
                 )
             |> ignore
 
-            Result.Ok (output, maskImage)
+            Result.Ok (output, maskImage, saturationGain)
 
         with error ->
             Result.Error error.Message
@@ -785,7 +713,7 @@ module RgbComposite =
     let createPlainRgbPixImage
         (sourceImagePath : aval<Option<string>>)
         (settings : ShadowsHighlightsAdjustmentsRenderSettings)
-        : aval<Result<PixImage<byte> * PixImage<byte>, string>> =
+        : aval<Result<PixImage<byte> * PixImage<byte> * float, string>> =
 
         AVal.custom (fun token ->
             let highlights = settings.highlightAdjustments.GetValue token
