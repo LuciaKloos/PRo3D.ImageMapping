@@ -989,13 +989,11 @@ module App =
                             Image.createBandRatioTexture
                                 m.images
                                 bandRatioRenderSettings
-                                shadowsHighlightsAdjustmentsRenderSettings
 
                         | VisualizationMode.RgbComposite ->
                             Image.createRgbMappingTexture
                                 m.images
                                 rgbMappingRenderSettings
-                                shadowsHighlightsAdjustmentsRenderSettings
 
                         | VisualizationMode.SingleBandTransferFunction ->
                             Image.createTransferFunctionTexture

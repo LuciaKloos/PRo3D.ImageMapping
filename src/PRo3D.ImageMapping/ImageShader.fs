@@ -62,14 +62,21 @@ module Shaders =
                     if uniform.Brightness <> 0.0 then
                         let rgb = rgbCompositeSampler.Sample(v.tc)
 
-                        let r = min 1.0 (max 0.0 (rgb.X + uniform.Brightness))
-                        let g = min 1.0 (max 0.0 (rgb.Y + uniform.Brightness))
-                        let b = min 1.0 (max 0.0 (rgb.Z + uniform.Brightness))
+                        let brightness = min 1.0 (max 0.0 uniform.Brightness)
+                        let r = rgb.X + (1.0 - rgb.X) * brightness
+                        let g = rgb.Y + (1.0 - rgb.Y) * brightness
+                        let b = rgb.Z + (1.0 - rgb.Z) * brightness
 
                         V4d(r, g, b, rgb.W)
                         
                     else
-                        colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
+                        let rgb = rgbCompositeSampler.Sample(v.tc)
+
+                        let r = min 1.0 (max 0.0 (rgb.X))
+                        let g = min 1.0 (max 0.0 (rgb.Y))
+                        let b = min 1.0 (max 0.0 (rgb.Z))
+
+                        V4d(r, g, b, rgb.W)
 
             return remapClampNormalize
         }

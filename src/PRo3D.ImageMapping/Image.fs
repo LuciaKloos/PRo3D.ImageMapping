@@ -40,7 +40,6 @@ module Image =
     let createBandRatioTexture
         (images : alist<AdaptiveImage>)
         (bandRatioRenderSettings : BandRatioRenderSettings)
-        (shadowsHighlightsAdjustmentsRenderSettings : ShadowsHighlightsAdjustmentsRenderSettings)
         : aval<ITexture> =
 
         let adaptiveImages =
@@ -73,57 +72,6 @@ module Image =
             let gammaValue =
                 bandRatioRenderSettings.gamma.GetValue token
 
-            let highlightAdjustmentValue =
-                shadowsHighlightsAdjustmentsRenderSettings.highlightAdjustments.GetValue token
-
-            let highlightAmountValue =
-                highlightAdjustmentValue.amount.value
-
-            let highlightToneValue =
-                highlightAdjustmentValue.tone.value
-
-            let highlightRadiusValue =
-                highlightAdjustmentValue.radius.value
-
-            let shadowAdjustmentValue =
-                shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
-
-            let shadowAmountValue =
-                shadowAdjustmentValue.amount.value
-
-            let shadowToneValue =
-                shadowAdjustmentValue.tone.value
-                
-            let shadowRadiusValue =
-                shadowAdjustmentValue.radius.value
-
-            let midtoneContrastValue =
-                shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
-
-            let midtoneContrastGainFactorValue =
-                midtoneContrastValue.gainFactor.value
-
-            let blackWhiteClipValue =
-                shadowsHighlightsAdjustmentsRenderSettings.blackWhiteClip.GetValue token
-
-            let blackClipPercentileValue =
-                blackWhiteClipValue.blackClipPercentile.value
-
-            let whiteClipPercentileValue = 
-                blackWhiteClipValue.whiteClipPercentile.value
-
-            let saturationValue = 
-                shadowsHighlightsAdjustmentsRenderSettings.saturation.GetValue token
-
-            let saturationGainFactorValue =
-                saturationValue.gainFactor.value
-
-            let brightnessValue = 
-                shadowsHighlightsAdjustmentsRenderSettings.brightness.GetValue token
-
-            let brightnessGainFactorValue =
-                brightnessValue.gainFactor.value
-
             match
                 sources,
                 redNumeratorValue,
@@ -154,17 +102,6 @@ module Image =
                         blueNumerator
                         blueDenominatorValue
                         gammaValue
-                        highlightAmountValue
-                        highlightToneValue
-                        highlightRadiusValue
-                        shadowAmountValue
-                        shadowToneValue                       
-                        shadowRadiusValue
-                        midtoneContrastGainFactorValue
-                        blackClipPercentileValue
-                        whiteClipPercentileValue
-                        saturationGainFactorValue
-                        brightnessGainFactorValue
                 with
                 | Result.Ok image ->
                     PixTexture2d(
@@ -188,7 +125,6 @@ module Image =
     let createRgbMappingTexture
         (images : alist<AdaptiveImage>)
         (rgbMappingRenderSettings : RgbMappingRenderSettings)
-        (shadowsHighlightsAdjustmentsRenderSettings : ShadowsHighlightsAdjustmentsRenderSettings)
         : aval<ITexture> =
         let adaptiveImages =
             AList.toAVal images
@@ -206,45 +142,7 @@ module Image =
             let gammaValue =
                 rgbMappingRenderSettings.gamma.GetValue token
 
-            let highlightAdjustmentValue =
-                shadowsHighlightsAdjustmentsRenderSettings.highlightAdjustments.GetValue token
-            let highlightAmountValue =
-                highlightAdjustmentValue.amount.value
-            let highlightToneValue =
-                highlightAdjustmentValue.tone.value
-            let highlightRadiusValue =
-                highlightAdjustmentValue.radius.value
-
-            let shadowAdjustmentValue =
-                shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
-            let shadowAmountValue =
-                shadowAdjustmentValue.amount.value
-            let shadowToneValue =
-                shadowAdjustmentValue.tone.value
-            let shadowRadiusValue =
-                shadowAdjustmentValue.radius.value
-
-            let midtoneContrastValue =
-                shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
-            let midtoneContrastGainFactorValue =
-                midtoneContrastValue.gainFactor.value
-
-            let blackWhiteClipValue =
-                shadowsHighlightsAdjustmentsRenderSettings.blackWhiteClip.GetValue token
-            let blackClipPercentileValue =
-                blackWhiteClipValue.blackClipPercentile.value
-            let whiteClipPercentileValue = 
-                blackWhiteClipValue.whiteClipPercentile.value
-
-            let saturationValue = 
-                shadowsHighlightsAdjustmentsRenderSettings.saturation.GetValue token
-            let saturationGainFactorValue =
-                saturationValue.gainFactor.value
-
-            let brightnessValue = 
-                shadowsHighlightsAdjustmentsRenderSettings.brightness.GetValue token
-            let brightnessGainFactorValue =
-                brightnessValue.gainFactor.value
+           
 
             match
                 sources,
@@ -262,17 +160,6 @@ module Image =
                         greenBand
                         blueBand
                         gammaValue
-                        highlightAmountValue
-                        highlightToneValue
-                        highlightRadiusValue
-                        shadowAmountValue
-                        shadowToneValue
-                        shadowRadiusValue
-                        midtoneContrastGainFactorValue
-                        blackClipPercentileValue
-                        whiteClipPercentileValue
-                        saturationGainFactorValue
-                        brightnessGainFactorValue
                 with
                 | Result.Ok image ->
                     PixTexture2d(
@@ -507,147 +394,7 @@ module Image =
 
                         DefaultTextures.checkerboard.GetValue()
         )
-
-    // Makes the RGB texture adaptive. It is recalculated when the loaded image rows,
-    // RGB band selections, contrast/gamma controls, or highlight controls change.
-    let createRgbCompositeTextureWithHighlights
-        (images : alist<AdaptiveImage>)
-        (rgbCompositeRenderSettings : BandRatioRenderSettings)
-        (shadowsHighlightsAdjustmentsRenderSettings : ShadowsHighlightsAdjustmentsRenderSettings)
-        : aval<ITexture> =
-
-        let adaptiveImages =
-            AList.toAVal images
-
-        AVal.custom (fun token ->
-
-            let sources =
-                adaptiveImages.GetValue token
-                |> fun images -> readAdaptiveBandSources images token
-
-            let redNumeratorValue =
-                rgbCompositeRenderSettings.redNumeratorBand.GetValue token
-
-            let redDenominatorValue =
-                rgbCompositeRenderSettings.redDenominatorBand.GetValue token
-
-            let greenNumeratorValue =
-                rgbCompositeRenderSettings.greenNumeratorBand.GetValue token
-
-            let greenDenominatorValue =
-                rgbCompositeRenderSettings.greenDenominatorBand.GetValue token
-
-            let blueNumeratorValue =
-                rgbCompositeRenderSettings.blueNumeratorBand.GetValue token
-
-            let blueDenominatorValue =
-                rgbCompositeRenderSettings.blueDenominatorBand.GetValue token
-
-            let gammaValue =
-                rgbCompositeRenderSettings.gamma.GetValue token
-
-            let highlightAdjustmentValue =
-                shadowsHighlightsAdjustmentsRenderSettings.highlightAdjustments.GetValue token
-
-            let highlightAmountValue =
-                highlightAdjustmentValue.amount.value
-
-            let highlightToneValue =
-                highlightAdjustmentValue.tone.value
-
-            let highlightRadiusValue =
-                highlightAdjustmentValue.radius.value
-
-            let shadowAdjustmentValue =
-                shadowsHighlightsAdjustmentsRenderSettings.shadowAdjustments.GetValue token
-
-            let shadowAmountValue =
-                shadowAdjustmentValue.amount.value
-
-            let shadowToneValue =
-                shadowAdjustmentValue.tone.value
-
-            let shadowRadiusValue =
-                shadowAdjustmentValue.radius.value
-
-            let midtoneContrastValue =
-                shadowsHighlightsAdjustmentsRenderSettings.midtoneContrast.GetValue token
-
-            let midtoneContrastGainFactorValue =
-                midtoneContrastValue.gainFactor.value
-
-            let blackWhiteClipValue =
-                shadowsHighlightsAdjustmentsRenderSettings.blackWhiteClip.GetValue token
-
-            let blackClipPercentileValue =
-                blackWhiteClipValue.blackClipPercentile.value
-
-            let whiteClipPercentileValue = 
-                blackWhiteClipValue.whiteClipPercentile.value
-
-            let saturationValue = 
-                shadowsHighlightsAdjustmentsRenderSettings.saturation.GetValue token
-
-            let saturationGainFactorValue =
-                saturationValue.gainFactor.value
-
-            let brightnessValue = 
-                shadowsHighlightsAdjustmentsRenderSettings.brightness.GetValue token
-
-            let brightnessGainFactorValue =
-                brightnessValue.gainFactor.value
-
-            match
-                sources,
-                redNumeratorValue,
-                greenNumeratorValue,
-                blueNumeratorValue
-            with
-            | [], _, _, _ ->
-                DefaultTextures.checkerboard.GetValue()
-
-            | _, Some redNumerator, Some greenNumerator, Some blueNumerator ->
-
-                match
-                    createRgbRatioCompositePixImageFromSources
-                        sources
-                        redNumerator
-                        redDenominatorValue
-                        greenNumerator
-                        greenDenominatorValue
-                        blueNumerator
-                        blueDenominatorValue
-                        gammaValue
-                        highlightAmountValue
-                        highlightToneValue
-                        highlightRadiusValue
-                        shadowAmountValue
-                        shadowToneValue     
-                        shadowRadiusValue
-                        midtoneContrastGainFactorValue
-                        blackClipPercentileValue
-                        whiteClipPercentileValue
-                        saturationGainFactorValue
-                        brightnessGainFactorValue
-                with
-                | Result.Ok image ->
-                    PixTexture2d(
-                        PixImageMipMap [|
-                            image :> PixImage
-                        |],
-                        false
-                    ) :> ITexture
-
-                | Result.Error error ->
-                    Log.warn
-                        "Could not create RGB composite: %s"
-                        error
-
-                    DefaultTextures.checkerboard.GetValue()
-
-            | _ ->
-                DefaultTextures.checkerboard.GetValue()
-        )
+          
 
     let createStretchedGreyscaleTexture
         (sourcePath : aval<Option<string>>)
@@ -808,7 +555,7 @@ module Image =
             |> AVal.map (fun enabled -> if enabled then gpuSg else rgbSg)
             |> Sg.dynamic
 
-        let imageSg =
+        let imageSg =            
             selectedSg
             |> Sg.requirePicking
             |> Sg.withEvents [
