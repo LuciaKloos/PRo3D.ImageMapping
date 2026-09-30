@@ -475,28 +475,26 @@ module RgbComposite =
         (shadowAmount : float)
         (shadowTone : float)
         (shadowRadius : float)
-        (midtoneContrastGainFactor : float)
         (blackClipPercentile : float)
         (whiteClipPercentile : float)
-        (saturation : float)
-        (brightness : float)
-        : Result<PixImage<byte> * PixImage<byte> * float, string> =
+        : Result<PixImage<byte> * PixImage<byte>, string> =
 
         try
-            let sourceImage =
-                PixImage<byte>(path).ToPixImage<byte>(Col.Format.RGBA)
+            let cachedPayload =
+                BandHandler.readCachedRgbImagePayload path
+                |> Result.defaultWith failwith
 
             let width =
-                sourceImage.Size.X
+                cachedPayload.width
 
             let height =
-                sourceImage.Size.Y
+                cachedPayload.height
+
+            let sourceMatrix =
+                cachedPayload.sourceMatrix
 
             let pixelCount =
                 width * height
-
-            let sourceMatrix =
-                sourceImage.GetMatrix<C4b>()
 
             let redBytes =
                 Array.zeroCreate<byte> pixelCount
@@ -642,10 +640,6 @@ module RgbComposite =
             )
             |> ignore
 
-            let midtoneGainFactor = calculateMidtoneContrast midtoneContrastGainFactor
-
-            let saturationGain = calculateSaturationGain saturation
-
             let output =
                 PixImage<byte>(
                     Col.Format.RGBA,
@@ -705,7 +699,7 @@ module RgbComposite =
                 )
             |> ignore
 
-            Result.Ok (output, maskImage, saturationGain)
+            Result.Ok (output, maskImage)
 
         with error ->
             Result.Error error.Message
@@ -713,15 +707,12 @@ module RgbComposite =
     let createPlainRgbPixImage
         (sourceImagePath : aval<Option<string>>)
         (settings : ShadowsHighlightsAdjustmentsRenderSettings)
-        : aval<Result<PixImage<byte> * PixImage<byte> * float, string>> =
+        : aval<Result<PixImage<byte> * PixImage<byte>, string>> =
 
         AVal.custom (fun token ->
             let highlights = settings.highlightAdjustments.GetValue token
             let shadows = settings.shadowAdjustments.GetValue token
-            let midtones = settings.midtoneContrast.GetValue token
             let clip = settings.blackWhiteClip.GetValue token
-            let saturation = settings.saturation.GetValue token
-            let brightness = settings.brightness.GetValue token
 
             match sourceImagePath.GetValue token with
             | Some path when File.Exists path ->
@@ -733,11 +724,8 @@ module RgbComposite =
                     shadows.amount.value
                     shadows.tone.value
                     shadows.radius.value
-                    midtones.gainFactor.value
                     clip.blackClipPercentile.value
                     clip.whiteClipPercentile.value
-                    saturation.gainFactor.value
-                    brightness.gainFactor.value
 
             | _ ->
                 Result.Error "No plain RGB source image is available."

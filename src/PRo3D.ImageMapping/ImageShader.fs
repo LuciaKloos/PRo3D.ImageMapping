@@ -54,7 +54,7 @@ module Shaders =
         member x.Midpoint : float = uniform?Midpoint
         member x.Saturation : float = uniform?Saturation
 
-    let hshColors (v : Vertex)  = 
+    let hshColorsTF (v : Vertex) =
         fragment {
             let hshValueX = instrumentSampler.Sample(v.tc).X 
             let remappedClampedNormalizedXInt16 =
@@ -70,43 +70,58 @@ module Shaders =
                         1.0
                     )
                 else 
-                    let midtoneMask = midtoneMaskSampler.Sample(v.tc).X
-                    let rgb = rgbCompositeSampler.Sample(v.tc)
-                    let midtoneGain = uniform.MidtoneContrastAdjustment
+                    colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
+
+
+            return remapClampNormalize
+        }
+
+
+    let hshColorsAdjustment (v : Vertex)  = 
+        fragment {
+            let remapClampNormalize =
+                let midtoneMask = midtoneMaskSampler.Sample(v.tc).X
+                let rgb = rgbCompositeSampler.Sample(v.tc)
+                let midtoneGain = uniform.MidtoneContrastAdjustment
                         
-                    let slider = min 1.0 (max -1.0 midtoneGain)
-                    let gain = 1.0 + slider
-                    let midpoint = uniform.Midpoint
+                let slider = min 1.0 (max -1.0 midtoneGain)
+                let gain = 1.0 + slider
+                let midpoint = uniform.Midpoint
 
-                    let offset = midpoint * (1.0 - gain)
+                let offset = midpoint * (1.0 - gain)
 
-                    let rTarget = min 1.0 (max 0.0 (gain * rgb.X + offset))
-                    let gTarget = min 1.0 (max 0.0 (gain * rgb.Y + offset))
-                    let bTarget = min 1.0 (max 0.0 (gain * rgb.Z + offset))
+                let rTarget = min 1.0 (max 0.0 (gain * rgb.X + offset))
+                let gTarget = min 1.0 (max 0.0 (gain * rgb.Y + offset))
+                let bTarget = min 1.0 (max 0.0 (gain * rgb.Z + offset))
 
-                    let rCorrected = min 1.0 (max 0.0 (rgb.X + midtoneMask * (rTarget - rgb.X)))
-                    let gCorrected = min 1.0 (max 0.0 (rgb.Y + midtoneMask * (gTarget - rgb.Y)))
-                    let bCorrected = min 1.0 (max 0.0 (rgb.Z + midtoneMask * (bTarget - rgb.Z)))
+                let rCorrected = min 1.0 (max 0.0 (rgb.X + midtoneMask * (rTarget - rgb.X)))
+                let gCorrected = min 1.0 (max 0.0 (rgb.Y + midtoneMask * (gTarget - rgb.Y)))
+                let bCorrected = min 1.0 (max 0.0 (rgb.Z + midtoneMask * (bTarget - rgb.Z)))
 
-                    let luminance =
-                        0.2126 * rCorrected +
-                        0.7152 * gCorrected +
-                        0.0722 * bCorrected
+                let luminance =
+                    0.2126 * rCorrected +
+                    0.7152 * gCorrected +
+                    0.0722 * bCorrected
 
-                    let saturationGain = 1.0 + uniform?Saturation
+                let saturationGain = 1.0 + uniform?Saturation
                     
-                    let rSaturated = luminance + saturationGain * (rCorrected - luminance)
-                    let gSaturated = luminance + saturationGain * (gCorrected - luminance)
-                    let bSaturated = luminance + saturationGain * (bCorrected - luminance)
+                let rSaturated =
+                    min 1.0 (max 0.0 (luminance + saturationGain * (rCorrected - luminance)))
 
-                    let brightness = min 1.0 (max -1.0 uniform.Brightness)
+                let gSaturated =
+                    min 1.0 (max 0.0 (luminance + saturationGain * (gCorrected - luminance)))
 
-                    // nonlinear brightening: move toward sqrt(c) (or toward c*c)
-                    let r = (if (brightness > 0.0) then (rSaturated + brightness * (sqrt(rSaturated) - rSaturated)) else (rSaturated + (-brightness) * (rSaturated * rSaturated - rSaturated)))
-                    let g = (if (brightness > 0.0) then (gSaturated + brightness * (sqrt(gSaturated) - gSaturated)) else (gSaturated + (-brightness) * (gSaturated * gSaturated - gSaturated)))
-                    let b = (if (brightness > 0.0) then (bSaturated + brightness * (sqrt(bSaturated) - bSaturated)) else (bSaturated + (-brightness) * (bSaturated * bSaturated - bSaturated)))
+                let bSaturated =
+                    min 1.0 (max 0.0 (luminance + saturationGain * (bCorrected - luminance)))
+
+                let brightness = min 1.0 (max -1.0 uniform.Brightness)
+
+                // nonlinear brightening: move toward sqrt(c) (or toward c*c)
+                let r = (if (brightness > 0.0) then (rSaturated + brightness * (sqrt(rSaturated) - rSaturated)) else (rSaturated + (-brightness) * (rSaturated * rSaturated - rSaturated)))
+                let g = (if (brightness > 0.0) then (gSaturated + brightness * (sqrt(gSaturated) - gSaturated)) else (gSaturated + (-brightness) * (gSaturated * gSaturated - gSaturated)))
+                let b = (if (brightness > 0.0) then (bSaturated + brightness * (sqrt(bSaturated) - bSaturated)) else (bSaturated + (-brightness) * (bSaturated * bSaturated - bSaturated)))
                         
-                    V4d(r, g, b, rgb.W)
+                V4d(r, g, b, rgb.W)
 
             return remapClampNormalize
         }

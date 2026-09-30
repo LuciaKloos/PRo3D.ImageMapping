@@ -453,7 +453,8 @@ module Image =
         (useGpu : aval<bool>) 
         (clickedPixel : aval<Option<V2i>>)
         (imageWidth : aval<int>)
-        (imageHeight : aval<int>) =
+        (imageHeight : aval<int>)
+        (useTransferFunctionGpu : aval<bool>)=
 
         let geometry =
             IndexedGeometry(
@@ -539,23 +540,38 @@ module Image =
         let shaderMidContrast = gpuSettings |> AVal.map (fun (_, _, _, _, midContrast, _) -> midContrast)
         let shaderSaturation = gpuSettings |> AVal.map (fun (_, _, _, _, _, saturation) -> saturation)
 
-        let gpuSg =
+        let transferFunctionSg =
             baseSg
             |> Sg.texture "InstrumentImage" bandTexture
             |> Sg.texture "ColormapTexture" colormapTexture
             |> Sg.uniform "MinValue" minValue
             |> Sg.uniform "MaxValue" maxValue
-            |> Sg.uniform "Brightness" shaderBrightness
-            |> Sg.texture "RgbCompositeTexture" rgbTexture
             |> Sg.uniform "UseFalseColor" shaderFalseColor
             |> Sg.uniform "DataType" (AVal.constant 2)
+            |> Sg.shader {
+                do! Shaders.hshColorsTF
+            }
+
+        let adjustmentSg =
+            baseSg
+            |> Sg.texture "RgbCompositeTexture" rgbTexture
+            |> Sg.uniform "Brightness" shaderBrightness
             |> Sg.uniform "Midpoint" (AVal.constant Midtone.init.mid)
-            |> Sg.uniform "MidtoneContrastAdjustment" shaderMidContrast 
+            |> Sg.uniform "MidtoneContrastAdjustment" shaderMidContrast
             |> Sg.texture "MidtoneMaskTexture" midtoneTexture
             |> Sg.uniform "Saturation" shaderSaturation
             |> Sg.shader {
-                do! Shaders.hshColors
+                do! Shaders.hshColorsAdjustment
             }
+
+        let gpuSg =
+            useTransferFunctionGpu
+            |> AVal.map (fun enabled ->
+                if enabled then transferFunctionSg
+                else adjustmentSg
+            )
+            |> Sg.dynamic
+                
 
         let selectedSg =
             useGpu
@@ -691,7 +707,8 @@ module Image =
         (useGpu : aval<bool>)
         clickedPixel
         imageWidth
-        imageHeight =
+        imageHeight 
+        (useTransferFunctionGpu  : aval<bool>) =
 
         let instrumentVisualization =
             createInstrumentScene
@@ -704,6 +721,7 @@ module Image =
                 clickedPixel
                 imageWidth
                 imageHeight
+                useTransferFunctionGpu 
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum2D = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
@@ -841,6 +859,7 @@ module Image =
                 clickedPixel
                 imageWidth
                 imageHeight
+                (AVal.constant false) 
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
         let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))

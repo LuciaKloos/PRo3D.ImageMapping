@@ -1,6 +1,7 @@
 namespace PRo3D.ImageMapping
 
 open System
+open Aardvark.Base
 open Aardvark.UI.Primitives
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
@@ -77,10 +78,7 @@ type ShadowsHighlightsAdjustmentsRenderSettings =
     {
         highlightAdjustments : aval<HighlightAdjustment>
         shadowAdjustments : aval<ShadowAdjustment>
-        midtoneContrast : aval<MidtoneContrastAdjustment>
         blackWhiteClip : aval<BlackWhiteClip>
-        saturation : aval<Saturation>
-        brightness : aval<Brightness>
     }
 
 type PreparedRgbImage =
@@ -171,6 +169,13 @@ type CachedBandPayload =
             ConcurrentDictionary<
                 HistogramCacheKey,
                 Lazy<HistogramBin[]>>
+    }
+
+type CachedRgbImagePayload =
+    {
+        width : int
+        height : int
+        sourceMatrix : Matrix<byte, C4b>
     }
 
 type RgbAdjustmentSettings =

@@ -134,26 +134,29 @@ module App =
         | LoadMultispectralImage path ->
         
             BandHandler.clearDecodedBandCache ()
+            BandHandler.clearDecodedRgbImageCache ()
             
             let fullPath =
                 Path.GetFullPath path
 
             if isPlainRgbImagePath fullPath then
-                let image = PixImage<byte>(fullPath)
-                let width = image.Size.X
-                let height = image.Size.Y
+                match BandHandler.readCachedRgbImagePayload fullPath with
+                | Result.Error error ->
+                    Log.warn "Could not decode plain RGB image: %s" error
+                    m
 
-                {
-                    m with
-                        images = IndexList.Empty
-                        selectedImage = None
-                        sourceImagePath = Some fullPath
-                        sourceImageKind = SourceImageKind.PlainRgbImage
-                        imageWidth = width
-                        imageHeight = height
-                        editImages = []
-                        blackWhiteClip = noBlackWhiteClip
-                }
+                | Result.Ok payload ->
+                    {
+                        m with
+                            images = IndexList.Empty
+                            selectedImage = None
+                            sourceImagePath = Some fullPath
+                            sourceImageKind = SourceImageKind.PlainRgbImage
+                            imageWidth = payload.width
+                            imageHeight = payload.height
+                            editImages = []
+                            blackWhiteClip = noBlackWhiteClip
+                    }
             else
 
                 let loadedBands =
@@ -714,6 +717,7 @@ module App =
                 aval<Option<V2i>> ->              // clickedPixel
                 aval<int> ->                      // imageWidth
                 aval<int> ->                      // imageHeight
+                aval<bool> ->                     // useTransferFunctionGpu
                 DomNode<Message>
         ) =
 
@@ -846,14 +850,7 @@ module App =
                             radius =
                                 numericInputFromAdaptive token m.shadowAdjustment.radius
                         }
-                    )
-                midtoneContrast =
-                    AVal.custom (fun token ->
-                        {
-                            gainFactor =
-                                numericInputFromAdaptive token m.midtoneContrastAdjustment.gainFactor
-                        }
-                    )
+                    )                
                 blackWhiteClip =
                     AVal.custom (fun token ->
                         {
@@ -863,20 +860,6 @@ module App =
                                 numericInputFromAdaptive token m.blackWhiteClip.whiteClipPercentile
                         }
                     )
-                saturation =
-                    AVal.custom (fun token ->
-                        {
-                            gainFactor =
-                                numericInputFromAdaptive token m.saturation.gainFactor
-                        }
-                    )
-                brightness =
-                    AVal.custom (fun token ->
-                        {
-                            gainFactor =
-                                numericInputFromAdaptive token m.brightness.gainFactor
-                        }
-                    )
             }
 
         let adjustedPlainRgbImageAndMidMaskAndSaturation =
@@ -884,10 +867,9 @@ module App =
                 m.sourceImagePath
                 shadowsHighlightsAdjustmentsRenderSettings
         
-        let adjustedPlainRgbImage = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (image, _ , _) -> image))
-        let midMaskImage = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (_, mask, _) -> mask))
+        let adjustedPlainRgbImage = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (image, _ ) -> image))
+        let midMaskImage = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (_, mask) -> mask))
         let midtoneTexture = RgbComposite.createPlainRgbTexture midMaskImage
-        let saturation = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (_, _, saturation) -> saturation))
 
         let bandTexture = 
             m.sourceImageKind
@@ -971,7 +953,25 @@ module App =
                         VisualizationMode.SingleBandTransferFunction
             )
 
-        let outputTexture : aval<ITexture> =
+        let useTransferFunctionGpu =
+            AVal.custom (fun token ->
+                match m.sourceImageKind.GetValue token with
+                | SourceImageKind.Multispectral ->
+                    m.visualizationMode.GetValue token =
+                        VisualizationMode.SingleBandTransferFunction
+
+                | SourceImageKind.PlainRgbImage ->
+                    m.activeCategory.GetValue token = ActiveCategory.GreyscaleImage
+                    && m.applyGreyscaleTransferFunction.GetValue token
+                    &&
+                        match m.sourceImagePath.GetValue token with
+                        | Some path ->
+                            File.Exists path && isSingleChannelImage path
+                        | None ->
+                            false
+            )
+
+        let cpuOutputTexture : aval<ITexture> =
             m.sourceImageKind
             |> AVal.bind (fun sourceKind ->
                 match sourceKind with
@@ -1013,6 +1013,15 @@ module App =
                                 m.images
                                 transferFunctionRenderSettings
                     )
+            )
+
+        let outputTexture : aval<ITexture> =
+            useTransferFunctionGpu
+            |> AVal.bind (fun gpuTransferFunction ->
+                if gpuTransferFunction then
+                    AVal.constant (DefaultTextures.checkerboard.GetValue())
+                else
+                    cpuOutputTexture
             )
 
         let rgbRatioSelectedBandHistograms =
@@ -1926,6 +1935,7 @@ module App =
                         m.clickedPixel
                         m.imageWidth
                         m.imageHeight
+                        useTransferFunctionGpu
                 ]
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
                     Incremental.div

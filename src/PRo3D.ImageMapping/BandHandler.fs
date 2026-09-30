@@ -101,6 +101,23 @@ module BandHandler =
 
         }
 
+    let private createCachedRgbPayload
+        (width: int)
+        (height: int)
+        (sourceMatrix: Matrix<byte, C4b>) 
+        : CachedRgbImagePayload =
+        
+        {
+            width = width
+            height = height
+            sourceMatrix = sourceMatrix
+        }
+
+    let private decodedRgbImagePayload =
+        ConcurrentDictionary<
+            BandPayloadCacheKey,
+            Lazy<Result<CachedRgbImagePayload, string>>>()
+
     // NetCDF cache, cached per channel
     let private decodedNcPayloadCache =
         ConcurrentDictionary<
@@ -117,6 +134,10 @@ module BandHandler =
     let clearDecodedBandCache () =
         decodedNcPayloadCache.Clear()
         decodedTiffPayloadCache.Clear()
+
+    let clearDecodedRgbImageCache ()=
+        decodedRgbImagePayload.Clear()
+
 
     let private createPayloadCacheKey (source: RgbBandSource) =
         let fullPath = Path.GetFullPath source.filePath
@@ -183,6 +204,27 @@ module BandHandler =
                 height
                 values
             |> Result.Ok
+
+    let private decodeRgbImagePayload
+        (path : string)
+        : Result<CachedRgbImagePayload, string> =
+
+        try
+            let sourceImage =
+                PixImage<byte>(path).ToPixImage<byte>(Col.Format.RGBA)
+
+            let sourceMatrix =
+                sourceImage.GetMatrix<C4b>()
+
+            createCachedRgbPayload
+                sourceImage.Size.X
+                sourceImage.Size.Y
+                sourceMatrix
+            |> Result.Ok
+
+        with error ->
+            Result.Error error.Message
+
 
     let private readCachedNcBandPayload
         (source: RgbBandSource)
@@ -266,7 +308,53 @@ module BandHandler =
         with error ->
             Result.Error error.Message
 
-                
+    let readCachedRgbImagePayload
+        (path : string)
+        : Result<CachedRgbImagePayload, string> =
+
+        try
+            let source : RgbBandSource =
+                {
+                    logicalIndex = 0
+                    filePath = path
+                    channelIndex = 0
+                    wavelength = None
+                }
+
+            let key =
+                createPayloadCacheKey source
+
+            let lazyPayload =
+                decodedRgbImagePayload.GetOrAdd(
+                    key,
+                    fun _ ->
+                        Lazy<Result<CachedRgbImagePayload, string>>(
+                            (fun () -> decodeRgbImagePayload key.filePath),
+                            LazyThreadSafetyMode.ExecutionAndPublication
+                        )
+                )
+
+            let result =
+                lazyPayload.Value
+
+            match result with
+            | Result.Ok _ ->
+                result
+
+            | Result.Error _ ->
+                let mutable removed =
+                    Unchecked.defaultof<
+                        Lazy<Result<CachedRgbImagePayload, string>>
+                    >
+
+                decodedRgbImagePayload.TryRemove(key, &removed)
+                |> ignore
+
+                result
+
+        with error ->
+            Result.Error error.Message
+            
     let private readCachedBandPayload
         (source: RgbBandSource)
         : Result<CachedBandPayload, string> =
