@@ -1019,8 +1019,10 @@ module App =
             useTransferFunctionGpu
             |> AVal.bind (fun gpuTransferFunction ->
                 if gpuTransferFunction then
+                    Log.warn "Using GPU transfer function for rendering"
                     AVal.constant (DefaultTextures.checkerboard.GetValue())
                 else
+                    Log.warn "Using CPU transfer function for rendering"
                     cpuOutputTexture
             )
 

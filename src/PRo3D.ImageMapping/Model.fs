@@ -153,8 +153,7 @@ type Midtone =
 [<ModelType>]
 type Gamma =
     {
-        highlights : float
-        shadows : float
+        exponent : float
     }
 
 type VisualizationMode =
@@ -267,8 +266,7 @@ module Midtone =
 module Gamma =
     let init : Gamma =
         {
-            highlights = 1.3
-            shadows = 0.7
+            exponent = 1.8
         }
 
 module MinimumObjectSignal =

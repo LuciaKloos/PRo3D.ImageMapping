@@ -148,9 +148,11 @@ module RgbComposite =
 
             let c = float channel / 255.0
 
+            let exponent = Gamma.init.exponent
+
             // Highlight correction
             let highlightCorrected =
-                Math.Pow(c, Gamma.init.highlights)
+                Math.Pow(c, exponent)
 
             let highlightStrength =
                 clampedAmountHighlight
@@ -163,7 +165,7 @@ module RgbComposite =
 
             // Shadow correction
             let shadowCorrected =
-                Math.Pow(c, Gamma.init.shadows)
+                1.0 - Math.Pow(1.0 - c, exponent)
 
             let shadowStrength =
                 clampedAmountShadow
