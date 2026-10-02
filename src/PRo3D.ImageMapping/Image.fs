@@ -450,6 +450,7 @@ module Image =
         (colormapTexture : aval<ITexture>) 
         (midtoneTexture : aval<ITexture>)
         (gpuSettings : aval<float * float * bool * float * float * float>) 
+        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
         (useGpu : aval<bool>) 
         (clickedPixel : aval<Option<V2i>>)
         (imageWidth : aval<int>)
@@ -540,6 +541,13 @@ module Image =
         let shaderMidContrast = gpuSettings |> AVal.map (fun (_, _, _, _, midContrast, _) -> midContrast)
         let shaderSaturation = gpuSettings |> AVal.map (fun (_, _, _, _, _, saturation) -> saturation)
 
+        let highlightAmount = shadowsHighlightsGpuSettings |> AVal.map (fun (highlightAmount, _, _, _, _, _) -> highlightAmount)
+        let highlightTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, highlightTone, _, _, _, _) -> highlightTone)
+        let highlightRadius = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, highlightRadius, _, _, _) -> highlightRadius)
+        let shadowAmount = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, shadowAmount, _, _) -> shadowAmount)
+        let shadowTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, shadowTone, _) -> shadowTone)
+        let shadowRadius = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, _, shadowRadius) -> shadowRadius)
+
         let transferFunctionSg =
             baseSg
             |> Sg.texture "InstrumentImage" bandTexture
@@ -562,6 +570,20 @@ module Image =
             |> Sg.uniform "Saturation" shaderSaturation
             |> Sg.shader {
                 do! Shaders.hshColorsAdjustment
+            }
+
+        let shadowsHighlightsSg =
+            baseSg
+            |> Sg.uniform "HighlightAmount" highlightAmount
+            |> Sg.uniform "HighlightTone" highlightTone
+            |> Sg.uniform "HighlightRadius" highlightRadius
+            |> Sg.uniform "ShadowAmount" shadowAmount
+            |> Sg.uniform "ShadowTone" shadowTone
+            |> Sg.uniform "ShadowRadius" shadowRadius
+            |> Sg.texture "RgbCompositeTexture" rgbTexture
+            |> Sg.uniform "HighlightAmount" highlightAmount
+            |> Sg.shader {
+                do! Shaders.hshShadowsHighlights
             }
 
         let gpuSg =
@@ -704,6 +726,7 @@ module Image =
         (colormapTexture : aval<ITexture>)
         (midtoneTexture : aval<ITexture>)
         (gpuSettings : aval<float * float * bool * float * float * float>)
+        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
         (useGpu : aval<bool>)
         clickedPixel
         imageWidth
@@ -717,6 +740,7 @@ module Image =
                 colormapTexture
                 midtoneTexture
                 gpuSettings
+                shadowsHighlightsGpuSettings
                 useGpu
                 clickedPixel
                 imageWidth
@@ -855,6 +879,7 @@ module Image =
                 rgbTexture
                 midtoneTexture
                 (AVal.constant (0.0, 1.0, true, 0.0, 0.0, 0.0))
+                (AVal.constant (0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
                 (AVal.constant false)
                 clickedPixel
                 imageWidth

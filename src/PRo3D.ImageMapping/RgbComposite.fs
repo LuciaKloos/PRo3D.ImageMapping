@@ -471,12 +471,6 @@ module RgbComposite =
 
     let createPlainRgbPixImageFromPath
         (path : string)
-        (highlightAmount : float)
-        (highlightTone : float)
-        (highlightRadius : float)
-        (shadowAmount : float)
-        (shadowTone : float)
-        (shadowRadius : float)
         (blackClipPercentile : float)
         (whiteClipPercentile : float)
         : Result<PixImage<byte> * PixImage<byte>, string> =
@@ -613,25 +607,7 @@ module RgbComposite =
 
                     redBytes, greenBytes, blueBytes, luminance
 
-
-            let shadowMask, highlightMask = 
-                    createShadowsHighlightsMask
-                        highlightTone
-                        highlightRadius
-                        shadowTone
-                        shadowRadius
-                        pixelCount
-                        alphaBytes
-                        luminance
-                        height
-                        width
-
-            let clampedAmountHighlight =
-                clamp01 highlightAmount
-
-            let clampedAmountShadow =
-                clamp01 shadowAmount
-
+            
             let midtoneMask = createMidtoneMask pixelCount alphaBytes luminance
 
             let maskImage = PixImage<byte>(Col.Format.RGBA, V2i(width, height))
@@ -641,6 +617,7 @@ module RgbComposite =
                 C4b(value, value, value, 255uy)
             )
             |> ignore
+
 
             let output =
                 PixImage<byte>(
@@ -653,53 +630,74 @@ module RgbComposite =
                 .SetByCoord(fun (position : V2l) ->
                     let x =
                         int position.X
-
                     let y =
                         int position.Y
-
                     let index =
                         y * width + x
-
                     if alphaBytes.[index] > 0uy then
-                        
-
-                        let r =
-                            applyAdjustments    
-                                redBytes.[index]
-                                clampedAmountHighlight
-                                clampedAmountShadow
-                                highlightMask
-                                shadowMask
-                                index
-
-                        let g =
-                            applyAdjustments 
-                                greenBytes.[index]
-                                clampedAmountHighlight
-                                clampedAmountShadow
-                                highlightMask
-                                shadowMask
-                                index
-
-                        let b =
-                            applyAdjustments 
-                                blueBytes.[index]
-                                clampedAmountHighlight
-                                clampedAmountShadow
-                                highlightMask
-                                shadowMask
-                                index
-
                         C4b(
-                            byte (round (255.0 * clamp01 (r))),
-                            byte (round (255.0 * clamp01 (g))),
-                            byte (round (255.0 * clamp01 (b))),
-                            alphaBytes.[index]
+                            redBytes.[index],
+                            greenBytes.[index],
+                            blueBytes.[index],
+                            255uy
                         )
                     else
                         C4b(0uy, 0uy, 0uy, 0uy)
                 )
             |> ignore
+            
+            //output
+            //    .GetMatrix<C4b>()
+            //    .SetByCoord(fun (position : V2l) ->
+            //        let x =
+            //            int position.X
+
+            //        let y =
+            //            int position.Y
+
+            //        let index =
+            //            y * width + x
+
+            //        if alphaBytes.[index] > 0uy then
+                        
+
+            //            let r =
+            //                applyAdjustments    
+            //                    redBytes.[index]
+            //                    clampedAmountHighlight
+            //                    clampedAmountShadow
+            //                    highlightMask
+            //                    shadowMask
+            //                    index
+
+            //            let g =
+            //                applyAdjustments 
+            //                    greenBytes.[index]
+            //                    clampedAmountHighlight
+            //                    clampedAmountShadow
+            //                    highlightMask
+            //                    shadowMask
+            //                    index
+
+            //            let b =
+            //                applyAdjustments 
+            //                    blueBytes.[index]
+            //                    clampedAmountHighlight
+            //                    clampedAmountShadow
+            //                    highlightMask
+            //                    shadowMask
+            //                    index
+
+            //            C4b(
+            //                byte (round (255.0 * clamp01 (r))),
+            //                byte (round (255.0 * clamp01 (g))),
+            //                byte (round (255.0 * clamp01 (b))),
+            //                alphaBytes.[index]
+            //            )
+            //        else
+            //            C4b(0uy, 0uy, 0uy, 0uy)
+            //    )
+            //|> ignore
 
             Result.Ok (output, maskImage)
 
@@ -712,20 +710,12 @@ module RgbComposite =
         : aval<Result<PixImage<byte> * PixImage<byte>, string>> =
 
         AVal.custom (fun token ->
-            let highlights = settings.highlightAdjustments.GetValue token
-            let shadows = settings.shadowAdjustments.GetValue token
             let clip = settings.blackWhiteClip.GetValue token
 
             match sourceImagePath.GetValue token with
             | Some path when File.Exists path ->
                 createPlainRgbPixImageFromPath
                     path
-                    highlights.amount.value
-                    highlights.tone.value
-                    highlights.radius.value
-                    shadows.amount.value
-                    shadows.tone.value
-                    shadows.radius.value
                     clip.blackClipPercentile.value
                     clip.whiteClipPercentile.value
 

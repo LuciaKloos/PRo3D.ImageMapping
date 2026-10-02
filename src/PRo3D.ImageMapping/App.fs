@@ -713,6 +713,7 @@ module App =
                 aval<ITexture> ->                 // colormapTexture
                 aval<ITexture> ->                 // midtoneTexture
                 aval<float * float * bool * float * float * float> ->     // gpuSettings
+                aval<float * float * float * float * float * float> ->     // shadowsHighlightsGpuSettings
                 aval<bool> ->                     // useGpu
                 aval<Option<V2i>> ->              // clickedPixel
                 aval<int> ->                      // imageWidth
@@ -867,7 +868,7 @@ module App =
                 m.sourceImagePath
                 shadowsHighlightsAdjustmentsRenderSettings
         
-        let adjustedPlainRgbImage = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (image, _ ) -> image))
+        let adjustedPlainRgbImage = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (image, _) -> image))
         let midMaskImage = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (_, mask) -> mask))
         let midtoneTexture = RgbComposite.createPlainRgbTexture midMaskImage
 
@@ -929,6 +930,24 @@ module App =
                         0.0
                     | None ->
                         0.0, 1.0, true, 0.0, 0.0, 0.0
+            )
+            
+        // <highlightsAmount, highlightsTone, highlightRadius, shadowsAmount, shadowsTone, shadowRadius>
+        let shadowsHighlightsGpuSettings =
+            AVal.custom (fun token ->
+                let highlightsAmount = m.highlightAdjustment.amount.value.GetValue token
+                let highlightsTone = m.highlightAdjustment.tone.value.GetValue token    
+                let highlightRadius = m.highlightAdjustment.radius.value.GetValue token
+                let shadowsAmount = m.shadowAdjustment.amount.value.GetValue token
+                let shadowsTone = m.shadowAdjustment.tone.value.GetValue token
+                let shadowRadius = m.shadowAdjustment.radius.value.GetValue token
+
+                highlightsAmount,
+                highlightsTone,
+                highlightRadius,
+                shadowsAmount,
+                shadowsTone,
+                shadowRadius
             )
 
         let useGpu =
@@ -1933,6 +1952,7 @@ module App =
                         colormapTexture
                         midtoneTexture
                         gpuSettings
+                        shadowsHighlightsGpuSettings
                         useGpu
                         m.clickedPixel
                         m.imageWidth
