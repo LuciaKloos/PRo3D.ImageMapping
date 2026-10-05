@@ -2,6 +2,7 @@
 
 open System
 open Aardvark.Base
+open Aardvark.SceneGraph 
 open Aardvark.UI
 open Aardvark.UI.Primitives
 open Aardvark.Rendering
@@ -21,6 +22,8 @@ open PRo3D.ImageMapping.MbiLoader
 open PRo3D.ImageMapping.TiffLoader
 open PRo3D.ImageMapping.RgbComposite
 open PRo3D.ImageMapping.BandHandler
+
+module CoreSg = Aardvark.SceneGraph.SgFSharp.Sg
 
 module Image =
 
@@ -443,8 +446,202 @@ module Image =
                 DefaultTextures.checkerboard.GetValue()
         )
 
+    let fullscreenQuadGeometry =
+        IndexedGeometry(
+            Mode = IndexedGeometryMode.TriangleList,
+            IndexArray =
+                ([| 0; 1; 2; 0; 2; 3 |] :> Array),
+            IndexedAttributes =
+                SymDict.ofList [
+                    DefaultSemantic.Positions,
+                    ([|
+                        V3f(-1.0f, -1.0f, 0.0f)
+                        V3f( 1.0f, -1.0f, 0.0f)
+                        V3f( 1.0f,  1.0f, 0.0f)
+                        V3f(-1.0f,  1.0f, 0.0f)
+                    |] :> Array)
+
+                    DefaultSemantic.DiffuseColorCoordinates,
+                    ([|
+                        V2f(0.0f, 0.0f)
+                        V2f(1.0f, 0.0f)
+                        V2f(1.0f, 1.0f)
+                        V2f(0.0f, 1.0f)
+                    |] :> Array)
+                ]
+        )
+
+    let createShadowsHighlightsMaskTexture 
+        (runtime : IRuntime)
+        (rgbTexture : aval<ITexture>)
+        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
+        (imageWidth : aval<int>)
+        (imageHeight : aval<int>) 
+        : aval<IBackendTexture> = 
+
+        let highlightTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, highlightTone, _, _, _, _) -> highlightTone)
+        let shadowsTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, shadowTone, _) -> shadowTone)
+
+        let size =
+            (imageWidth, imageHeight)
+            ||> AVal.map2 (fun w h -> V2i(max 1 w, max 1 h))
+
+        let runtime = runtime  
+        let signature =
+            runtime.CreateFramebufferSignature [
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+            ]
+
+        let maskSg =
+            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
+            |> CoreSg.texture "RgbCompositeTexture" rgbTexture
+            |> CoreSg.uniform "HighlightTone" highlightTone
+            |> CoreSg.uniform "ShadowTone" shadowsTone
+            |> CoreSg.shader {
+                do! Shaders.hshShadowsHighlights
+            }
+
+        let task = runtime.CompileRender(signature, maskSg)
+
+        RenderTask.renderToColor size task 
+
+    let horizontalBlurPass 
+        (runtime : IRuntime)
+        (shadowsHighlightsMaskTexture : aval<IBackendTexture>)
+        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
+        (size : aval<V2i>)
+        : aval<IBackendTexture> =
+
+        let direction = V2d(1.0, 0.0)
+        let horizontalBlurSg =
+            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
+            |> CoreSg.texture "ShadowsHighlightsMaskTexture" (shadowsHighlightsMaskTexture)
+            |> CoreSg.uniform "BlurTextureSize" size
+            |> CoreSg.uniform "BlurShadowRadius" (shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, _, shadowRadius) -> shadowRadius))
+            |> CoreSg.uniform "BlurHighlightRadius" (shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, highlightRadius, _, _, _) -> highlightRadius))
+            |> CoreSg.uniform "BlurDirection" (AVal.constant direction)
+            |> CoreSg.shader {
+                do! Shaders.boxBlur
+            }
+            
+        let runtime = runtime  
+        let signature =
+            runtime.CreateFramebufferSignature [
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+            ]
+
+        let task = runtime.CompileRender(signature, horizontalBlurSg)
+
+        RenderTask.renderToColor size task
+
+
+    let verticalBlurPass 
+        (runtime : IRuntime)
+        (maskTextureFromFirstBlur : aval<IBackendTexture>)
+        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
+        (size : aval<V2i>)
+        : aval<IBackendTexture> =
+
+        let direction = V2d(0.0, 1.0)
+
+        let verticalBlurSg =
+            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
+            |> CoreSg.texture "ShadowsHighlightsMaskTexture" (maskTextureFromFirstBlur)
+            |> CoreSg.uniform "BlurTextureSize" size
+            |> CoreSg.uniform "BlurShadowRadius" (shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, _, shadowRadius) -> shadowRadius))
+            |> CoreSg.uniform "BlurHighlightRadius" (shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, highlightRadius, _, _, _) -> highlightRadius))
+            |> CoreSg.uniform "BlurDirection" (AVal.constant direction)
+            |> CoreSg.shader {
+                do! Shaders.boxBlur
+            }
+            
+        let runtime = runtime  
+        let signature =
+            runtime.CreateFramebufferSignature [
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+            ]
+
+        let task = runtime.CompileRender(signature, verticalBlurSg)
+
+        RenderTask.renderToColor size task
+
+    let createAdjustedImageTexture
+        (runtime : IRuntime)
+        (size : aval<V2i>)
+        (rgbTexture : aval<ITexture>)
+        (midtoneTexture : aval<ITexture>)
+        (blurredMaskTexture : aval<IBackendTexture>)
+        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
+        (gpuSettings : aval<float * float * bool * float * float * float>)
+        : aval<IBackendTexture> =
+               
+        let shaderBrightness = gpuSettings |> AVal.map (fun (_, _, _, brightness, _, _) -> brightness) 
+        let shaderMidContrast = gpuSettings |> AVal.map (fun (_, _, _, _, midContrast, _) -> midContrast)
+        let shaderSaturation = gpuSettings |> AVal.map (fun (_, _, _, _, _, saturation) -> saturation)
+        let highlightAmount = shadowsHighlightsGpuSettings |> AVal.map (fun (highlightAmount, _, _, _, _, _) -> highlightAmount)
+        let highlightTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, highlightTone, _, _, _, _) -> highlightTone)
+        let highlightRadius = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, highlightRadius, _, _, _) -> highlightRadius)
+        let shadowAmount = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, shadowAmount, _, _) -> shadowAmount)
+        let shadowTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, shadowTone, _) -> shadowTone)
+        let shadowRadius = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, _, shadowRadius) -> shadowRadius)
+
+        let adjustmentSg =
+            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
+            |> CoreSg.texture "RgbCompositeTexture" rgbTexture
+            |> CoreSg.uniform "Brightness" shaderBrightness
+            |> CoreSg.uniform "Midpoint" (AVal.constant Midtone.init.mid)
+            |> CoreSg.uniform "MidtoneContrastAdjustment" shaderMidContrast
+            |> CoreSg.texture "MidtoneMaskTexture" midtoneTexture
+            |> CoreSg.uniform "Saturation" shaderSaturation
+            |> CoreSg.uniform "HighlightAmount" highlightAmount
+            |> CoreSg.uniform "HighlightTone" highlightTone
+            |> CoreSg.uniform "HighlightRadius" highlightRadius
+            |> CoreSg.uniform "ShadowAmount" shadowAmount
+            |> CoreSg.uniform "ShadowTone" shadowTone
+            |> CoreSg.uniform "ShadowRadius" shadowRadius
+            |> CoreSg.texture "ShadowsHighlightsMaskTexture" blurredMaskTexture
+            |> CoreSg.shader {
+                do! Shaders.hshColorsAdjustment
+            }
+
+        let runtime = runtime  
+        let signature =
+            runtime.CreateFramebufferSignature [
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+            ]
+
+        let task = runtime.CompileRender(signature, adjustmentSg)
+
+        RenderTask.renderToColor size task
+
+    let saveAdjustedImage 
+        (path : string) 
+        (runtime : IRuntime)
+        (size : aval<V2i>)
+        (rgbTexture : aval<ITexture>)
+        (midtoneTexture : aval<ITexture>)
+        (blurredMaskTexture : aval<IBackendTexture>)
+        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
+        (gpuSettings : aval<float * float * bool * float * float * float>) =
+        
+        let adjustedTexture = 
+            createAdjustedImageTexture
+                runtime
+                size
+                rgbTexture  
+                midtoneTexture
+                blurredMaskTexture
+                shadowsHighlightsGpuSettings
+                gpuSettings        
+
+        let texture = AVal.force adjustedTexture                // runs the passes if outdated
+        let image = runtime.Download(texture, 0, 0)            // mip level 0, slice 0 -> PixImage
+        image.SaveAsJpeg path
+
+
     // the 2D view displays the texture directly
     let createInstrumentScene
+        (runtime : IRuntime)
         (rgbTexture : aval<ITexture>)
         (bandTexture : aval<ITexture>)
         (colormapTexture : aval<ITexture>) 
@@ -456,32 +653,9 @@ module Image =
         (imageWidth : aval<int>)
         (imageHeight : aval<int>)
         (useTransferFunctionGpu : aval<bool>)=
-
-        let geometry =
-            IndexedGeometry(
-                Mode = IndexedGeometryMode.TriangleList,
-                IndexArray =
-                    ([| 0; 1; 2; 0; 2; 3 |] :> Array),
-                IndexedAttributes =
-                    SymDict.ofList [
-                        DefaultSemantic.Positions,
-                        ([|
-                            V3f(-1.0f, -1.0f, 0.0f)
-                            V3f( 1.0f, -1.0f, 0.0f)
-                            V3f( 1.0f,  1.0f, 0.0f)
-                            V3f(-1.0f,  1.0f, 0.0f)
-                        |] :> Array)
-
-                        DefaultSemantic.DiffuseColorCoordinates,
-                        ([|
-                            V2f(0.0f, 0.0f)
-                            V2f(1.0f, 0.0f)
-                            V2f(1.0f, 1.0f)
-                            V2f(0.0f, 1.0f)
-                        |] :> Array)
-                    ]
-            )
-           
+        
+        Log.warn "createInstrumentScene called"
+        
         let pixelMarkerPass =
             RenderPass.after "pixel-marker" RenderPassOrder.FrontToBack RenderPass.main
 
@@ -522,7 +696,7 @@ module Image =
         let pixelMarkerMax =
             pixelMarkerBounds |> AVal.map snd
 
-        let baseSg = Sg.ofIndexedGeometry geometry
+        let baseSg = Sg.ofIndexedGeometry fullscreenQuadGeometry
 
         let rgbSg =
             baseSg
@@ -548,6 +722,32 @@ module Image =
         let shadowTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, shadowTone, _) -> shadowTone)
         let shadowRadius = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, _, shadowRadius) -> shadowRadius)
 
+        let shadowsHighlightsMaskTexture = 
+            createShadowsHighlightsMaskTexture
+                runtime
+                rgbTexture
+                shadowsHighlightsGpuSettings
+                imageWidth
+                imageHeight
+
+        let size = 
+            (imageWidth, imageHeight)
+            ||> AVal.map2 (fun w h -> V2i(max 1 w, max 1 h))
+
+        let horizontallyBlurredTexture =
+            horizontalBlurPass
+                runtime
+                shadowsHighlightsMaskTexture
+                shadowsHighlightsGpuSettings
+                size
+
+        let verticallyBlurredTexture =
+            verticalBlurPass
+                runtime
+                horizontallyBlurredTexture
+                shadowsHighlightsGpuSettings
+                size
+
         let transferFunctionSg =
             baseSg
             |> Sg.texture "InstrumentImage" bandTexture
@@ -559,6 +759,19 @@ module Image =
             |> Sg.shader {
                 do! Shaders.hshColorsTF
             }
+        let saveToPath = 
+            @"C:\Users\kloos\source\repos\PRo3D.ImageMapping\src\PRo3D.ImageMapping\adjusted_image\adjusted_image.jpeg"
+        Log.warn "Saving adjusted image to: %s" saveToPath
+
+        saveAdjustedImage
+            saveToPath
+            runtime
+            size
+            rgbTexture
+            midtoneTexture
+            verticallyBlurredTexture
+            shadowsHighlightsGpuSettings
+            gpuSettings
 
         let adjustmentSg =
             baseSg
@@ -568,6 +781,13 @@ module Image =
             |> Sg.uniform "MidtoneContrastAdjustment" shaderMidContrast
             |> Sg.texture "MidtoneMaskTexture" midtoneTexture
             |> Sg.uniform "Saturation" shaderSaturation
+            |> Sg.uniform "HighlightAmount" highlightAmount
+            |> Sg.uniform "HighlightTone" highlightTone
+            |> Sg.uniform "HighlightRadius" highlightRadius
+            |> Sg.uniform "ShadowAmount" shadowAmount
+            |> Sg.uniform "ShadowTone" shadowTone
+            |> Sg.uniform "ShadowRadius" shadowRadius
+            |> Sg.texture "ShadowsHighlightsMaskTexture" verticallyBlurredTexture
             |> Sg.shader {
                 do! Shaders.hshColorsAdjustment
             }
@@ -717,6 +937,7 @@ module Image =
         )
 
     let view2DAnd3DImageAbsolute
+        (runtime : IRuntime)
         (opacity : aval<float>)
         (boresightAdjustment : aval<Option<Trafo3d>>)
         (orbitState : AdaptiveOrbitState)
@@ -735,6 +956,7 @@ module Image =
 
         let instrumentVisualization =
             createInstrumentScene
+                runtime
                 rgbTexture
                 bandTexture
                 colormapTexture
@@ -866,6 +1088,7 @@ module Image =
         )
 
     let view2DRelative 
+        (runtime : IRuntime)
         (rgbTexture : aval<ITexture>) 
         (midtoneTexture : aval<ITexture>)
         clickedPixel
@@ -874,6 +1097,7 @@ module Image =
 
         let instrumentVisualization =
             createInstrumentScene
+                runtime
                 rgbTexture
                 rgbTexture
                 rgbTexture

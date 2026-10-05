@@ -211,6 +211,13 @@ type RgbBuffers =
         luminance : float[]
     }
 
+type TestConfig =
+    { imagePath : string
+      highlightAmount : float; highlightTone : float; highlightRadius : float
+      shadowAmount : float;    shadowTone : float;    shadowRadius : float
+      outputPath : Option<string> }   // used by part 2
+
+
 module ImageDefaults =
 
     let initialPath = ""

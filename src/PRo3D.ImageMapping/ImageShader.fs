@@ -150,6 +150,20 @@ module Shaders =
             return V4d(shadowBlur, highlightBlur, 0.0, 1.0)
         }
 
+    [<ReflectedDefinition>]
+    let applyShadowsHighlights
+        (c : float)
+        (shadowMask : float)
+        (highlightMask : float)
+        (highlightAmount : float)
+        (shadowAmount : float) =
+        let exponent = 1.8   // Gamma.init.exponent
+        let hStrength = min 1.0 (max 0.0 (highlightAmount * highlightMask))
+        let sStrength = min 1.0 (max 0.0 (shadowAmount * shadowMask))
+        let hDelta = hStrength * (pow c exponent - c)
+        let sDelta = sStrength * ((1.0 - pow (1.0 - c) exponent) - c)
+        min 1.0 (max 0.0 (c + hDelta + sDelta))
+
     let hshColorsTF (v : Vertex) =
         fragment {
             let hshValueX = instrumentSampler.Sample(v.tc).X 
@@ -175,9 +189,28 @@ module Shaders =
 
     let hshColorsAdjustment (v : Vertex)  = 
         fragment {
+            let src = rgbCompositeSampler.Sample(v.tc)
+
+            let lum0 = 0.2126 * src.X + 0.7152 * src.Y + 0.0722 * src.Z
+            //let highlightStart = 1.0 - min 1.0 (max 0.0 uniform.HighlightTone)
+            //let highlightMask = if src.W > 0.0 then smoothstep highlightStart 1.0 lum0 else 0.0
+            //let shadowEnd = min 1.0 (max 0.0 uniform.ShadowTone)
+            //let shadowMask = if src.W > 0.0 then 1.0 - smoothstep 0.0 shadowEnd lum0 else 0.0
+
+            let shadowMask = shadowsHighlightsMaskSampler.Sample(v.tc).X
+            let highlightMask = shadowsHighlightsMaskSampler.Sample(v.tc).Y
+
+            let hAmt = uniform.HighlightAmount
+            let sAmt = uniform.ShadowAmount
+
+            let rgb =
+                V4d(applyShadowsHighlights src.X shadowMask highlightMask hAmt sAmt,
+                    applyShadowsHighlights src.Y shadowMask highlightMask hAmt sAmt,
+                    applyShadowsHighlights src.Z shadowMask highlightMask hAmt sAmt,
+                    src.W)
+
             let remapClampNormalize =
                 let midtoneMask = midtoneMaskSampler.Sample(v.tc).X
-                let rgb = rgbCompositeSampler.Sample(v.tc)
                 let midtoneGain = uniform.MidtoneContrastAdjustment
                         
                 let slider = min 1.0 (max -1.0 midtoneGain)

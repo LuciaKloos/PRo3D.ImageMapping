@@ -36,7 +36,7 @@ module App =
         saturation = Saturation.init
         brightness = Brightness.init
         visualizationMode = VisualizationMode.SingleBandTransferFunction
-        activeCategory = ActiveCategory.GreyscaleImage
+        activeCategory = ActiveCategory.RgbImage
         loadCompleteSpectralProfile = false
         pixelDetectionEnabled = false
         pixelDetected = false
@@ -649,6 +649,25 @@ module App =
             { m with 
                 applyGreyscaleTransferFunction = not m.applyGreyscaleTransferFunction
             }
+    
+    let initialFor (test : Option<TestConfig>) =
+        match test with
+        | None -> initial
+        | Some t ->
+            let m = update initial (LoadMultispectralImage t.imagePath)
+            let setValue (n : NumericInput) v = { n with value = v }
+            { m with
+                activeCategory = ActiveCategory.RgbImage   // required for the GPU path
+                highlightAdjustment =
+                    { m.highlightAdjustment with
+                        amount = setValue m.highlightAdjustment.amount t.highlightAmount
+                        tone   = setValue m.highlightAdjustment.tone   t.highlightTone
+                        radius = setValue m.highlightAdjustment.radius t.highlightRadius }
+                shadowAdjustment =
+                    { m.shadowAdjustment with
+                        amount = setValue m.shadowAdjustment.amount t.shadowAmount
+                        tone   = setValue m.shadowAdjustment.tone   t.shadowTone
+                        radius = setValue m.shadowAdjustment.radius t.shadowRadius } }
        
     let numericInputFromAdaptive
         (token : AdaptiveToken)
@@ -694,6 +713,7 @@ module App =
             ]
 
     let view
+        (runtime : IRuntime)
         (m : AdaptiveModel)
         (showDOM : AdaptiveImage -> DomNode<ImageMessage>)
         (
@@ -1992,20 +2012,21 @@ module App =
             ])
 
 
-    let viewFull (m : AdaptiveModel) = 
+    let viewFull (runtime : IRuntime) (m : AdaptiveModel) = 
+        Log.warn "viewFull called"
         let computeBoresight (b : AdaptiveBoresightAdjustment) : aval<Trafo3d> = 
             b.Current |> AVal.map (fun b -> 
                 Trafo3d.RotationXInDegrees(b.yaw.value) * Trafo3d.RotationYInDegrees(b.pitch.value) * Trafo3d.RotationZInDegrees(b.roll.value)
             )
         let boresight = computeBoresight m.boresightAdjustment |> AVal.map Some
-        let backgroundImageAnd3D = Image.view2DAnd3DImageAbsolute m.projectionOpacity.value boresight m.cameraState
-        view m Image.view Image.view2DRelative backgroundImageAnd3D
+        let backgroundImageAnd3D = Image.view2DAnd3DImageAbsolute runtime m.projectionOpacity.value boresight m.cameraState
+        view runtime m Image.view (Image.view2DRelative runtime) backgroundImageAnd3D
 
-    let app () =
+    let app (runtime : IRuntime) (testConfig : Option<TestConfig>) =
         {
-            initial = initial
+            initial = initialFor testConfig
             update = update
-            view = viewFull
+            view = viewFull runtime
             threads = constF ThreadPool.empty
-            unpersist = Unpersist.instance 
+            unpersist = Unpersist.instance
         }
