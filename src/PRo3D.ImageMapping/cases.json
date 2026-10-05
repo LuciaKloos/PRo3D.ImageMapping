@@ -1,0 +1,38 @@
+[
+  {
+    "name": "identity",
+    "highlightAmount": 0.0, "highlightTone": 0.5, "highlightRadius": 30,
+    "shadowAmount": 0.0,    "shadowTone": 0.5,    "shadowRadius": 30,
+    "expect": "Output equals input (max difference <= 1 per channel)."
+  },
+  {
+    "name": "shadows-only",
+    "highlightAmount": 0.0, "highlightTone": 0.5, "highlightRadius": 30,
+    "shadowAmount": 0.8,    "shadowTone": 0.5,    "shadowRadius": 30,
+    "expect": "Dark regions clearly brighter, bright regions nearly unchanged, no channel decreases."
+  },
+  {
+    "name": "highlights-only",
+    "highlightAmount": 0.8, "highlightTone": 0.5, "highlightRadius": 30,
+    "shadowAmount": 0.0,    "shadowTone": 0.5,    "shadowRadius": 30,
+    "expect": "Bright regions clearly darker, dark regions nearly unchanged, no channel increases."
+  },
+  {
+    "name": "combined",
+    "highlightAmount": 0.4, "highlightTone": 0.5, "highlightRadius": 30,
+    "shadowAmount": 0.8,    "shadowTone": 0.5,    "shadowRadius": 30,
+    "expect": "Compressed tonal range: shadows lifted, highlights slightly reduced, midtones nearly unchanged."
+  },
+  {
+    "name": "zero-radius",
+    "highlightAmount": 0.8, "highlightTone": 0.5, "highlightRadius": 0,
+    "shadowAmount": 0.8,    "shadowTone": 0.5,    "shadowRadius": 0,
+    "expect": "Unblurred mask: adjustment follows pixel luminance exactly, may look slightly flat but must not crash or show artifacts."
+  },
+  {
+    "name": "large-radius",
+    "highlightAmount": 0.8, "highlightTone": 0.5, "highlightRadius": 100,
+    "shadowAmount": 0.8,    "shadowTone": 0.5,    "shadowRadius": 100,
+    "expect": "Very soft mask transitions, no blocky steps or banding; mild halos near strong edges are acceptable but should be wide and faint."
+  }
+]
