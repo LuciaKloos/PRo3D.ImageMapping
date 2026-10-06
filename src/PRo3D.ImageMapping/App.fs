@@ -1074,10 +1074,19 @@ module App =
         let transferFunctionSelectedBandHistogram =
             computeTransferFunctionSelectedBandHistogram m 32
 
+        let gpuAdjustedImage =
+            Image.createGpuAdjustedTexture
+                runtime
+                (RgbComposite.createPlainRgbTexture adjustedPlainRgbImage)
+                midtoneTexture
+                gpuSettings
+                shadowsHighlightsGpuSettings
+                m.imageWidth
+                m.imageHeight
+            |> Image.downloadAdjustedImage runtime
+
         let transferFunctionNonMultispectralRgbHistograms =
-            computeNonMultispectralRgbHistograms
-                adjustedPlainRgbImage
-                32
+            computeNonMultispectralRgbHistograms gpuAdjustedImage 32
 
         let greyscaleHistogram =
             computeGreyscaleHistogram m 256

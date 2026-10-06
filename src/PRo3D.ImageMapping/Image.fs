@@ -565,6 +565,20 @@ module Image =
 
         RenderTask.renderToColor size task
 
+    // Downloads the GPU result so the CPU histogram can read it.
+    let downloadAdjustedImage
+        (runtime : IRuntime)
+        (adjustedTexture : aval<IBackendTexture>)
+        : aval<Result<PixImage<byte>, string>> =
+
+        adjustedTexture
+        |> AVal.map (fun tex ->
+            try
+                let img = runtime.Download(tex, 0, 0)
+                Result.Ok (img.ToPixImage<byte>().ToPixImage<byte>(Col.Format.RGBA))
+            with e ->
+                Result.Error e.Message)
+
     let createAdjustedImageTexture
         (runtime : IRuntime)
         (size : aval<V2i>)
@@ -638,6 +652,22 @@ module Image =
         let image = runtime.Download(texture, 0, 0)            // mip level 0, slice 0 -> PixImage
         image.SaveAsJpeg path
 
+    // Builds mask -> horizontal blur -> vertical blur -> adjustment; returns the adjusted texture.
+    let createGpuAdjustedTexture
+        (runtime : IRuntime)
+        (rgbTexture : aval<ITexture>)
+        (midtoneTexture : aval<ITexture>)
+        (gpuSettings : aval<float * float * bool * float * float * float>)
+        (shSettings : aval<float * float * float * float * float * float>)
+        (imageWidth : aval<int>)
+        (imageHeight : aval<int>)
+        : aval<IBackendTexture> =
+
+        let size = (imageWidth, imageHeight) ||> AVal.map2 (fun w h -> V2i(max 1 w, max 1 h))
+        let mask = createShadowsHighlightsMaskTexture runtime rgbTexture shSettings imageWidth imageHeight
+        let hBlur = horizontalBlurPass runtime mask shSettings size
+        let vBlur = verticalBlurPass runtime hBlur shSettings size
+        createAdjustedImageTexture runtime size rgbTexture midtoneTexture vBlur shSettings gpuSettings
 
     // the 2D view displays the texture directly
     let createInstrumentScene
@@ -722,31 +752,16 @@ module Image =
         let shadowTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, shadowTone, _) -> shadowTone)
         let shadowRadius = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, _, shadowRadius) -> shadowRadius)
 
-        let shadowsHighlightsMaskTexture = 
-            createShadowsHighlightsMaskTexture
+        let adjustedGpuTexture =
+            createGpuAdjustedTexture
                 runtime
                 rgbTexture
+                midtoneTexture
+                gpuSettings
                 shadowsHighlightsGpuSettings
                 imageWidth
                 imageHeight
-
-        let size = 
-            (imageWidth, imageHeight)
-            ||> AVal.map2 (fun w h -> V2i(max 1 w, max 1 h))
-
-        let horizontallyBlurredTexture =
-            horizontalBlurPass
-                runtime
-                shadowsHighlightsMaskTexture
-                shadowsHighlightsGpuSettings
-                size
-
-        let verticallyBlurredTexture =
-            verticalBlurPass
-                runtime
-                horizontallyBlurredTexture
-                shadowsHighlightsGpuSettings
-                size
+            |> AVal.map (fun t -> t :> ITexture)
 
         let transferFunctionSg =
             baseSg
@@ -759,51 +774,16 @@ module Image =
             |> Sg.shader {
                 do! Shaders.hshColorsTF
             }
-        let saveToPath = 
-            @"C:\Users\kloos\source\repos\PRo3D.ImageMapping\src\PRo3D.ImageMapping\adjusted_image\adjusted_image.jpeg"
-        Log.warn "Saving adjusted image to: %s" saveToPath
 
-        saveAdjustedImage
-            saveToPath
-            runtime
-            size
-            rgbTexture
-            midtoneTexture
-            verticallyBlurredTexture
-            shadowsHighlightsGpuSettings
-            gpuSettings
-
+        // shows the already-adjusted GPU result (+ pixel marker)
         let adjustmentSg =
             baseSg
-            |> Sg.texture "RgbCompositeTexture" rgbTexture
-            |> Sg.uniform "Brightness" shaderBrightness
-            |> Sg.uniform "Midpoint" (AVal.constant Midtone.init.mid)
-            |> Sg.uniform "MidtoneContrastAdjustment" shaderMidContrast
-            |> Sg.texture "MidtoneMaskTexture" midtoneTexture
-            |> Sg.uniform "Saturation" shaderSaturation
-            |> Sg.uniform "HighlightAmount" highlightAmount
-            |> Sg.uniform "HighlightTone" highlightTone
-            |> Sg.uniform "HighlightRadius" highlightRadius
-            |> Sg.uniform "ShadowAmount" shadowAmount
-            |> Sg.uniform "ShadowTone" shadowTone
-            |> Sg.uniform "ShadowRadius" shadowRadius
-            |> Sg.texture "ShadowsHighlightsMaskTexture" verticallyBlurredTexture
+            |> Sg.texture "RgbCompositeTexture" adjustedGpuTexture
+            |> Sg.uniform "ShowPixelMarker" showPixelMarker
+            |> Sg.uniform "PixelMarkerMin" pixelMarkerMin
+            |> Sg.uniform "PixelMarkerMax" pixelMarkerMax
             |> Sg.shader {
-                do! Shaders.hshColorsAdjustment
-            }
-
-        let shadowsHighlightsSg =
-            baseSg
-            |> Sg.uniform "HighlightAmount" highlightAmount
-            |> Sg.uniform "HighlightTone" highlightTone
-            |> Sg.uniform "HighlightRadius" highlightRadius
-            |> Sg.uniform "ShadowAmount" shadowAmount
-            |> Sg.uniform "ShadowTone" shadowTone
-            |> Sg.uniform "ShadowRadius" shadowRadius
-            |> Sg.texture "RgbCompositeTexture" rgbTexture
-            |> Sg.uniform "HighlightAmount" highlightAmount
-            |> Sg.shader {
-                do! Shaders.hshShadowsHighlights
+                do! Shaders.displayRgbComposite
             }
 
         let gpuSg =

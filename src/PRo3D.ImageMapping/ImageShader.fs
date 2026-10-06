@@ -157,7 +157,7 @@ module Shaders =
         (highlightMask : float)
         (highlightAmount : float)
         (shadowAmount : float) =
-        let exponent = 1.8   // Gamma.init.exponent
+        let exponent = 2.8   // Gamma.init.exponent
         let hStrength = min 1.0 (max 0.0 (highlightAmount * highlightMask))
         let sStrength = min 1.0 (max 0.0 (shadowAmount * shadowMask))
         let hDelta = hStrength * (pow c exponent - c)
