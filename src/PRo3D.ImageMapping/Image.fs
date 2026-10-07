@@ -628,30 +628,6 @@ module Image =
 
         RenderTask.renderToColor size task
 
-    let saveAdjustedImage 
-        (path : string) 
-        (runtime : IRuntime)
-        (size : aval<V2i>)
-        (rgbTexture : aval<ITexture>)
-        (midtoneTexture : aval<ITexture>)
-        (blurredMaskTexture : aval<IBackendTexture>)
-        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
-        (gpuSettings : aval<float * float * bool * float * float * float>) =
-        
-        let adjustedTexture = 
-            createAdjustedImageTexture
-                runtime
-                size
-                rgbTexture  
-                midtoneTexture
-                blurredMaskTexture
-                shadowsHighlightsGpuSettings
-                gpuSettings        
-
-        let texture = AVal.force adjustedTexture                // runs the passes if outdated
-        let image = runtime.Download(texture, 0, 0)            // mip level 0, slice 0 -> PixImage
-        image.SaveAsJpeg path
-
     // Builds mask -> horizontal blur -> vertical blur -> adjustment; returns the adjusted texture.
     let createGpuAdjustedTexture
         (runtime : IRuntime)
@@ -668,6 +644,50 @@ module Image =
         let hBlur = horizontalBlurPass runtime mask shSettings size
         let vBlur = verticalBlurPass runtime hBlur shSettings size
         createAdjustedImageTexture runtime size rgbTexture midtoneTexture vBlur shSettings gpuSettings
+
+    // Headless rendering (--output, synthetic tests): runs the full GPU pipeline with the
+    // test parameters and returns the RGBA result. Other adjustments use their slider defaults.
+    let renderAdjustedImage (runtime : IRuntime) (config : TestConfig) : PixImage<byte> =
+        let sourceImage, midtoneMaskImage =
+            createPlainRgbPixImageFromPath
+                config.imagePath
+                BlackWhiteClip.init.blackClipPercentile.value
+                BlackWhiteClip.init.whiteClipPercentile.value
+            |> Result.defaultWith (failwithf "Could not load %s: %s" config.imagePath)
+
+        let toTexture (image : PixImage<byte>) =
+            AVal.constant (PixTexture2d(PixImageMipMap [| image :> PixImage |], false) :> ITexture)
+
+        // <blackpoint, whitepoint, multispectral flag, brightness, midgain, saturation>
+        let gpuSettings =
+            AVal.constant (
+                0.0, 1.0, false,
+                Brightness.init.gainFactor.value,
+                MidtoneContrastAdjustment.init.gainFactor.value,
+                Saturation.init.gainFactor.value)
+
+        let shSettings =
+            AVal.constant (
+                config.highlightAmount, config.highlightTone, config.highlightRadius,
+                config.shadowAmount, config.shadowTone, config.shadowRadius)
+
+        let adjustedTexture =
+            createGpuAdjustedTexture
+                runtime
+                (toTexture sourceImage)
+                (toTexture midtoneMaskImage)
+                gpuSettings
+                shSettings
+                (AVal.constant sourceImage.Size.X)
+                (AVal.constant sourceImage.Size.Y)
+
+        let texture = AVal.force adjustedTexture                // runs all passes
+        runtime.Download(texture, 0, 0).ToPixImage<byte>().ToPixImage<byte>(Col.Format.RGBA)
+
+    let saveAdjustedImage (runtime : IRuntime) (config : TestConfig) (outputPath : string) =
+        let image = renderAdjustedImage runtime config
+        Directory.CreateDirectory(Path.GetDirectoryName outputPath) |> ignore
+        image.SaveAsPng outputPath
 
     // the 2D view displays the texture directly
     let createInstrumentScene

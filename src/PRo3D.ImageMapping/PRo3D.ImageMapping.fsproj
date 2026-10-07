@@ -12,6 +12,7 @@
     <OutputPath>..\..\bin\Release</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+	<PackageReference Include="FParsec" Version="1.1.1" />
 	<PackageReference Include="HDF.PInvoke.NETStandard" Version="1.10.502" />
   </ItemGroup>
   <ItemGroup>
@@ -32,6 +33,8 @@
     <Compile Include="Image.fs" />
 	<Compile Include="SpectralAnalysis.fs" />
     <Compile Include="App.fs" />
+    <Compile Include="ShadowsHighlightsCheck.fs" />
+    <Compile Include="SyntheticTests.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

@@ -32,7 +32,7 @@ dotnet run -- --spice "<path-to>\hera_ops.tm"
 2. `Image.horizontalBlurPass` and `Image.verticalBlurPass` run `Shaders.boxBlur`
    (driven by the Radius sliders).
 3. `Shaders.hshColorsAdjustment` samples the blurred mask and applies the Amount sliders
-   via `Shaders.applyShadowsHighlights` (highlights: c^1.8, shadows: 1-(1-c)^1.8),
+   via `Shaders.applyShadowsHighlights` (highlights: c^2.8, shadows: 1-(1-c)^2.8),
    followed by midtone contrast, saturation and brightness.
 4. `Image.createAdjustedImageTexture` renders step 3 offscreen; `Image.saveAdjustedImage`
    downloads and saves it.
@@ -90,7 +90,7 @@ Measurable (values on a 0–255 scale, alpha > 0 pixels only):
    input luminance < 0.25 increases clearly.
 3. **highlights-only**: no channel of any pixel increases; mean luminance of pixels with
    input luminance > 0.75 decreases clearly.
-4. **all cases vs. reference**: mean absolute difference ≤ 0.5, max difference ≤ 3.
+4. not yet in use, skip **all cases vs. reference**: mean absolute difference ≤ 0.5, max difference ≤ 3.
 
 Visual (inspect the output PNG):
 

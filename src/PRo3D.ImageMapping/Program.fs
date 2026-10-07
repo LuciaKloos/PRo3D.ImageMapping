@@ -80,19 +80,78 @@ let private tryGetTestConfig (argv : string[]) : Option<TestConfig> =
                 |> Option.map Path.GetFullPath
         }
 
+// check mode is active only when --check-case is given; needs --check-input and --check-output
+let private tryGetCheckMode (argv : string[]) =
+    match tryGetCommandLineValue "--check-case" argv with
+    | None ->
+        None
+
+    | Some caseName ->
+        let case =
+            match ShadowsHighlightsCheck.tryParseCase caseName with
+            | Some case -> case
+            | None ->
+                failwithf "Unknown --check-case '%s'. Use identity, shadows-only or highlights-only." caseName
+
+        let getExistingPath name =
+            match tryGetCommandLineValue name argv with
+            | Some path when not (String.IsNullOrWhiteSpace path) ->
+                let fullPath = Path.GetFullPath path
+                if not (File.Exists fullPath) then failwithf "File not found for %s: %s" name fullPath
+                fullPath
+            | _ ->
+                failwithf "--check-case requires %s." name
+
+        Some (case, getExistingPath "--check-input", getExistingPath "--check-output")
+
+// renders the adjusted test image offscreen and saves it, without server or Aardium
+let private runHeadlessExport (config : TestConfig) (outputPath : string) =
+    Log.warn "Headless export: %s -> %s" config.imagePath outputPath
+    use app = new Aardvark.Application.Slim.OpenGlApplication()
+    Image.saveAdjustedImage app.Runtime config outputPath
+    Log.warn "Saved %s" outputPath
+
 [<EntryPoint>]
 let main args =
     Aardvark.Init()
     Aardium.init()
 
+    let testConfig = tryGetTestConfig args
+    match tryGetCheckMode args with
+    | Some (case, inputPath, outputPath) ->
+        ShadowsHighlightsCheck.run case inputPath outputPath
+
+    | None ->
+
+    if args |> Array.exists (fun a -> a.Equals("--synthetic-tests", StringComparison.OrdinalIgnoreCase)) then
+        let outputDir =
+            tryGetCommandLineValue "--synthetic-output" args
+            |> Option.defaultValue "tests/shadows-highlights/output/synthetic"
+            |> Path.GetFullPath
+
+        use app = new Aardvark.Application.Slim.OpenGlApplication()
+        SyntheticTests.run app.Runtime outputDir
+
+    else
+
+    // resolve relative paths before SPICE.init, which changes the working directory
+    let testConfig = tryGetTestConfig args
+
     let spiceFileName = getSpiceFileName args
     use _ = SPICE.init spiceFileName
 
-    let testConfig = tryGetTestConfig args
+    match testConfig with
+    | Some ({ outputPath = Some outputPath } as t) ->
+        runHeadlessExport t outputPath
+        0
+
+    | _ ->
 
     match testConfig with
     | Some t -> Log.warn "Test mode: loading %s" t.imagePath
     | None -> ()
+
+    Aardium.init()
 
     // create the opengl application for rendering
     let app = new Aardvark.Application.Slim.OpenGlApplication()
