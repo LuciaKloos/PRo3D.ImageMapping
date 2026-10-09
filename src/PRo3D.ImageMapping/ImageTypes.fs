@@ -58,6 +58,9 @@ type BandRatioRenderSettings =
             blueNumeratorBand : aval<Option<int>>
             blueDenominatorBand : aval<Option<int>>
             gamma : aval<float>
+            redExpression : aval<Option<BandExpression.BandExpression>>
+            greenExpression : aval<Option<BandExpression.BandExpression>>
+            blueExpression : aval<Option<BandExpression.BandExpression>>
         }
 
 type RgbMappingRenderSettings = 

@@ -89,11 +89,11 @@ module Image =
 
             | _,
               Some redNumerator,
-              Some redDenominator,
+              _,
               Some greenNumerator,
-              Some greenDenominator,
+              _,
               Some blueNumerator,
-              Some blueDenominator ->
+              _ ->
 
                 match
                     createRgbRatioCompositePixImageFromSources

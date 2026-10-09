@@ -78,6 +78,7 @@ module App =
 
                 blueNumeratorBand     = pickBand 5 1 bands
                 blueDenominatorBand   = pickBand 4 0 bands
+
         }
 
     let private defaultBandMappingForImages images =
@@ -233,6 +234,7 @@ module App =
 
                                     blueNumeratorBand = privateLowBand 1 1
                                     blueDenominatorBand = privateLowBand 0 0
+
                             }
                         else
                             genericDefaults
@@ -258,7 +260,7 @@ module App =
                             imageWidth = width
                             imageHeight = height
                             editImages = []
-                            rgbRatioComposite = defaultRgbComposite
+                            rgbRatioComposite = defaultRgbComposite |> RgbRatioComposite.syncAllExpressions
                             bandMapping = defaultBandMappingForImages bands
                             transferFunctionMapping = defaultTransferFunctionMappingForImages bands
                             visualizationMode = VisualizationMode.SingleBandTransferFunction
@@ -354,10 +356,13 @@ module App =
                         rgbRatioComposite =
                             m.rgbRatioComposite
                             |> RgbRatioComposite.set rgbChannel rgbBandRole bandIndex
+                            |> RgbRatioComposite.syncExpression rgbChannel
                 }
 
             | None ->        
                 m
+
+            
         | SetRgbMappingBand (rgbChannel, rowIndex) ->
             let selectedBandIndex =
                 m.images
@@ -538,7 +543,7 @@ module App =
                 {
                     m with
                         visualizationMode = mode
-                        rgbRatioComposite = defaultRgbRatioCompositeForImages m.images
+                        rgbRatioComposite = defaultRgbRatioCompositeForImages m.images |> RgbRatioComposite.syncAllExpressions
                         editImages = []
                 }
 
@@ -649,6 +654,40 @@ module App =
             { m with 
                 applyGreyscaleTransferFunction = not m.applyGreyscaleTransferFunction
             }
+
+        | SetBandRatioExpression (channel, text) ->
+            let available = loadedLogicalBandIndices m.images |> Set.ofList
+
+            let result =
+                BandExpression.parse text
+                |> Result.bind (BandExpression.validateBands available)
+                |> Result.bind (fun expr ->
+                    BandExpression.toRatio available expr
+                    |> Result.map (fun (num, den) -> expr, num, den))
+
+            let c = m.rgbRatioComposite
+
+            let withInput (input : BandExpressionInput) =
+                match result with
+                | Result.Ok (expr, _, _) -> { text = text; error = None; parsed = Some expr }
+                | Result.Error e -> { input with text = text; error = Some e }
+
+            let c' =
+                match channel, result with
+                | RgbChannel.Red, Result.Ok (_, num, den) ->
+                    { c with redNumeratorBand = Some num; redDenominatorBand = den; redExpression = withInput c.redExpression }
+                | RgbChannel.Red, Result.Error _ ->
+                    { c with redExpression = withInput c.redExpression }
+                | RgbChannel.Green, Result.Ok (_, num, den) ->
+                    { c with greenNumeratorBand = Some num; greenDenominatorBand = den; greenExpression = withInput c.greenExpression }
+                | RgbChannel.Green, Result.Error _ ->
+                    { c with greenExpression = withInput c.greenExpression }
+                | RgbChannel.Blue, Result.Ok (_, num, den) ->
+                    { c with blueNumeratorBand = Some num; blueDenominatorBand = den; blueExpression = withInput c.blueExpression }
+                | RgbChannel.Blue, Result.Error _ ->
+                    { c with blueExpression = withInput c.blueExpression }
+
+            { m with rgbRatioComposite = c' }
     
     let initialFor (test : Option<TestConfig>) =
         match test with
@@ -805,27 +844,17 @@ module App =
 
         let bandRatioRenderSettings : BandRatioRenderSettings =
             {
-                redNumeratorBand =
-                    m.rgbRatioComposite.redNumeratorBand
+                redNumeratorBand     = m.rgbRatioComposite.redNumeratorBand
+                redDenominatorBand   = m.rgbRatioComposite.redDenominatorBand
+                greenNumeratorBand   = m.rgbRatioComposite.greenNumeratorBand
+                greenDenominatorBand = m.rgbRatioComposite.greenDenominatorBand
+                blueNumeratorBand    = m.rgbRatioComposite.blueNumeratorBand
+                blueDenominatorBand  = m.rgbRatioComposite.blueDenominatorBand
+                gamma                = m.rgbRatioComposite.gamma.value
 
-                redDenominatorBand =
-                    m.rgbRatioComposite.redDenominatorBand
-
-                greenNumeratorBand =
-                    m.rgbRatioComposite.greenNumeratorBand
-
-                greenDenominatorBand =
-                    m.rgbRatioComposite.greenDenominatorBand
-
-                blueNumeratorBand =
-                    m.rgbRatioComposite.blueNumeratorBand
-
-                blueDenominatorBand =
-                    m.rgbRatioComposite.blueDenominatorBand
-
-                gamma =
-                    m.rgbRatioComposite.gamma.value
-
+                redExpression        = m.rgbRatioComposite.redExpression.parsed
+                greenExpression      = m.rgbRatioComposite.greenExpression.parsed
+                blueExpression       = m.rgbRatioComposite.blueExpression.parsed
             }
 
         let rgbMappingRenderSettings : RgbMappingRenderSettings =
@@ -1703,6 +1732,39 @@ module App =
                 }
             )
 
+        let expressionRow (label : string) (channel : RgbChannel) (input : AdaptiveBandExpressionInput) =
+            div [style "margin-bottom: 6px;"] [
+                div [style "display: flex; align-items: center; gap: 6px;"] [
+                    span [style "width: 20px;"] [text label]
+                    Incremental.input (
+                        AttributeMap.ofAMap (amap {
+                            yield attribute "type" "text"
+                            yield attribute "placeholder" "e.g. B6/B4"
+                            yield style "flex: 1; font-family: monospace;"
+                            let! t = input.text
+                            yield attribute "value" t
+                            yield onChange (fun s -> SetBandRatioExpression (channel, s))
+                        })
+                    )
+                ]
+                Incremental.div AttributeMap.empty (alist {
+                    match! input.error with
+                    | Some e -> yield div [style "color: #f88; font-size: 10px; white-space: pre-wrap;"] [text e]
+                    | None -> ()
+                })
+            ]
+
+        let bandRatioExpressionEditor =
+            Incremental.div AttributeMap.empty (alist {
+                let! mode = m.visualizationMode
+                if mode = VisualizationMode.RgbRatioComposite then
+                    yield div [clazz "item"; style "padding: 5px;"] [
+                        expressionRow "R" RgbChannel.Red   m.rgbRatioComposite.redExpression
+                        expressionRow "G" RgbChannel.Green m.rgbRatioComposite.greenExpression
+                        expressionRow "B" RgbChannel.Blue  m.rgbRatioComposite.blueExpression
+                    ]
+            })
+
         let content = 
             div [style "overlow-y: auto; max-height: calc(100vh - 95px);"] [
 
@@ -1725,7 +1787,10 @@ module App =
                         ]
                     ]
                     onlyForMultispectral (
-                        visualizationModeSelector
+                        div [] [
+                            visualizationModeSelector
+                            bandRatioExpressionEditor
+                        ]
                     )
                      
                     onlyForGreyscaleImage (

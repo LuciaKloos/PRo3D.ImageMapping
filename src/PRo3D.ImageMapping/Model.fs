@@ -7,6 +7,7 @@ open PRo3D.InstrumentProjection
 
 open FSharp.Data.Adaptive
 open Aardvark.Base
+open PRo3D.ImageMapping
 
 type ColorMap =
     | Magma = 0
@@ -50,6 +51,14 @@ type Image =
     }
 
 [<ModelType>]
+type BandExpressionInput = 
+    {
+        text : string
+        error : Option<string>
+        parsed : Option<BandExpression.BandExpression>  // last valid expression
+    }
+
+[<ModelType>]
 type RgbRatioComposite =
     {
         redNumeratorBand       : Option<int>
@@ -59,6 +68,9 @@ type RgbRatioComposite =
         greenDenominatorBand   : Option<int>
         blueDenominatorBand    : Option<int>
         gamma                  : NumericInput
+        redExpression          : BandExpressionInput
+        greenExpression        : BandExpressionInput
+        blueExpression         : BandExpressionInput
     }
 
     
@@ -285,6 +297,11 @@ module RgbRatioComposite =
             greenDenominatorBand = None
             blueDenominatorBand = None
             gamma = { Numeric.init with min = 0.01; max = 5.0; step = 0.01; value = 1.0 }
+
+            redExpression = { text = ""; error = None; parsed = None }
+            greenExpression = { text = ""; error = None; parsed = None }
+            blueExpression = { text = ""; error = None; parsed = None }
+
         }
 
     let private firstBand bandCount =
@@ -320,7 +337,41 @@ module RgbRatioComposite =
                 preferredBand 5 0 bandCount
 
             gamma = settings.gamma
+
+            redExpression = settings.redExpression
+            greenExpression = settings.greenExpression
+            blueExpression = settings.blueExpression
         }
+
+    let expressionText (numerator : Option<int>) (denominator : Option<int>) =
+        match numerator, denominator with
+        | Some n, Some d -> sprintf "B%d/B%d" (n + 1) (d + 1)   // 0-based index -> 1-based "B6"
+        | Some n, None   -> sprintf "B%d" (n + 1)
+        | None, _        -> ""
+
+    let expressionOf (numerator : Option<int>) (denominator : Option<int>) =
+        match numerator, denominator with
+        | Some n, Some d -> Some (BandExpression.Div (BandExpression.Band (n + 1), BandExpression.Band (d + 1)))
+        | Some n, None   -> Some (BandExpression.Band (n + 1))
+        | None, _        -> None
+
+    let syncExpression (channel : RgbChannel) (composite : RgbRatioComposite) =
+        let input numerator denominator : BandExpressionInput =
+            { text = expressionText numerator denominator; error = None; parsed = expressionOf numerator denominator }
+
+        match channel with
+        | RgbChannel.Red ->
+            { composite with redExpression = input composite.redNumeratorBand composite.redDenominatorBand }
+        | RgbChannel.Green ->
+            { composite with greenExpression = input composite.greenNumeratorBand composite.greenDenominatorBand }
+        | RgbChannel.Blue ->
+            { composite with blueExpression = input composite.blueNumeratorBand composite.blueDenominatorBand }
+
+    let syncAllExpressions (composite : RgbRatioComposite) =
+        composite
+        |> syncExpression RgbChannel.Red
+        |> syncExpression RgbChannel.Green
+        |> syncExpression RgbChannel.Blue
 
     let set channel role bandIndex composite =
 
@@ -440,4 +491,5 @@ type Message =
     | SetGreyscaleBlackPoint of Numeric.Action
     | SetGreyscaleWhitePoint of Numeric.Action
     | ToggleGreyscaleTransferFunction
+    | SetBandRatioExpression of RgbChannel * string
     | Nop
