@@ -737,6 +737,125 @@ module RgbComposite =
         with error ->
             Result.Error error.Message
     
+    // shared tail: display range -> bytes -> PixImage
+    let private renderRgbBands
+        (width : int)
+        (height : int)
+        (pixelCount : int)
+        (gamma : float)
+        (validForeground : bool[])
+        (redBand : float[])
+        (greenBand : float[])
+        (blueBand : float[])
+        : PixImage<byte> =
+
+        let range band = computeDisplayRange validForeground 0.0 1.0 band
+        let redMin, redMax = range redBand
+        let greenMin, greenMax = range greenBand
+        let blueMin, blueMax = range blueBand
+
+        let redBytes, greenBytes, blueBytes, alphaBytes, _ =
+            normalizeToRgbBytes
+                pixelCount gamma validForeground
+                redMin redMax greenMin greenMax blueMin blueMax
+                redBand greenBand blueBand
+
+        let rgbImage = PixImage<byte>(Col.Format.RGBA, V2i(width, height))
+
+        rgbImage
+            .GetMatrix<C4b>()
+            .SetByCoord(fun (position : V2l) ->
+                let index = int position.Y * width + int position.X
+                if alphaBytes.[index] > 0uy then
+                    C4b(redBytes.[index], greenBytes.[index], blueBytes.[index], 255uy)
+                else
+                    C4b(0uy, 0uy, 0uy, 0uy))
+        |> ignore
+
+        rgbImage
+
+    // pixel is foreground if every referenced band is finite there
+    // and their mean is above the minimum object signal
+    let private computeValidForegroundFromBands
+        (pixelCount : int)
+        (bands : RgbBandData list)
+        : bool[] =
+
+        let count = float bands.Length
+
+        Array.init pixelCount (fun i ->
+            let mutable sum = 0.0
+            let mutable allFinite = true
+
+            for band in bands do
+                let v = band.values.[i]
+                if Double.IsFinite v then sum <- sum + v
+                else allFinite <- false
+
+            allFinite && sum / count > MinimumObjectSignal.init.signal)
+
+    // loads only the bands (0-based logical indices) the expressions reference
+    let private loadBands
+        (sources : list<RgbBandSource>)
+        (indices : int list)
+        : Result<Map<int, RgbBandData>, string> =
+
+        (Result.Ok Map.empty, indices)
+        ||> List.fold (fun acc idx ->
+            acc |> Result.bind (fun m ->
+                readLogicalBand sources idx
+                |> Result.map (fun b -> Map.add idx b m)))
+
+    let createRgbRatioCompositeFromExpressions
+        (sources : list<RgbBandSource>)
+        ((r, g, b) : BandExpression.BandExpression
+                     * BandExpression.BandExpression
+                     * BandExpression.BandExpression)
+        (gamma : float)
+        : Result<PixImage<byte>, string> =
+
+        try
+            let indices =
+                [ r; g; b ]
+                |> List.map BandExpression.referenceBands
+                |> Set.unionMany
+                |> Set.map (fun n -> n - 1)   // 1-based "B6" -> 0-based logical index
+                |> Set.toList
+
+            match loadBands sources indices with
+            | Result.Error e -> Result.Error e
+
+            | Result.Ok bands ->
+                let bandList = bands |> Map.toList |> List.map snd
+
+                match validateSameDimensions bandList with
+                | Result.Error e -> Result.Error e
+
+                | Result.Ok (width, height, pixelCount) ->
+                    let minimumDenominator = 1.0e-3
+
+                    let channel e =
+                        let f =
+                            BandExpression.compile
+                                (fun idx -> bands.[idx].values)
+                                minimumDenominator
+                                e
+                        Array.init pixelCount f
+
+                    let redBand = channel r
+                    let greenBand = channel g
+                    let blueBand = channel b
+
+                    let validForeground =
+                        computeValidForegroundFromBands pixelCount bandList
+
+                    renderRgbBands
+                        width height pixelCount gamma validForeground
+                        redBand greenBand blueBand
+                    |> Result.Ok
+
+        with error ->
+            Result.Error error.Message
     
     // raw band ratio values
     let createRgbMappingPixImageFromSources

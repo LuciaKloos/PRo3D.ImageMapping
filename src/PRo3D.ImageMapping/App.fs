@@ -658,37 +658,50 @@ module App =
         | SetBandRatioExpression (channel, text) ->
             let available = loadedLogicalBandIndices m.images |> Set.ofList
 
-            let result =
+            // parse + check that every referenced band is loaded + at least one band is used
+            let parsed =
                 BandExpression.parse text
                 |> Result.bind (BandExpression.validateBands available)
                 |> Result.bind (fun expr ->
-                    BandExpression.toRatio available expr
-                    |> Result.map (fun (num, den) -> expr, num, den))
+                    if Set.isEmpty (BandExpression.referenceBands expr) then
+                        Result.Error "The expression must use at least one band, e.g. B6."
+                    else
+                        Result.Ok expr)
+
+            // plain "Bx" or "Bx/By" also moves the band checkboxes; anything else leaves them alone
+            let simpleBands =
+                match parsed with
+                | Result.Ok expr ->
+                    match BandExpression.toRatio available expr with
+                    | Result.Ok (num, den) -> Some (num, den)
+                    | Result.Error _ -> None
+                | Result.Error _ -> None
+
+            let withInput (input : BandExpressionInput) =
+                match parsed with
+                | Result.Ok expr -> { text = text; error = None; parsed = Some expr }
+                | Result.Error e -> { input with text = text; error = Some e }   // keeps last valid expression
 
             let c = m.rgbRatioComposite
 
-            let withInput (input : BandExpressionInput) =
-                match result with
-                | Result.Ok (expr, _, _) -> { text = text; error = None; parsed = Some expr }
-                | Result.Error e -> { input with text = text; error = Some e }
-
             let c' =
-                match channel, result with
-                | RgbChannel.Red, Result.Ok (_, num, den) ->
-                    { c with redNumeratorBand = Some num; redDenominatorBand = den; redExpression = withInput c.redExpression }
-                | RgbChannel.Red, Result.Error _ ->
-                    { c with redExpression = withInput c.redExpression }
-                | RgbChannel.Green, Result.Ok (_, num, den) ->
-                    { c with greenNumeratorBand = Some num; greenDenominatorBand = den; greenExpression = withInput c.greenExpression }
-                | RgbChannel.Green, Result.Error _ ->
-                    { c with greenExpression = withInput c.greenExpression }
-                | RgbChannel.Blue, Result.Ok (_, num, den) ->
-                    { c with blueNumeratorBand = Some num; blueDenominatorBand = den; blueExpression = withInput c.blueExpression }
-                | RgbChannel.Blue, Result.Error _ ->
-                    { c with blueExpression = withInput c.blueExpression }
+                match channel, simpleBands with
+                | RgbChannel.Red, Some (num, den) ->
+                    { c with redNumeratorBand = Some num; redDenominatorBand = den }
+                | RgbChannel.Green, Some (num, den) ->
+                    { c with greenNumeratorBand = Some num; greenDenominatorBand = den }
+                | RgbChannel.Blue, Some (num, den) ->
+                    { c with blueNumeratorBand = Some num; blueDenominatorBand = den }
+                | _ -> c
 
-            { m with rgbRatioComposite = c' }
-    
+            let c'' =
+                match channel with
+                | RgbChannel.Red   -> { c' with redExpression = withInput c'.redExpression }
+                | RgbChannel.Green -> { c' with greenExpression = withInput c'.greenExpression }
+                | RgbChannel.Blue  -> { c' with blueExpression = withInput c'.blueExpression }
+
+            { m with rgbRatioComposite = c'' }
+
     let initialFor (test : Option<TestConfig>) =
         match test with
         | None -> initial

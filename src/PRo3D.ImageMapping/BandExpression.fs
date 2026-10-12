@@ -109,3 +109,23 @@ module BandExpression =
                         (Set.maxElement availableBandIndices + 1)
 
             Result.Error (sprintf "Band(s) not loaded: %s (%s)" missingText availableText)
+
+
+    // evaluator. Builds a closure per pixel once, so the tree isn't rewalked per pixel
+    let compile (getBand : int -> float[]) (minDenominator : float) (expr : BandExpression) 
+        : int -> float =
+        let rec go e : int -> float =
+            match e with
+            | Band n    -> let v = getBand (n - 1) in fun i -> v.[i]
+            | Const c   -> fun _ -> c
+            | Neg a     -> let fa = go a in fun i -> -(fa i)
+            | Add (a, b) -> let fa, fb = go a, go b in fun i -> fa i + fb i
+            | Sub (a, b) -> let fa, fb = go a, go b in fun i -> fa i - fb i
+            | Mul (a, b) -> let fa, fb = go a, go b in fun i -> fa i * fb i
+            | Div (a, b) -> 
+                let fa, fb = go a, go b
+                fun i -> 
+                    let d = fb i
+                    if System.Double.IsFinite d && abs d >= minDenominator then fa i / d
+                    else nan
+        go expr

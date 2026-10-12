@@ -54,56 +54,56 @@ module Image =
                 adaptiveImages.GetValue token
                 |> fun images -> readAdaptiveBandSources images token
 
-            let redNumeratorValue =
-                bandRatioRenderSettings.redNumeratorBand.GetValue token
+            let redExpression = bandRatioRenderSettings.redExpression.GetValue token
+            let greenExpression = bandRatioRenderSettings.greenExpression.GetValue token
+            let blueExpression = bandRatioRenderSettings.blueExpression.GetValue token
 
-            let redDenominatorValue =
-                bandRatioRenderSettings.redDenominatorBand.GetValue token
+            //let redNumeratorValue =
+            //    bandRatioRenderSettings.redNumeratorBand.GetValue token
 
-            let greenNumeratorValue =
-                bandRatioRenderSettings.greenNumeratorBand.GetValue token
+            //let redDenominatorValue =
+            //    bandRatioRenderSettings.redDenominatorBand.GetValue token
 
-            let greenDenominatorValue =
-                bandRatioRenderSettings.greenDenominatorBand.GetValue token
+            //let greenNumeratorValue =
+            //    bandRatioRenderSettings.greenNumeratorBand.GetValue token
 
-            let blueNumeratorValue =
-                bandRatioRenderSettings.blueNumeratorBand.GetValue token
+            //let greenDenominatorValue =
+            //    bandRatioRenderSettings.greenDenominatorBand.GetValue token
 
-            let blueDenominatorValue =
-                bandRatioRenderSettings.blueDenominatorBand.GetValue token
+            //let blueNumeratorValue =
+            //    bandRatioRenderSettings.blueNumeratorBand.GetValue token
+
+            //let blueDenominatorValue =
+            //    bandRatioRenderSettings.blueDenominatorBand.GetValue token
 
             let gammaValue =
                 bandRatioRenderSettings.gamma.GetValue token
 
             match
                 sources,
-                redNumeratorValue,
-                redDenominatorValue,
-                greenNumeratorValue,
-                greenDenominatorValue,
-                blueNumeratorValue,
-                blueDenominatorValue
+                redExpression,
+                greenExpression,
+                blueExpression
+                //redNumeratorValue,
+                //redDenominatorValue,
+                //greenNumeratorValue,
+                //greenDenominatorValue,
+                //blueNumeratorValue,
+                //blueDenominatorValue
             with
-            | [], _, _, _, _, _, _ ->
+            | [], _, _, _ ->
                 DefaultTextures.checkerboard.GetValue()
 
             | _,
-              Some redNumerator,
-              _,
-              Some greenNumerator,
-              _,
-              Some blueNumerator,
-              _ ->
+              Some redExpression,
+              Some greenExpression,
+              Some blueExpression
+              ->
 
                 match
-                    createRgbRatioCompositePixImageFromSources
+                    createRgbRatioCompositeFromExpressions
                         sources
-                        redNumerator
-                        redDenominatorValue
-                        greenNumerator
-                        greenDenominatorValue
-                        blueNumerator
-                        blueDenominatorValue
+                        (redExpression, greenExpression, blueExpression)
                         gammaValue
                 with
                 | Result.Ok image ->
