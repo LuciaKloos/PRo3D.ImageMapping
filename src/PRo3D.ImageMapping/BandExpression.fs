@@ -4,8 +4,11 @@ open FParsec
 
 module BandExpression = 
 
+    type ResolvedWavelength = { requested: float; bandNumber: int; actual: float }
+
     type BandExpression = 
         | Band of int       // user-facing, 1-based (B6 = sixth band)
+        | Wavelength of float 
         | Const of float
         | Neg of BandExpression
         | Add of BandExpression * BandExpression
@@ -19,6 +22,10 @@ module BandExpression =
     let private parseBand: Parser<BandExpression, unit> = 
         ( pchar 'B' <|> pchar 'b' ) >>. pint32 .>> ws |>> Band <?> "band (e.g. B6)"
 
+    let private parseWavelength: Parser<BandExpression, unit> =
+        ( pchar 'W' <|> pchar 'w' ) >>. pfloat .>> ws |>> Wavelength <?> "wavelength (e.g. 550)"
+
+    // makes ratio computations as B4/2 possible
     let private parseNumber: Parser<BandExpression, unit> = 
         pfloat .>> ws |>> Const <?> "number"
 
@@ -30,7 +37,7 @@ module BandExpression =
 
     // The Terms (atoms)
     // fails on anything that does not start with a band, number, or opening paren
-    opp.TermParser <- parseBand <|> parseNumber <|> between (sym "(") (sym ")") expr
+    opp.TermParser <- parseBand <|> parseWavelength <|> parseNumber <|> between (sym "(") (sym ")") expr 
 
     opp.AddOperator(InfixOperator("+", ws, 1, Associativity.Left, fun a b -> Add(a, b)))
     opp.AddOperator(InfixOperator("-", ws, 1, Associativity.Left, fun a b -> Sub(a, b)))
@@ -45,10 +52,57 @@ module BandExpression =
         | Success(result, _, _) -> Result.Ok result
         | Failure(errorMsg, _, _) -> Result.Error errorMsg
 
+
+    /// candidates: (0-based logical bandIndex, wavelength)
+    let resolveWavelengths (candidates : (int * float) list) (expr : BandExpression)
+        : Result<BandExpression * ResolvedWavelength list, string> =
+
+        let candidates =
+            candidates |> List.filter (fun (_, wl) -> System.Double.IsFinite wl)
+
+        let nearest (w : float) =
+            candidates
+            |> List.minBy (fun (idx, wl) -> abs (wl - w), wl, idx)
+
+        let rec go e : BandExpression * ResolvedWavelength list =
+            match e with
+            | Wavelength w ->
+                let idx, wl = nearest w
+                let bandNumber = idx + 1 // 0-based -> 1-based
+                Band bandNumber, [ { requested = w; bandNumber = bandNumber; actual = wl } ]
+            | Band _ | Const _ -> e, []
+            | Neg a ->
+                let a', ra = go a
+                Neg a', ra
+            | Add (a, b) -> bin Add a b
+            | Sub (a, b) -> bin Sub a b
+            | Mul (a, b) -> bin Mul a b
+            | Div (a, b) -> bin Div a b
+
+        and bin ctor a b =
+            let a', ra = go a
+            let b', rb = go b
+            ctor (a', b'), ra @ rb
+
+        let rec hasWavelength e =
+            match e with
+            | Wavelength _ -> true
+            | Band _ | Const _ -> false
+            | Neg a -> hasWavelength a
+            | Add (a, b) | Sub (a, b) | Mul (a, b) | Div (a, b) -> hasWavelength a || hasWavelength b
+
+        if not (hasWavelength expr) then
+            Result.Ok (expr, [])
+        elif List.isEmpty candidates then
+            Result.Error "No wavelength information is available for the loaded bands."
+        else
+            Result.Ok (go expr) 
+
     // walks the expression tree and collects every band number that appears in it
     let rec referenceBands expr =
         match expr with
         | Band n -> Set.singleton n // leaf: this band
+        | Wavelength w -> Set.empty // leaf: this wavelength
         | Const _ -> Set.empty      // a number uses no band
         | Neg e -> referenceBands e // look at the child
         | Add (a, b) | Sub (a, b) | Mul (a, b) | Div (a, b) -> 
@@ -57,6 +111,7 @@ module BandExpression =
     let rec print expr =
         match expr with
         | Band n -> sprintf "B%d" n
+        | Wavelength w -> sprintf "W%f" w
         | Const c -> string c
         | Neg e -> sprintf "-%s" (print e)
         | Add (a, b) -> sprintf "(%s + %s)" (print a) (print b)
@@ -65,6 +120,7 @@ module BandExpression =
         | Div (a, b) -> sprintf "(%s / %s)" (print a) (print b)
 
     // lower (reduce abstraction) the AST
+    // used for syncing text with checkboxes ( only if Bandx/Bandy or Const)
     let toRatio (availableBandIndices : Set<int>) (expr : BandExpression)
         : Result<int * Option<int>, string> =
 
@@ -117,6 +173,7 @@ module BandExpression =
         let rec go e : int -> float =
             match e with
             | Band n    -> let v = getBand (n - 1) in fun i -> v.[i]
+            | Wavelength _ -> failwith "unresolved wavelength"
             | Const c   -> fun _ -> c
             | Neg a     -> let fa = go a in fun i -> -(fa i)
             | Add (a, b) -> let fa, fb = go a, go b in fun i -> fa i + fb i

@@ -737,7 +737,7 @@ module RgbComposite =
         with error ->
             Result.Error error.Message
     
-    // shared tail: display range -> bytes -> PixImage
+    // display range -> bytes -> PixImage
     let private renderRgbBands
         (width : int)
         (height : int)

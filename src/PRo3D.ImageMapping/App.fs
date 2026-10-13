@@ -658,6 +658,12 @@ module App =
         | SetBandRatioExpression (channel, text) ->
             let available = loadedLogicalBandIndices m.images |> Set.ofList
 
+            let candidates =
+                m.images |> IndexList.toList
+                |> List.choose (fun img ->
+                    img.wavelength |> Option.filter Double.IsFinite
+                    |> Option.map (fun w -> img.bandIndex, w))
+
             // parse + check that every referenced band is loaded + at least one band is used
             let parsed =
                 BandExpression.parse text
