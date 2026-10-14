@@ -55,6 +55,7 @@ type BandExpressionInput =
     {
         text : string
         error : Option<string>
+        info : Option<string> 
         parsed : Option<BandExpression.BandExpression>  // last valid expression
     }
 
@@ -298,10 +299,9 @@ module RgbRatioComposite =
             blueDenominatorBand = None
             gamma = { Numeric.init with min = 0.01; max = 5.0; step = 0.01; value = 1.0 }
 
-            redExpression = { text = ""; error = None; parsed = None }
-            greenExpression = { text = ""; error = None; parsed = None }
-            blueExpression = { text = ""; error = None; parsed = None }
-
+            redExpression = { text = ""; error = None; parsed = None; info = None }
+            greenExpression = { text = ""; error = None; parsed = None; info = None }
+            blueExpression = { text = ""; error = None; parsed = None; info = None }
         }
 
     let private firstBand bandCount =
@@ -357,7 +357,7 @@ module RgbRatioComposite =
 
     let syncExpression (channel : RgbChannel) (composite : RgbRatioComposite) =
         let input numerator denominator : BandExpressionInput =
-            { text = expressionText numerator denominator; error = None; parsed = expressionOf numerator denominator }
+            { text = expressionText numerator denominator; error = None; parsed = expressionOf numerator denominator; info = None }
 
         match channel with
         | RgbChannel.Red ->

@@ -656,6 +656,8 @@ module App =
             }
 
         | SetBandRatioExpression (channel, text) ->
+            // parse → resolveWavelengths → validateBands → "uses ≥1 band" check → toRatio
+
             let available = loadedLogicalBandIndices m.images |> Set.ofList
 
             let candidates =
@@ -667,17 +669,20 @@ module App =
             // parse + check that every referenced band is loaded + at least one band is used
             let parsed =
                 BandExpression.parse text
-                |> Result.bind (BandExpression.validateBands available)
-                |> Result.bind (fun expr ->
-                    if Set.isEmpty (BandExpression.referenceBands expr) then
-                        Result.Error "The expression must use at least one band, e.g. B6."
-                    else
-                        Result.Ok expr)
+                |> Result.bind (BandExpression.resolveWavelengths candidates)
+                |> Result.bind (fun (expr, resolved) ->
+                    BandExpression.validateBands available expr
+                    |> Result.bind ( fun expr ->
+                        if Set.isEmpty (BandExpression.referenceBands expr) then
+                            Result.Error "The expression must use at least one band, e.g. B6."
+                        else
+                            Result.Ok (expr, resolved)))
+                    
 
             // plain "Bx" or "Bx/By" also moves the band checkboxes; anything else leaves them alone
             let simpleBands =
                 match parsed with
-                | Result.Ok expr ->
+                | Result.Ok (expr, _) ->
                     match BandExpression.toRatio available expr with
                     | Result.Ok (num, den) -> Some (num, den)
                     | Result.Error _ -> None
@@ -685,8 +690,20 @@ module App =
 
             let withInput (input : BandExpressionInput) =
                 match parsed with
-                | Result.Ok expr -> { text = text; error = None; parsed = Some expr }
-                | Result.Error e -> { input with text = text; error = Some e }   // keeps last valid expression
+                | Result.Ok (expr, resolved) ->
+                    let info =
+                        match resolved with
+                        | [] -> None
+                        | rs ->
+                            rs
+                            |> List.map (fun r ->
+                                sprintf "w%g → B%d (%g nm)" r.requested r.bandNumber r.actual)
+                            |> String.concat "; "
+                            |> Some
+                    { text = text; error = None; info = info; parsed = Some expr }
+
+                | Result.Error e ->
+                    { input with text = text; error = Some e; info = None }   // clear stale info on error
 
             let c = m.rgbRatioComposite
 
@@ -1769,6 +1786,9 @@ module App =
                 Incremental.div AttributeMap.empty (alist {
                     match! input.error with
                     | Some e -> yield div [style "color: #f88; font-size: 10px; white-space: pre-wrap;"] [text e]
+                    | None -> ()
+                    match! input.info with
+                    | Some i -> yield div [style "color: #aaa; font-size: 10px;"] [text i]
                     | None -> ()
                 })
             ]

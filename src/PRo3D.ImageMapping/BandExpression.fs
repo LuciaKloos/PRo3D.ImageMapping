@@ -102,7 +102,7 @@ module BandExpression =
     let rec referenceBands expr =
         match expr with
         | Band n -> Set.singleton n // leaf: this band
-        | Wavelength w -> Set.empty // leaf: this wavelength
+        | Wavelength _ -> Set.empty // leaf: this wavelength
         | Const _ -> Set.empty      // a number uses no band
         | Neg e -> referenceBands e // look at the child
         | Add (a, b) | Sub (a, b) | Mul (a, b) | Div (a, b) -> 
