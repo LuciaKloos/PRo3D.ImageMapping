@@ -756,37 +756,6 @@ module App =
             value = input.value.GetValue token
         }
 
-    let headerForMode mode =
-        match mode with
-        | VisualizationMode.RgbRatioComposite ->
-            [
-                "R Num"; "R Den"
-                "G Num"; "G Den"
-                "B Num"; "B Den"
-                "Wavelengths"
-                "Dist. to Planet"
-                "OBS Date"
-            ]
-
-        | VisualizationMode.RgbComposite ->
-            [
-                "R"
-                "G"
-                "B"
-                "Wavelengths"
-                "Dist. to Planet"
-                "OBS Date"
-            ]
-
-        | VisualizationMode.SingleBandTransferFunction ->
-            [
-                "Use"
-                "Edit"
-                "Wavelengths"
-                "Dist. to Planet"
-                "OBS Date"
-            ]
-
     let view
         (runtime : IRuntime)
         (m : AdaptiveModel)
@@ -1477,33 +1446,36 @@ module App =
 
                             match mode with
                             | VisualizationMode.RgbRatioComposite ->
-                                yield selectHeader "R Num"
-                                yield selectHeader "R Den"
-                                yield selectHeader "G Num"
-                                yield selectHeader "G Den"
-                                yield selectHeader "B Num"
-                                yield selectHeader "B Den"
+                                //yield selectHeader "R Num"
+                                //yield selectHeader "R Den"
+                                //yield selectHeader "G Num"
+                                //yield selectHeader "G Den"
+                                //yield selectHeader "B Num"
+                                //yield selectHeader "B Den"
+                                yield selectHeader "Band"
 
-                            | VisualizationMode.RgbComposite ->
+                            | VisualizationMode.RgbComposite ->                                
+                                yield selectHeader "Band"
                                 yield selectHeader "R"
                                 yield selectHeader "G"
                                 yield selectHeader "B"
 
                             | VisualizationMode.SingleBandTransferFunction ->
+                                yield selectHeader "Band"
                                 yield selectHeader "Use"
                                 yield div [attributesEdit] [text "Edit"]
 
                             yield div [attributesWavelength] [text "Wavelengths"]
 
-                            yield div [attributesAttr1] [
-                                i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance)] []
-                                text "Dist. to Planet"
-                            ]
+                            //yield div [attributesAttr1] [
+                            //    i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance)] []
+                            //    text "Dist. to Planet"
+                            //]
 
-                            yield div [attributesAttr2] [
-                                i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDate)] []
-                                text "OBS Date"
-                            ]
+                            //yield div [attributesAttr2] [
+                            //    i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDate)] []
+                            //    text "OBS Date"
+                            //]
                         }
                     )
 
@@ -1519,20 +1491,20 @@ module App =
                                         // let distanceToPlanet = CooTransformation.getRelState "HERA" "SUN" "MARS"  
 
                                         div [attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"] [
-                                            div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"]
-                                                [
-                                                    Incremental.text (
-                                                        (img.texture, img.bandIndex)
-                                                        ||> AVal.map2 (fun path bandIndex ->
-                                                            let bandNumber = bandIndex + 1
+                                            //div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"]
+                                            //    [
+                                            //        Incremental.text (
+                                            //            (img.texture, img.bandIndex)
+                                            //            ||> AVal.map2 (fun path bandIndex ->
+                                            //                let bandNumber = bandIndex + 1
 
-                                                            sprintf "%s — Band %d"
-                                                                    (Path.GetFileName path)
-                                                                    bandNumber
+                                            //                sprintf "%s — Band %d"
+                                            //                        (Path.GetFileName path)
+                                            //                        bandNumber
 
-                                                        )
-                                                    )
-                                                ]
+                                            //            )
+                                            //        )
+                                            //    ]
                                             Incremental.div
                                                 (AttributeMap.ofList [
                                                     attribute "style" "display: flex; font-weight: bold"
@@ -1589,6 +1561,23 @@ module App =
                                                                     (SetTransferFunctionBand index)
                                                             ]
 
+                                                        let bandNameDisplay 
+                                                            (selected : aval<Option<int>>) =
+                                                            div [attributesSelect]
+                                                                [
+                                                                    Incremental.text (
+                                                                        (img.texture, img.bandIndex)
+                                                                        ||> AVal.map2 (fun path bandIndex ->
+                                                                            let bandNumber = bandIndex + 1
+
+                                                                            sprintf "Band %d"
+                                                                                    bandNumber
+
+                                                                        )
+                                                                    )
+
+                                                                ]
+
                                                         let editSelector =
                                                             div [attributesEdit] [
                                                                 Html.SemUi.iconCheckBox
@@ -1603,22 +1592,53 @@ module App =
 
                                                         match mode with
                                                         | VisualizationMode.RgbRatioComposite ->
-                                                            yield bandRatioSelector m.rgbRatioComposite.redNumeratorBand RgbChannel.Red RgbBandRole.Numerator
-                                                            yield bandRatioSelector m.rgbRatioComposite.redDenominatorBand RgbChannel.Red RgbBandRole.Denominator
-                                                            yield bandRatioSelector m.rgbRatioComposite.greenNumeratorBand RgbChannel.Green RgbBandRole.Numerator
-                                                            yield bandRatioSelector m.rgbRatioComposite.greenDenominatorBand RgbChannel.Green RgbBandRole.Denominator
-                                                            yield bandRatioSelector m.rgbRatioComposite.blueNumeratorBand RgbChannel.Blue RgbBandRole.Numerator
-                                                            yield bandRatioSelector m.rgbRatioComposite.blueDenominatorBand RgbChannel.Blue RgbBandRole.Denominator
+                                                            //yield bandRatioSelector m.rgbRatioComposite.redNumeratorBand RgbChannel.Red RgbBandRole.Numerator
+                                                            //yield bandRatioSelector m.rgbRatioComposite.redDenominatorBand RgbChannel.Red RgbBandRole.Denominator
+                                                            //yield bandRatioSelector m.rgbRatioComposite.greenNumeratorBand RgbChannel.Green RgbBandRole.Numerator
+                                                            //yield bandRatioSelector m.rgbRatioComposite.greenDenominatorBand RgbChannel.Green RgbBandRole.Denominator
+                                                            //yield bandRatioSelector m.rgbRatioComposite.blueNumeratorBand RgbChannel.Blue RgbBandRole.Numerator
+                                                            //yield bandRatioSelector m.rgbRatioComposite.blueDenominatorBand RgbChannel.Blue RgbBandRole.Denominator
+                                                            yield div [attributesWavelength]
+                                                                [
+                                                                    Incremental.text (
+                                                                        (img.texture, img.bandIndex)
+                                                                        ||> AVal.map2 (fun path bandIndex ->
+                                                                            let bandNumber = bandIndex + 1
+
+                                                                            sprintf "Band %d"
+                                                                                    bandNumber
+
+                                                                        )
+                                                                    )
+                                                                    
+                                                                ]
 
                                                         | VisualizationMode.RgbComposite ->
+                                                           // yield bandNameDisplay 
                                                             yield rgbMappingSelector m.bandMapping.redBand RgbChannel.Red
                                                             yield rgbMappingSelector m.bandMapping.greenBand RgbChannel.Green
                                                             yield rgbMappingSelector m.bandMapping.blueBand RgbChannel.Blue
+                                                            //yield div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"]
+                                                            //    [
+                                                            //        Incremental.text (
+                                                            //            (img.texture, img.bandIndex)
+                                                            //            ||> AVal.map2 (fun path bandIndex ->
+                                                            //                let bandNumber = bandIndex + 1
+
+                                                            //                sprintf "%s — Band %d"
+                                                            //                        (Path.GetFileName path)
+                                                            //                        bandNumber
+
+                                                            //            )
+                                                            //        )
+                                                            //    ]
 
                                                         | VisualizationMode.SingleBandTransferFunction ->
+                                                            yield bandNameDisplay m.transferFunctionMapping.selectedBand
                                                             yield transferFunctionSelector m.transferFunctionMapping.selectedBand
                                                             yield editSelector
 
+                                                            
                                                         yield div [attributesWavelength] [
                                                             Incremental.text (
                                                                 img.selectedChannel
@@ -1630,19 +1650,19 @@ module App =
                                                             )
                                                         ]
 
-                                                        yield div [attributesAttr1] [
-                                                            Incremental.text (
-                                                                img.distance
-                                                                |> AVal.map (fun f -> sprintf "%.2f" f)
-                                                            )
-                                                        ]
+                                                        //yield div [attributesAttr1] [
+                                                        //    Incremental.text (
+                                                        //        img.distance
+                                                        //        |> AVal.map (fun f -> sprintf "%.2f" f)
+                                                        //    )
+                                                        //]
 
-                                                        yield div [attributesAttr2] [
-                                                            Incremental.text (
-                                                                img.time
-                                                                |> AVal.map string
-                                                            )
-                                                        ]
+                                                        //yield div [attributesAttr2] [
+                                                        //    Incremental.text (
+                                                        //        img.time
+                                                        //        |> AVal.map string
+                                                        //    )
+                                                        //]
                                                     }
                                                 )
                                         
