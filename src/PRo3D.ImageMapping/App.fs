@@ -262,7 +262,7 @@ module App =
                             editImages = []
                             rgbRatioComposite = defaultRgbComposite |> RgbRatioComposite.syncAllExpressions (BandNames.exprLabel [])
                             transferFunctionMapping = defaultTransferFunctionMappingForImages bands
-                            visualizationMode = VisualizationMode.SingleBandTransferFunction
+                            visualizationMode = VisualizationMode.RgbRatioComposite
                             loadCompleteSpectralProfile = false
                             bandExpressionDraft = ""
                             bandNames = []
@@ -1819,7 +1819,7 @@ module App =
             })
 
         let content = 
-            div [style "overlow-y: auto; max-height: calc(100vh - 50vh);"] [
+            div [style "overlow-y: auto; max-height: calc(100vh - 20vh);"] [
 
                 div [clazz "ui inverted list"] [
                     div [clazz "item"; style "border-bottom: solid 1px black; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
