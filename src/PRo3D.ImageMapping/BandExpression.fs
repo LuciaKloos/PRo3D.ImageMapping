@@ -9,6 +9,7 @@ module BandExpression =
     type BandExpression = 
         | Band of int       // user-facing, 1-based (B6 = sixth band)
         | Wavelength of float 
+        | Name of string
         | Const of float
         | Neg of BandExpression
         | Add of BandExpression * BandExpression
@@ -19,11 +20,18 @@ module BandExpression =
     let private ws = spaces
     let private sym s = pstring s >>. ws
 
-    let private parseBand: Parser<BandExpression, unit> = 
-        ( pchar 'B' <|> pchar 'b' ) >>. pint32 .>> ws |>> Band <?> "band (e.g. B6)"
+    let private isIdChar c = isLetter c || isDigit c || c = '_'
+
+    let private parseBand: Parser<BandExpression, unit> =
+        attempt (anyOf "Bb" >>. pint32 .>> notFollowedBy (satisfy isIdChar))
+        .>> ws |>> Band <?> "band (e.g. B6)"
 
     let private parseWavelength: Parser<BandExpression, unit> =
-        ( pchar 'W' <|> pchar 'w' ) >>. pfloat .>> ws |>> Wavelength <?> "wavelength (e.g. 550)"
+        attempt (anyOf "Ww" >>. pfloat .>> notFollowedBy (satisfy isIdChar))
+        .>> ws |>> Wavelength <?> "wavelength (e.g. W550)"
+
+    let private parseName: Parser<BandExpression, unit> =
+        many1Satisfy2L isLetter isIdChar "band name" .>> ws |>> Name
 
     // makes ratio computations as B4/2 possible
     let private parseNumber: Parser<BandExpression, unit> = 
@@ -36,8 +44,7 @@ module BandExpression =
     let private expr = opp.ExpressionParser
 
     // The Terms (atoms)
-    // fails on anything that does not start with a band, number, or opening paren
-    opp.TermParser <- parseBand <|> parseWavelength <|> parseNumber <|> between (sym "(") (sym ")") expr 
+    opp.TermParser <- parseBand <|> parseWavelength <|> parseName <|> parseNumber <|> between (sym "(") (sym ")") expr
 
     opp.AddOperator(InfixOperator("+", ws, 1, Associativity.Left, fun a b -> Add(a, b)))
     opp.AddOperator(InfixOperator("-", ws, 1, Associativity.Left, fun a b -> Sub(a, b)))
@@ -70,7 +77,7 @@ module BandExpression =
                 let idx, wl = nearest w
                 let bandNumber = idx + 1 // 0-based -> 1-based
                 Band bandNumber, [ { requested = w; bandNumber = bandNumber; actual = wl } ]
-            | Band _ | Const _ -> e, []
+            | Band _ | Const _ | Name _ -> e, []
             | Neg a ->
                 let a', ra = go a
                 Neg a', ra
@@ -87,7 +94,7 @@ module BandExpression =
         let rec hasWavelength e =
             match e with
             | Wavelength _ -> true
-            | Band _ | Const _ -> false
+            | Band _ | Const _ | Name _ -> false
             | Neg a -> hasWavelength a
             | Add (a, b) | Sub (a, b) | Mul (a, b) | Div (a, b) -> hasWavelength a || hasWavelength b
 
@@ -104,14 +111,62 @@ module BandExpression =
         | Band n -> Set.singleton n // leaf: this band
         | Wavelength _ -> Set.empty // leaf: this wavelength
         | Const _ -> Set.empty      // a number uses no band
+        | Name _ -> Set.empty
         | Neg e -> referenceBands e // look at the child
         | Add (a, b) | Sub (a, b) | Mul (a, b) | Div (a, b) -> 
             Set.union (referenceBands a) (referenceBands b) // both sides combined 
+
+    /// names: (0-based bandIndex, custom name). Case-insensitive.
+    let resolveNames (names : (int * string) list) (expr : BandExpression) : Result<BandExpression, string> =
+        let rec go e =
+            match e with
+            | Name n ->
+                match names |> List.tryFind (fun (_, nm) -> System.String.Equals(nm, n, System.StringComparison.OrdinalIgnoreCase)) with
+                | Some (idx, _) -> Result.Ok (Band (idx + 1))
+                | None -> Result.Error (sprintf "Unknown band name '%s'." n)
+            | Band _ | Wavelength _ | Const _ -> Result.Ok e
+            | Neg a -> go a |> Result.map Neg
+            | Add (a, b) -> bin Add a b
+            | Sub (a, b) -> bin Sub a b
+            | Mul (a, b) -> bin Mul a b
+            | Div (a, b) -> bin Div a b
+        and bin ctor a b =
+            go a |> Result.bind (fun a' -> go b |> Result.map (fun b' -> ctor (a', b')))
+        go expr
+
+    /// Run BEFORE resolveNames/resolveWavelengths: a renamed band must not be addressed as Bx any more.
+    let rejectRenamedBands (names : (int * string) list) (expr : BandExpression) : Result<BandExpression, string> =
+        referenceBands expr
+        |> Set.toList
+        |> List.tryPick (fun n -> names |> List.tryFind (fun (i, _) -> i = n - 1))
+        |> function
+            | Some (i, nm) -> Result.Error (sprintf "Band B%d has been renamed to '%s'; use that name." (i + 1) nm)
+            | None -> Result.Ok expr
+
+    let rec printWith (label : int -> string) expr =
+        match expr with
+        | Band n -> label (n - 1)
+        | Wavelength w -> sprintf "W%g" w
+        | Name n -> n
+        | Const c -> string c
+        | Neg e -> sprintf "-%s" (printWith label e)
+        | Add (a, b) -> sprintf "(%s + %s)" (printWith label a) (printWith label b)
+        | Sub (a, b) -> sprintf "(%s - %s)" (printWith label a) (printWith label b)
+        | Mul (a, b) -> sprintf "(%s * %s)" (printWith label a) (printWith label b)
+        | Div (a, b) -> sprintf "(%s / %s)" (printWith label a) (printWith label b)
+
+    /// like printWith, without the outermost parentheses
+    let printTop (label : int -> string) expr =
+        let s = printWith label expr
+        match expr with
+        | Add _ | Sub _ | Mul _ | Div _ -> s.Substring(1, s.Length - 2)
+        | _ -> s
 
     let rec print expr =
         match expr with
         | Band n -> sprintf "B%d" n
         | Wavelength w -> sprintf "W%f" w
+        | Name n -> n
         | Const c -> string c
         | Neg e -> sprintf "-%s" (print e)
         | Add (a, b) -> sprintf "(%s + %s)" (print a) (print b)
@@ -174,6 +229,7 @@ module BandExpression =
             match e with
             | Band n    -> let v = getBand (n - 1) in fun i -> v.[i]
             | Wavelength _ -> failwith "unresolved wavelength"
+            | Name _ -> failwith "unresolved band name"
             | Const c   -> fun _ -> c
             | Neg a     -> let fa = go a in fun i -> -(fa i)
             | Add (a, b) -> let fa, fb = go a, go b in fun i -> fa i + fb i

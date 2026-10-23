@@ -30,6 +30,7 @@
 	<Compile Include="MbiLoader.fs" />
 	<Compile Include="TiffLoader.fs" />
 	<Compile Include="BandHandler.fs" />
+	<Compile Include="BandNames.fs" />
 	<Compile Include="RgbComposite.fs" />
     <Compile Include="Image.fs" />
 	<Compile Include="SpectralAnalysis.fs" />

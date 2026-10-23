@@ -48,6 +48,10 @@ module App =
         greyscaleBlackPoint = { Numeric.init with min = 0.0; max = 254.0; step = 1.0; value = 0.0 }
         greyscaleWhitePoint = { Numeric.init with min = 0.0; max = 255.0; step = 1.0; value = 255.0 }
         applyGreyscaleTransferFunction = false
+        savedBandExpressions = []
+        bandExpressionDraft = ""
+        bandNames = []
+        renamingBand = None
     }
 
     let private loadedLogicalBandIndices (images : IndexList<Image>) =
@@ -121,6 +125,14 @@ module App =
             whiteClipPercentile =
                 { BlackWhiteClip.init.whiteClipPercentile with value = 0.0 }
         }
+
+    let private applyBandNames (m : Model) names =
+        { m with
+            bandNames = names
+            renamingBand = None
+            rgbRatioComposite =
+                m.rgbRatioComposite
+                |> RgbRatioComposite.relabelExpressions (BandNames.exprLabel names) }
 
     let update (m : Model) (msg : Message) = 
         match msg with
@@ -260,11 +272,14 @@ module App =
                             imageWidth = width
                             imageHeight = height
                             editImages = []
-                            rgbRatioComposite = defaultRgbComposite |> RgbRatioComposite.syncAllExpressions
+                            rgbRatioComposite = defaultRgbComposite |> RgbRatioComposite.syncAllExpressions (BandNames.exprLabel [])
                             bandMapping = defaultBandMappingForImages bands
                             transferFunctionMapping = defaultTransferFunctionMappingForImages bands
                             visualizationMode = VisualizationMode.SingleBandTransferFunction
                             loadCompleteSpectralProfile = false
+                            bandExpressionDraft = ""
+                            bandNames = []
+                            renamingBand = None
                     }                    
         | SelectImage idx ->
             { m with selectedImage = Some idx }
@@ -356,7 +371,7 @@ module App =
                         rgbRatioComposite =
                             m.rgbRatioComposite
                             |> RgbRatioComposite.set rgbChannel rgbBandRole bandIndex
-                            |> RgbRatioComposite.syncExpression rgbChannel
+                            |> RgbRatioComposite.syncExpression(BandNames.exprLabel m.bandNames) rgbChannel
                 }
 
             | None ->        
@@ -543,7 +558,7 @@ module App =
                 {
                     m with
                         visualizationMode = mode
-                        rgbRatioComposite = defaultRgbRatioCompositeForImages m.images |> RgbRatioComposite.syncAllExpressions
+                        rgbRatioComposite = defaultRgbRatioCompositeForImages m.images |> RgbRatioComposite.syncAllExpressions(BandNames.exprLabel m.bandNames)
                         editImages = []
                 }
 
@@ -669,6 +684,8 @@ module App =
             // parse + check that every referenced band is loaded + at least one band is used
             let parsed =
                 BandExpression.parse text
+                |> Result.bind (BandExpression.rejectRenamedBands m.bandNames)
+                |> Result.bind (BandExpression.resolveNames m.bandNames)
                 |> Result.bind (BandExpression.resolveWavelengths candidates)
                 |> Result.bind (fun (expr, resolved) ->
                     BandExpression.validateBands available expr
@@ -697,7 +714,8 @@ module App =
                         | rs ->
                             rs
                             |> List.map (fun r ->
-                                sprintf "w%g → B%d (%g nm)" r.requested r.bandNumber r.actual)
+                                sprintf "w%g → %s (%g nm)" r.requested
+                                    (BandNames.exprLabel m.bandNames (r.bandNumber - 1)) r.actual)
                             |> String.concat "; "
                             |> Some
                     { text = text; error = None; info = info; parsed = Some expr }
@@ -724,6 +742,42 @@ module App =
                 | RgbChannel.Blue  -> { c' with blueExpression = withInput c'.blueExpression }
 
             { m with rgbRatioComposite = c'' }
+
+        | SetBandExpressionDraft text ->
+            { m with bandExpressionDraft = text }
+ 
+        | AddSavedBandExpression ->
+            let text = m.bandExpressionDraft.Trim()
+ 
+            if String.IsNullOrWhiteSpace text || List.contains text m.savedBandExpressions then
+                m
+            else
+                { m with
+                    savedBandExpressions = m.savedBandExpressions @ [ text ]
+                    bandExpressionDraft = ""
+                }
+ 
+        | RemoveSavedBandExpression index ->
+            { m with
+                savedBandExpressions =
+                    m.savedBandExpressions
+                    |> List.indexed
+                    |> List.filter (fun (i, _) -> i <> index)
+                    |> List.map snd
+            }
+        | StartRenameBand idx -> { m with renamingBand = Some idx }
+        | CancelRenameBand    -> { m with renamingBand = None }
+
+        | RenameBand (idx, text) ->
+            match BandNames.tryRename m.bandNames idx text with
+            | Result.Ok names -> applyBandNames m names
+            | Result.Error e ->
+                Log.warn "Could not rename band: %s" e
+                { m with renamingBand = None }
+
+        | ResetBandName idx ->
+            applyBandNames m (BandNames.reset idx m.bandNames)
+
 
     let initialFor (test : Option<TestConfig>) =
         match test with
@@ -794,6 +848,19 @@ module App =
                         let! activeCategory = m.activeCategory
 
                         if activeCategory = ActiveCategory.MultispectralImage then
+                            yield node
+                    }
+                )
+
+        let onlyForBandRatios (node : DomNode<Message>) =
+            Incremental.div
+                AttributeMap.empty
+                (
+                    alist {
+                        let! activeCategory = m.activeCategory
+                        let! visMode = m.visualizationMode
+
+                        if activeCategory = ActiveCategory.MultispectralImage && visMode = VisualizationMode.RgbRatioComposite then
                             yield node
                     }
                 )
@@ -1286,6 +1353,67 @@ module App =
                     }
                 )
 
+        let savedBandExpressionsList =
+            let removeButtonStyle =
+                "cursor: pointer; margin-left: 8px; padding: 0 6px; color: #f88; font-weight: bold; user-select: none;"
+ 
+            div [style "padding: 5px;"] [
+                // input + Add button
+                div [style "display: flex; align-items: center; gap: 6px; margin-bottom: 8px;"] [
+                    Incremental.input (
+                        AttributeMap.ofAMap (amap {
+                            yield attribute "type" "text"
+                            yield attribute "placeholder" "e.g. B6/B4"
+                            yield style "flex: 1; font-family: monospace;"
+                            let! t = m.bandExpressionDraft
+                            yield attribute "value" t
+                            yield onChange (fun s -> SetBandExpressionDraft s)
+                        })
+                    )
+ 
+                    button [
+                        clazz "ui tiny inverted button"
+                        attribute "type" "button"
+                        onClick (fun _ -> AddSavedBandExpression)
+                    ] [
+                        text "Add"
+                    ]
+                ]
+ 
+                // saved expressions
+                Incremental.div
+                    (AttributeMap.ofList [
+                        style "max-height: calc(100vh - 300px); overflow: auto;"
+                    ])
+                    (
+                        alist {
+                            let! expressions = m.savedBandExpressions
+ 
+                            for index, expression in List.indexed expressions do
+                                yield
+                                    div [
+                                        style "display: flex; justify-content: space-between; align-items: center; padding: 4px 6px; border: 1px solid rgba(255,255,255,0.3); margin-bottom: 4px;"
+                                    ] [
+                                        span [style "font-family: monospace;"] [
+                                            text expression
+                                        ]
+ 
+                                        span [
+                                            style removeButtonStyle
+                                            attribute "title" "Remove expression"
+                                            onClick (fun _ -> RemoveSavedBandExpression index)
+                                        ] [
+                                            text "x"
+                                        ]
+                                    ]
+                        }
+                    )
+            ]
+ 
+
+
+
+
         let jsImportDialog =
             "top.aardvark.dialog.showOpenDialog({title: 'Select image', filters: [{name: 'Images', extensions: ['mbi', 'json', 'tif', 'tiff', 'nc', 'png', 'jpg', 'jpeg', 'webp']}], properties: ['openFile']}).then(result => {if (!result.canceled && result.filePaths && result.filePaths.length > 0) {aardvark.processEvent('__ID__', 'onchoose', result.filePaths);}}).catch(error => {console.error('Could not open image dialog:', error);});"
 
@@ -1429,6 +1557,7 @@ module App =
             let attributesSelect = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesEdit = attribute "style" $"cursor: pointer; width: 50px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesWavelength = attribute "style" $"cursor: pointer; width: 120px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
+            let attributesName = attribute "style" $"cursor: pointer; width: 120px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis;"
             let attributesAttr1 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; border-right: 1px solid {borderColor}; display: flex; justify-content: center; align-items: center;"
             let attributesAttr2 = attribute "style" $"cursor: pointer; width: 120px; height: 40px; display: flex; justify-content: center; align-items: center;"
 
@@ -1446,13 +1575,7 @@ module App =
 
                             match mode with
                             | VisualizationMode.RgbRatioComposite ->
-                                //yield selectHeader "R Num"
-                                //yield selectHeader "R Den"
-                                //yield selectHeader "G Num"
-                                //yield selectHeader "G Den"
-                                //yield selectHeader "B Num"
-                                //yield selectHeader "B Den"
-                                yield selectHeader "Band"
+                                yield div [attributesName] [text "Band"]
 
                             | VisualizationMode.RgbComposite ->                                
                                 yield selectHeader "Band"
@@ -1461,21 +1584,12 @@ module App =
                                 yield selectHeader "B"
 
                             | VisualizationMode.SingleBandTransferFunction ->
-                                yield selectHeader "Band"
+                                yield div [attributesName] [text "Band"]
                                 yield selectHeader "Use"
                                 yield div [attributesEdit] [text "Edit"]
 
                             yield div [attributesWavelength] [text "Wavelengths"]
 
-                            //yield div [attributesAttr1] [
-                            //    i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDistance)] []
-                            //    text "Dist. to Planet"
-                            //]
-
-                            //yield div [attributesAttr2] [
-                            //    i [clazz "sort icon"; onClick (fun _ -> SortEntriesByDate)] []
-                            //    text "OBS Date"
-                            //]
                         }
                     )
 
@@ -1491,20 +1605,6 @@ module App =
                                         // let distanceToPlanet = CooTransformation.getRelState "HERA" "SUN" "MARS"  
 
                                         div [attribute "style" $"border: 1px solid rgba(255,255,255,0.5);"] [
-                                            //div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"]
-                                            //    [
-                                            //        Incremental.text (
-                                            //            (img.texture, img.bandIndex)
-                                            //            ||> AVal.map2 (fun path bandIndex ->
-                                            //                let bandNumber = bandIndex + 1
-
-                                            //                sprintf "%s — Band %d"
-                                            //                        (Path.GetFileName path)
-                                            //                        bandNumber
-
-                                            //            )
-                                            //        )
-                                            //    ]
                                             Incremental.div
                                                 (AttributeMap.ofList [
                                                     attribute "style" "display: flex; font-weight: bold"
@@ -1512,6 +1612,41 @@ module App =
                                                 (
                                                     alist {
                                                         let! mode = m.visualizationMode
+                                                        let! bandIdx  = img.bandIndex
+                                                        let! names    = m.bandNames
+                                                        let! renaming = m.renamingBand
+
+                                                        let bandNameCell (cellStyle : Attribute<Message>) =
+                                                            if renaming = Some bandIdx then
+                                                                let current = BandNames.tryFind names bandIdx
+                                                                div [cellStyle] [
+                                                                    input [
+                                                                        attribute "type" "text"
+                                                                        attribute "value" (defaultArg current "")
+                                                                        attribute "placeholder" (sprintf "Band %d" (bandIdx + 1))
+                                                                        attribute "autofocus" "autofocus"
+                                                                        style "width: 70px; font-family: monospace;"
+                                                                        onChange (fun s -> RenameBand (bandIdx, s))
+                                                                    ]
+                                                                    if current.IsSome then
+                                                                        span [
+                                                                            style "margin-left: 4px; color: #f88; cursor: pointer;"
+                                                                            attribute "title" "Reset to default name"
+                                                                            onClick (fun _ -> ResetBandName bandIdx)
+                                                                        ] [ text "reset" ]
+                                                                    span [
+                                                                        style "margin-left: 4px; color: #aaa; cursor: pointer;"
+                                                                        attribute "title" "Cancel"
+                                                                        onClick (fun _ -> CancelRenameBand)
+                                                                    ] [ text "x" ]
+                                                                ]
+                                                            else
+                                                                div [
+                                                                    cellStyle
+                                                                    attribute "title" "Right-click to rename"
+                                                                    clientEvent "oncontextmenu" "aardvark.processEvent('__ID__', 'onrightclick'); return false;"
+                                                                    onEvent "onrightclick" [] (fun _ -> StartRenameBand bandIdx)
+                                                                ] [ text (BandNames.label names bandIdx) ]
 
                                                         let selectedBandIndex =
                                                             img.bandIndex
@@ -1592,49 +1727,15 @@ module App =
 
                                                         match mode with
                                                         | VisualizationMode.RgbRatioComposite ->
-                                                            //yield bandRatioSelector m.rgbRatioComposite.redNumeratorBand RgbChannel.Red RgbBandRole.Numerator
-                                                            //yield bandRatioSelector m.rgbRatioComposite.redDenominatorBand RgbChannel.Red RgbBandRole.Denominator
-                                                            //yield bandRatioSelector m.rgbRatioComposite.greenNumeratorBand RgbChannel.Green RgbBandRole.Numerator
-                                                            //yield bandRatioSelector m.rgbRatioComposite.greenDenominatorBand RgbChannel.Green RgbBandRole.Denominator
-                                                            //yield bandRatioSelector m.rgbRatioComposite.blueNumeratorBand RgbChannel.Blue RgbBandRole.Numerator
-                                                            //yield bandRatioSelector m.rgbRatioComposite.blueDenominatorBand RgbChannel.Blue RgbBandRole.Denominator
-                                                            yield div [attributesWavelength]
-                                                                [
-                                                                    Incremental.text (
-                                                                        (img.texture, img.bandIndex)
-                                                                        ||> AVal.map2 (fun path bandIndex ->
-                                                                            let bandNumber = bandIndex + 1
-
-                                                                            sprintf "Band %d"
-                                                                                    bandNumber
-
-                                                                        )
-                                                                    )
-                                                                    
-                                                                ]
+                                                            yield bandNameCell attributesName
 
                                                         | VisualizationMode.RgbComposite ->
-                                                           // yield bandNameDisplay 
                                                             yield rgbMappingSelector m.bandMapping.redBand RgbChannel.Red
                                                             yield rgbMappingSelector m.bandMapping.greenBand RgbChannel.Green
                                                             yield rgbMappingSelector m.bandMapping.blueBand RgbChannel.Blue
-                                                            //yield div [attribute "style" $"border-bottom: 1px solid {borderColor}; background: #333"]
-                                                            //    [
-                                                            //        Incremental.text (
-                                                            //            (img.texture, img.bandIndex)
-                                                            //            ||> AVal.map2 (fun path bandIndex ->
-                                                            //                let bandNumber = bandIndex + 1
-
-                                                            //                sprintf "%s — Band %d"
-                                                            //                        (Path.GetFileName path)
-                                                            //                        bandNumber
-
-                                                            //            )
-                                                            //        )
-                                                            //    ]
 
                                                         | VisualizationMode.SingleBandTransferFunction ->
-                                                            yield bandNameDisplay m.transferFunctionMapping.selectedBand
+                                                            yield bandNameCell attributesName
                                                             yield transferFunctionSelector m.transferFunctionMapping.selectedBand
                                                             yield editSelector
 
@@ -1649,20 +1750,6 @@ module App =
                                                                 )
                                                             )
                                                         ]
-
-                                                        //yield div [attributesAttr1] [
-                                                        //    Incremental.text (
-                                                        //        img.distance
-                                                        //        |> AVal.map (fun f -> sprintf "%.2f" f)
-                                                        //    )
-                                                        //]
-
-                                                        //yield div [attributesAttr2] [
-                                                        //    Incremental.text (
-                                                        //        img.time
-                                                        //        |> AVal.map string
-                                                        //    )
-                                                        //]
                                                     }
                                                 )
                                         
@@ -1802,6 +1889,26 @@ module App =
                             yield onChange (fun s -> SetBandRatioExpression (channel, s))
                         })
                     )
+                    onBoot
+                        "$('#__ID__').on('change', function () { var s = this; setTimeout(function () { s.selectedIndex = 0; }, 0); });"
+                        (
+                            Incremental.select
+                                (AttributeMap.ofList [
+                                    style "width: 25px; font-family: monospace;"
+                                    attribute "title" "Saved band expressions"
+                                    onChange (fun s ->
+                                        if String.IsNullOrEmpty s then Nop
+                                        else SetBandRatioExpression (channel, s))
+                                ])
+                                (alist {
+                                    yield option [attribute "value" ""] [text ""]
+
+                                    let! saved = m.savedBandExpressions
+
+                                    for expression in saved do
+                                        yield option [attribute "value" expression] [text expression]
+                                })
+                        )
                 ]
                 Incremental.div AttributeMap.empty (alist {
                     match! input.error with
@@ -1825,7 +1932,7 @@ module App =
             })
 
         let content = 
-            div [style "overlow-y: auto; max-height: calc(100vh - 95px);"] [
+            div [style "overlow-y: auto; max-height: calc(100vh - 50vh);"] [
 
                 div [clazz "ui inverted list"] [
                     div [clazz "item"; style "border-bottom: solid 1px black; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
@@ -1978,6 +2085,12 @@ module App =
                         ]
                     )
                     
+                    onlyForBandRatios (
+                        accordionHist "Saved Band Ratio Expressions" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
+                            savedBandExpressionsList
+                        ]
+                    )
+
                     onlyForPlainRGBImage (
                         accordionHist "RGB Histogram" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [                        
                             histogramsAndProfilesForCurrentMode

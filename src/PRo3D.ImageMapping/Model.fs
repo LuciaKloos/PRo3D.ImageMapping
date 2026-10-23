@@ -216,6 +216,10 @@ type Model =
         greyscaleBlackPoint : NumericInput
         greyscaleWhitePoint : NumericInput
         applyGreyscaleTransferFunction : bool
+        savedBandExpressions : list<string>
+        bandExpressionDraft : string
+        bandNames : list<int * string>  
+        renamingBand : Option<int>
     }
 
 
@@ -343,10 +347,10 @@ module RgbRatioComposite =
             blueExpression = settings.blueExpression
         }
 
-    let expressionText (numerator : Option<int>) (denominator : Option<int>) =
+    let expressionText (label : int -> string) (numerator : Option<int>) (denominator : Option<int>) =
         match numerator, denominator with
-        | Some n, Some d -> sprintf "B%d/B%d" (n + 1) (d + 1)   // 0-based index -> 1-based "B6"
-        | Some n, None   -> sprintf "B%d" (n + 1)
+        | Some n, Some d -> sprintf "%s/%s" (label n) (label d)
+        | Some n, None   -> label n
         | None, _        -> ""
 
     let expressionOf (numerator : Option<int>) (denominator : Option<int>) =
@@ -355,10 +359,10 @@ module RgbRatioComposite =
         | Some n, None   -> Some (BandExpression.Band (n + 1))
         | None, _        -> None
 
-    let syncExpression (channel : RgbChannel) (composite : RgbRatioComposite) =
+    let syncExpression (label : int -> string) (channel : RgbChannel) (composite : RgbRatioComposite) =
         let input numerator denominator : BandExpressionInput =
-            { text = expressionText numerator denominator; error = None; parsed = expressionOf numerator denominator; info = None }
-
+            { text = expressionText label numerator denominator
+              error = None; parsed = expressionOf numerator denominator; info = None }
         match channel with
         | RgbChannel.Red ->
             { composite with redExpression = input composite.redNumeratorBand composite.redDenominatorBand }
@@ -367,11 +371,22 @@ module RgbRatioComposite =
         | RgbChannel.Blue ->
             { composite with blueExpression = input composite.blueNumeratorBand composite.blueDenominatorBand }
 
-    let syncAllExpressions (composite : RgbRatioComposite) =
+    let syncAllExpressions label (composite : RgbRatioComposite) =
         composite
-        |> syncExpression RgbChannel.Red
-        |> syncExpression RgbChannel.Green
-        |> syncExpression RgbChannel.Blue
+        |> syncExpression label RgbChannel.Red
+        |> syncExpression label RgbChannel.Green
+        |> syncExpression label RgbChannel.Blue
+
+    /// rewrite the text of all valid expressions after a rename/reset
+    let relabelExpressions (label : int -> string) (c : RgbRatioComposite) =
+        let relabel (input : BandExpressionInput) =
+            match input.parsed with
+            | Some e -> { input with text = BandExpression.printTop label e; error = None }
+            | None   -> input
+        { c with
+            redExpression   = relabel c.redExpression
+            greenExpression = relabel c.greenExpression
+            blueExpression  = relabel c.blueExpression }
 
     let set channel role bandIndex composite =
 
@@ -492,4 +507,11 @@ type Message =
     | SetGreyscaleWhitePoint of Numeric.Action
     | ToggleGreyscaleTransferFunction
     | SetBandRatioExpression of RgbChannel * string
+    | SetBandExpressionDraft of string
+    | AddSavedBandExpression
+    | RemoveSavedBandExpression of int
+    | StartRenameBand of int
+    | CancelRenameBand
+    | RenameBand of int * string
+    | ResetBandName of int
     | Nop
