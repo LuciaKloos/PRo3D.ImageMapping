@@ -74,16 +74,6 @@ type RgbRatioComposite =
         blueExpression         : BandExpressionInput
     }
 
-    
-[<ModelType>]
-type BandMapping =
-    {
-        redBand : Option<int>
-        greenBand : Option<int>
-        blueBand : Option<int>
-        gamma : NumericInput
-    }
-
 [<ModelType>]
 type TransferFunctionMapping =
     {
@@ -170,7 +160,6 @@ type Gamma =
     }
 
 type VisualizationMode =
-    | RgbComposite
     | RgbRatioComposite
     | SingleBandTransferFunction    
 
@@ -195,7 +184,6 @@ type Model =
         boresightAdjustment : BoresightAdjustment
         cameraState     : OrbitState
         rgbRatioComposite    : RgbRatioComposite
-        bandMapping : BandMapping
         transferFunctionMapping : TransferFunctionMapping
         highlightAdjustment : HighlightAdjustment
         shadowAdjustment    : ShadowAdjustment
@@ -409,24 +397,6 @@ module RgbRatioComposite =
         | RgbChannel.Blue, RgbBandRole.Denominator ->
             { composite with blueDenominatorBand = Some bandIndex }
 
-module BandMapping =
-    let empty = 
-        {
-            redBand = None
-            greenBand = None
-            blueBand = None
-            gamma = { Numeric.init with min = 0.01; max = 5.0; step = 0.01; value = 1.0 }
-        }
-
-    let set channel bandIndex mapping =
-        match channel with
-        | RgbChannel.Red ->
-            { mapping with redBand = Some bandIndex }
-        | RgbChannel.Green ->
-            { mapping with greenBand = Some bandIndex }
-        | RgbChannel.Blue ->
-            { mapping with blueBand = Some bandIndex }
-
 module TransferFunctionMapping =
     let empty : TransferFunctionMapping =
         {
@@ -481,7 +451,6 @@ type Message =
     | SetVisualizationMode of VisualizationMode
     | SetActiveCategory of ActiveCategory
     | SetBandRatioBand of RgbChannel * RgbBandRole * Index
-    | SetRgbMappingBand of RgbChannel * Index
     | SetTransferFunctionBand of Index
     | SetRgbGamma of Numeric.Action
     | SetAmountHighlight of Numeric.Action

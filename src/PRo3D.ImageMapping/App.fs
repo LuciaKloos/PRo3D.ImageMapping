@@ -27,7 +27,6 @@ module App =
         boresightAdjustment = BoresightAdjustment.identity
         cameraState = OrbitState.create V3d.Zero 0.0 0.0 (2.0 * (3389.5 * 1000.0))  
         rgbRatioComposite = RgbRatioComposite.empty
-        bandMapping = BandMapping.empty
         transferFunctionMapping = TransferFunctionMapping.empty
         highlightAdjustment = HighlightAdjustment.init
         shadowAdjustment = ShadowAdjustment.init
@@ -35,7 +34,7 @@ module App =
         blackWhiteClip = BlackWhiteClip.init
         saturation = Saturation.init
         brightness = Brightness.init
-        visualizationMode = VisualizationMode.SingleBandTransferFunction
+        visualizationMode = VisualizationMode.RgbRatioComposite
         activeCategory = ActiveCategory.RgbImage
         loadCompleteSpectralProfile = false
         pixelDetectionEnabled = false
@@ -83,17 +82,6 @@ module App =
                 blueNumeratorBand     = pickBand 5 1 bands
                 blueDenominatorBand   = pickBand 4 0 bands
 
-        }
-
-    let private defaultBandMappingForImages images =
-        let bands =
-            loadedLogicalBandIndices images
-
-        {
-            BandMapping.empty with
-                redBand   = pickBand 2 0 bands
-                greenBand = pickBand 1 0 bands
-                blueBand  = pickBand 0 0 bands
         }
 
     let private defaultTransferFunctionMappingForImages images =
@@ -273,7 +261,6 @@ module App =
                             imageHeight = height
                             editImages = []
                             rgbRatioComposite = defaultRgbComposite |> RgbRatioComposite.syncAllExpressions (BandNames.exprLabel [])
-                            bandMapping = defaultBandMappingForImages bands
                             transferFunctionMapping = defaultTransferFunctionMappingForImages bands
                             visualizationMode = VisualizationMode.SingleBandTransferFunction
                             loadCompleteSpectralProfile = false
@@ -376,25 +363,7 @@ module App =
 
             | None ->        
                 m
-
-            
-        | SetRgbMappingBand (rgbChannel, rowIndex) ->
-            let selectedBandIndex =
-                m.images
-                |> IndexList.mapi (fun index img -> index, img)
-                |> IndexList.toList
-                |> List.tryFind (fun (index, _) -> index = rowIndex)
-                |> Option.map (fun (_, img) -> img.bandIndex)
-            match selectedBandIndex with
-            | Some bandIndex ->
-                {
-                    m with
-                        bandMapping =
-                            m.bandMapping
-                            |> BandMapping.set rgbChannel bandIndex
-                }
-            | None ->        
-                m
+                        
         | SetTransferFunctionBand (rowIndex) ->
             let selectedBandIndex =
                 m.images
@@ -559,14 +528,6 @@ module App =
                     m with
                         visualizationMode = mode
                         rgbRatioComposite = defaultRgbRatioCompositeForImages m.images |> RgbRatioComposite.syncAllExpressions(BandNames.exprLabel m.bandNames)
-                        editImages = []
-                }
-
-            | VisualizationMode.RgbComposite ->
-                {
-                    m with
-                        visualizationMode = mode
-                        bandMapping = defaultBandMappingForImages m.images
                         editImages = []
                 }
 
@@ -929,18 +890,6 @@ module App =
                 blueExpression       = m.rgbRatioComposite.blueExpression.parsed
             }
 
-        let rgbMappingRenderSettings : RgbMappingRenderSettings =
-            {
-                redBand =
-                    m.bandMapping.redBand
-                greenBand =
-                    m.bandMapping.greenBand
-                blueBand =
-                    m.bandMapping.blueBand
-                gamma =
-                    m.bandMapping.gamma.value
-            }
-
         let transferFunctionRenderSettings : TransferFunctionRenderSettings =
             {
                 selectedBand =
@@ -1143,11 +1092,6 @@ module App =
                                 m.images
                                 bandRatioRenderSettings
 
-                        | VisualizationMode.RgbComposite ->
-                            Image.createRgbMappingTexture
-                                m.images
-                                rgbMappingRenderSettings
-
                         | VisualizationMode.SingleBandTransferFunction ->
                             Image.createTransferFunctionTexture
                                 m.images
@@ -1168,9 +1112,6 @@ module App =
 
         let rgbRatioSelectedBandHistograms =
             computeRgbRatioSelectedBandHistograms m 32
-
-        let rgbMappingSelectedBandHistogram =
-            computeRgbMappingSelectedBandHistograms m 32
 
         let transferFunctionSelectedBandHistogram =
             computeTransferFunctionSelectedBandHistogram m 32
@@ -1301,29 +1242,6 @@ module App =
                                     selectedHistogramsView
                                         "Currently selected RGB band histograms and spectral profiles"
                                         rgbRatioSelectedBandHistograms
-
-                            
-                            | VisualizationMode.RgbComposite ->
-                                yield
-                                        div [
-                                            clazz "ui inverted segment"
-                                            style "margin-top: 10px;"
-                                        ] [
-                                            div [
-                                                style "font-size: 11px; color: #aaa;"
-                                            ] [
-                                                text "Spectral Profile of the selected bands"
-                                            ]
-
-
-                                            selectedSpectralProfilesView
-                                                rgbSelectedBandSpectralProfiles false
-                                        ]
-
-                                yield
-                                    selectedHistogramsView
-                                        "Currently selected RGB band histograms and spectral profiles"
-                                        rgbMappingSelectedBandHistogram
                                 
                             | VisualizationMode.SingleBandTransferFunction ->
                                 yield
@@ -1539,11 +1457,6 @@ module App =
 
                                         yield
                                             visualizationModeOption
-                                                "RGB mapping"
-                                                VisualizationMode.RgbComposite
-
-                                        yield
-                                            visualizationModeOption
                                                 "Transfer function"
                                                 VisualizationMode.SingleBandTransferFunction
                                     }
@@ -1576,12 +1489,6 @@ module App =
                             match mode with
                             | VisualizationMode.RgbRatioComposite ->
                                 yield div [attributesName] [text "Band"]
-
-                            | VisualizationMode.RgbComposite ->                                
-                                yield selectHeader "Band"
-                                yield selectHeader "R"
-                                yield selectHeader "G"
-                                yield selectHeader "B"
 
                             | VisualizationMode.SingleBandTransferFunction ->
                                 yield div [attributesName] [text "Band"]
@@ -1667,21 +1574,6 @@ module App =
                                                                     (SetBandRatioBand (channel, role, index))
                                                             ]
 
-                                                        let rgbMappingSelector
-                                                            (selected : aval<Option<int>>)
-                                                            (channel : RgbChannel) =
-
-                                                            div [attributesSelect] [
-                                                                Html.SemUi.iconCheckBox
-                                                                    (
-                                                                        (selected, selectedBandIndex)
-                                                                        ||> AVal.map2 (fun selected bandIndex ->
-                                                                            selected = Some bandIndex
-                                                                        )
-                                                                    )
-                                                                    (SetRgbMappingBand (channel, index))
-                                                            ]
-
                                                         let transferFunctionSelector
                                                             (selected : aval<Option<int>>) =
 
@@ -1728,11 +1620,6 @@ module App =
                                                         match mode with
                                                         | VisualizationMode.RgbRatioComposite ->
                                                             yield bandNameCell attributesName
-
-                                                        | VisualizationMode.RgbComposite ->
-                                                            yield rgbMappingSelector m.bandMapping.redBand RgbChannel.Red
-                                                            yield rgbMappingSelector m.bandMapping.greenBand RgbChannel.Green
-                                                            yield rgbMappingSelector m.bandMapping.blueBand RgbChannel.Blue
 
                                                         | VisualizationMode.SingleBandTransferFunction ->
                                                             yield bandNameCell attributesName

@@ -63,14 +63,6 @@ type BandRatioRenderSettings =
             blueExpression : aval<Option<BandExpression.BandExpression>>
         }
 
-type RgbMappingRenderSettings = 
-    {
-        redBand : aval<Option<int>>
-        greenBand : aval<Option<int>>
-        blueBand : aval<Option<int>>
-        gamma : aval<float>
-    }
-
 type TransferFunctionRenderSettings =
     {
         selectedBand : aval<Option<int>>

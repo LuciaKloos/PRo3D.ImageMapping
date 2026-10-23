@@ -90,25 +90,6 @@ module SpectralAnalysis =
                         histogram = [||]
                     }
 
-     let computeRgbMappingSelectedBandHistograms
-        (m : AdaptiveModel)
-        (binCount : int)
-        : aval<RgbSelectedBandHistogram list> =
-
-        AVal.custom (fun token ->
-
-            let sources =
-                m.images
-                |> AList.force
-                |> fun images -> readAdaptiveBandSources images token
-            
-            [
-                computeOne sources binCount "R" (m.bandMapping.redBand.GetValue token)
-                computeOne sources binCount "G" (m.bandMapping.greenBand.GetValue token)
-                computeOne sources binCount "B" (m.bandMapping.blueBand.GetValue token)
-            ]
-        )
-
      let computeTransferFunctionSelectedBandHistogram
         (m : AdaptiveModel)
         (binCount : int)
@@ -657,97 +638,6 @@ module SpectralAnalysis =
                         spectralProfile = points
                     }
 
-            | VisualizationMode.RgbComposite ->
-               
-                match m.clickedPixel.GetValue token with
-                | None ->
-                    emptyProfile label
-
-                | Some pixel -> 
-
-                    let bandIndices =
-                        [|
-                            m.bandMapping.redBand.GetValue token
-                            m.bandMapping.greenBand.GetValue token
-                            m.bandMapping.blueBand.GetValue token
-                        |]
-                        |> Array.choose id
-                    
-
-                    let images = adaptiveImages.GetValue token                                      
-
-                    let sources =
-                        readAdaptiveBandSources images token
-                        |> List.distinctBy (fun source -> source.logicalIndex)
-                        |> List.sortBy (fun source -> source.logicalIndex)
-
-                    let logicalBands = 
-                        bandIndices
-                        |> Array.choose (fun bandIndex ->
-                            readLogicalBand sources bandIndex
-                            |> function
-                                | Result.Ok logicalBand -> Some logicalBand
-                                | Result.Error error ->
-                                    Log.warn
-                                        "Could not read logical band %d: %s"
-                                        bandIndex
-                                        error
-                                    None
-                        )
-
-                    let relevantSources = 
-                        sources
-                        |> List.filter (fun source ->
-                        logicalBands
-                        |> Array.exists (fun logicalBand ->
-                            logicalBand.source.filePath = source.filePath &&
-                            logicalBand.source.channelIndex = source.channelIndex
-                        )
-                    )
-
-                    let points =
-                        relevantSources
-                        |> List.choose (fun source ->
-                            match readBandPixel source pixel.[0] pixel.[1] with
-                            | Result.Ok value 
-                                when Double.IsFinite value ->
-
-                                Some {
-                                    wavelength = float (source.logicalIndex + 1)
-                                    displayLabel = sprintf "Band %d" (source.logicalIndex + 1)
-                                    value = value
-                                    color = "#ffffff"
-                                }
-
-                            | Result.Ok _ ->
-                                None
-
-                            | Result.Error error ->
-                                Log.warn
-                                    "Could not read pixel (%d,%d), band %d: %s"
-                                    pixel.X pixel.Y source.logicalIndex error
-
-                                None
-
-                        )
-                        |> List.toArray
-            
-                    {
-                        label =
-                            sprintf "Pixel (%d, %d)" pixel.X pixel.Y
-
-                        wavelengthSpan =
-                            if Array.isEmpty points then
-                                None
-                            else
-                                Some (
-                                    points.[0].wavelength,
-                                    points.[points.Length - 1].wavelength
-                                )
-
-                        spectralProfile = points
-                    }
-
             | VisualizationMode.RgbRatioComposite ->
                 match m.clickedPixel.GetValue token with
                     | None ->
@@ -999,24 +889,7 @@ module SpectralAnalysis =
                     readAdaptiveBandSources images token
 
                 match m.visualizationMode.GetValue token with
-                | VisualizationMode.RgbComposite ->
-
-                    let bandIndices =
-                        [|
-                            m.bandMapping.redBand.GetValue token
-                            m.bandMapping.greenBand.GetValue token
-                            m.bandMapping.blueBand.GetValue token
-                        |]
-                        |> Array.choose id
-
-                    [
-                        computeSpectralProfile
-                            sources
-                            "RGB composite"
-                            "#ffffff"
-                            bandIndices
-                    ]
-
+                
                 | VisualizationMode.RgbRatioComposite ->
 
                     let ratioBandPairs =

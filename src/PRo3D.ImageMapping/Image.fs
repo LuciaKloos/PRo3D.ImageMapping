@@ -125,61 +125,6 @@ module Image =
                 DefaultTextures.checkerboard.GetValue()
         )
 
-    let createRgbMappingTexture
-        (images : alist<AdaptiveImage>)
-        (rgbMappingRenderSettings : RgbMappingRenderSettings)
-        : aval<ITexture> =
-        let adaptiveImages =
-            AList.toAVal images
-        AVal.custom (fun token ->
-            let sources =
-                adaptiveImages.GetValue token
-                |> fun images -> readAdaptiveBandSources images token
-
-            let redBandValue =
-                rgbMappingRenderSettings.redBand.GetValue token
-            let greenBandValue =
-                rgbMappingRenderSettings.greenBand.GetValue token
-            let blueBandValue =
-                rgbMappingRenderSettings.blueBand.GetValue token
-            let gammaValue =
-                rgbMappingRenderSettings.gamma.GetValue token
-
-           
-
-            match
-                sources,
-                redBandValue,
-                greenBandValue,
-                blueBandValue
-            with
-            | [], _, _, _ ->
-                DefaultTextures.checkerboard.GetValue()
-            | _, Some redBand, Some greenBand, Some blueBand ->
-                match
-                    createRgbMappingPixImageFromSources
-                        sources
-                        redBand
-                        greenBand
-                        blueBand
-                        gammaValue
-                with
-                | Result.Ok image ->
-                    PixTexture2d(
-                        PixImageMipMap [|
-                            image :> PixImage
-                        |],
-                        false
-                    ) :> ITexture
-                | Result.Error error ->
-                    Log.warn
-                        "Could not create RGB mapping: %s"
-                        error
-                    DefaultTextures.checkerboard.GetValue()
-            | _ ->
-                DefaultTextures.checkerboard.GetValue()
-        )
-
     let createRawGreyscaleTexture
         (sourcePath : aval<Option<string>>)
         : aval<ITexture> =
