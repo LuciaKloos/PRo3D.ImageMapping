@@ -65,7 +65,7 @@ type BandRatioRenderSettings =
 
 type TransferFunctionRenderSettings =
     {
-        selectedBand : aval<Option<int>>
+        selectedBands : aval<list<int>>
         gamma : aval<float>
     }
 

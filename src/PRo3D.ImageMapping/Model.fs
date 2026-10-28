@@ -77,8 +77,12 @@ type RgbRatioComposite =
 [<ModelType>]
 type TransferFunctionMapping =
     {
-        selectedBand : Option<int>
-        gamma : NumericInput
+        wavelengthMin        : NumericInput
+        wavelengthMax        : NumericInput
+        availableSpan        : Option<float * float>
+        selectedBands        : list<int>      // logical band indices inside the interval
+        usedNearestFallback  : bool
+        gamma                : NumericInput
     }
 
 [<ModelType>]
@@ -398,13 +402,60 @@ module RgbRatioComposite =
             { composite with blueDenominatorBand = Some bandIndex }
 
 module TransferFunctionMapping =
+    let private wavelengthInput lo hi v =
+        { Numeric.init with min = lo; max = hi; step = 1.0; value = v; format = "{0:0.0}" }
+
     let empty : TransferFunctionMapping =
         {
-            selectedBand = None
+            wavelengthMin = wavelengthInput 0.0 0.0 0.0
+            wavelengthMax = wavelengthInput 0.0 0.0 0.0
+            availableSpan = None
+            selectedBands = []
+            usedNearestFallback = false
             gamma = { Numeric.init with min = 0.01; max = 5.0; step = 0.01; value = 1.0 }
         }
-    let set bandIndex mapping =
-        { mapping with selectedBand = Some bandIndex }
+
+    let private finiteWavelength (b : Image) =
+        b.wavelength |> Option.filter System.Double.IsFinite
+
+    let spanOf (bands : list<Image>) =
+        match bands |> List.choose finiteWavelength with
+        | [] -> None
+        | ws -> Some (List.min ws, List.max ws)
+
+    /// bands with lo <= wavelength <= hi; if none, the band nearest the interval center
+    let selectBands (lo : float) (hi : float) (bands : list<Image>) : list<int> * bool =
+        let withW =
+            bands |> List.choose (fun b -> finiteWavelength b |> Option.map (fun w -> b.bandIndex, w))
+        match withW with
+        | [] ->
+            // no wavelength metadata at all: fall back to the first band
+            (match bands with b :: _ -> [ b.bandIndex ], true | [] -> [], false)
+        | _ ->
+            match withW |> List.filter (fun (_, w) -> w >= lo && w <= hi) with
+            | [] ->
+                let c = 0.5 * (lo + hi)
+                [ withW |> List.minBy (fun (_, w) -> abs (w - c)) |> fst ], true
+            | inside ->
+                (inside |> List.map fst |> List.sort), false
+
+    let recompute (bands : list<Image>) (m : TransferFunctionMapping) =
+        let sel, fb = selectBands m.wavelengthMin.value m.wavelengthMax.value bands
+        Log.warn "recompute [%f, %f] -> %A (fallback=%b)" m.wavelengthMin.value m.wavelengthMax.value sel fb
+        { m with selectedBands = sel; usedNearestFallback = fb }
+
+    /// default interval = wavelength of the first band (same behaviour as today's single-band default)
+    let initFor (bands : list<Image>) (m : TransferFunctionMapping) =
+        match spanOf bands with
+        | None -> recompute bands { m with availableSpan = None }
+        | Some (lo, hi) ->
+            let start =
+                bands |> List.tryPick finiteWavelength |> Option.defaultValue lo
+            { m with
+                availableSpan = Some (lo, hi)
+                wavelengthMin = wavelengthInput lo hi start
+                wavelengthMax = wavelengthInput lo hi start }
+            |> recompute bands
 
 module ColorMap =
     let getColorMapFileName (map: ColorMap) =
@@ -451,7 +502,6 @@ type Message =
     | SetVisualizationMode of VisualizationMode
     | SetActiveCategory of ActiveCategory
     | SetBandRatioBand of RgbChannel * RgbBandRole * Index
-    | SetTransferFunctionBand of Index
     | SetRgbGamma of Numeric.Action
     | SetAmountHighlight of Numeric.Action
     | SetToneHighlight of Numeric.Action
@@ -483,4 +533,7 @@ type Message =
     | CancelRenameBand
     | RenameBand of int * string
     | ResetBandName of int
+    | SetWavelengthMin of Numeric.Action
+    | SetWavelengthMax of Numeric.Action
+    | SetTransferFunctionColorMap of ColorMap
     | Nop

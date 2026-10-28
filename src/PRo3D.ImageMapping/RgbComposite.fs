@@ -89,133 +89,133 @@ module RgbComposite =
                         )
             midtoneMask    
 
-    let createTransferFunctionPixImageFromSource
-        (sources : list<RgbBandSource>)
-        (bandIndex : int)
-        (minimum : float)
-        (maximum : float)
-        (gamma : float)
-        (useFalseColor : bool)
-        (colorMap : ColorMap)
-        : Result<PixImage<byte>, string> =
+    //let createTransferFunctionPixImageFromSource
+    //    (sources : list<RgbBandSource>)
+    //    (bandIndex : int)
+    //    (minimum : float)
+    //    (maximum : float)
+    //    (gamma : float)
+    //    (useFalseColor : bool)
+    //    (colorMap : ColorMap)
+    //    : Result<PixImage<byte>, string> =
 
-        try
-            match loadSelectedTransferFunctionBand sources bandIndex with
-            | Result.Error error ->
-                Result.Error error
+    //    try
+    //        match loadSelectedTransferFunctionBands sources bandIndex with
+    //        | Result.Error error ->
+    //            Result.Error error
 
-            | Result.Ok band ->
+    //        | Result.Ok band ->
 
-                let width =
-                    band.width
+    //            let width =
+    //                band.width
 
-                let height =
-                    band.height
+    //            let height =
+    //                band.height
 
-                let pixelCount =
-                    band.values.Length
+    //            let pixelCount =
+    //                band.values.Length
 
-                let image =
-                    PixImage<byte>(
-                        Col.Format.RGBA,
-                        V2i(width, height)
-                    )
+    //            let image =
+    //                PixImage<byte>(
+    //                    Col.Format.RGBA,
+    //                    V2i(width, height)
+    //                )
 
-                let redBytes =
-                    Array.zeroCreate<byte> pixelCount
+    //            let redBytes =
+    //                Array.zeroCreate<byte> pixelCount
 
-                let greenBytes =
-                    Array.zeroCreate<byte> pixelCount
+    //            let greenBytes =
+    //                Array.zeroCreate<byte> pixelCount
 
-                let blueBytes =
-                    Array.zeroCreate<byte> pixelCount
+    //            let blueBytes =
+    //                Array.zeroCreate<byte> pixelCount
 
-                let alphaBytes =
-                    Array.zeroCreate<byte> pixelCount
+    //            let alphaBytes =
+    //                Array.zeroCreate<byte> pixelCount
 
-                let luminance =
-                    Array.zeroCreate<float> pixelCount
+    //            let luminance =
+    //                Array.zeroCreate<float> pixelCount
 
-                // First pass:
-                // raw single band -> transfer function / grayscale RGB bytes.
-                for index in 0 .. pixelCount - 1 do
-                    let value =
-                        band.values.[index]
+    //            // First pass:
+    //            // raw single band -> transfer function / grayscale RGB bytes.
+    //            for index in 0 .. pixelCount - 1 do
+    //                let value =
+    //                    band.values.[index]
 
-                    if Double.IsFinite value then
-                        let byteValue =
-                            valueToByte gamma minimum maximum value
+    //                if Double.IsFinite value then
+    //                    let byteValue =
+    //                        valueToByte gamma minimum maximum value
 
-                        let color =
-                            if useFalseColor then
-                                let normalizedValue =
-                                    float byteValue / 255.0
+    //                    let color =
+    //                        if useFalseColor then
+    //                            let normalizedValue =
+    //                                float byteValue / 255.0
 
-                                sampleColorMap colorMap normalizedValue
-                            else
-                                C4b(
-                                    byteValue,
-                                    byteValue,
-                                    byteValue,
-                                    255uy
-                                )
+    //                            sampleColorMap colorMap normalizedValue
+    //                        else
+    //                            C4b(
+    //                                byteValue,
+    //                                byteValue,
+    //                                byteValue,
+    //                                255uy
+    //                            )
 
-                        redBytes.[index] <- color.R
-                        greenBytes.[index] <- color.G
-                        blueBytes.[index] <- color.B
-                        alphaBytes.[index] <- 255uy
+    //                    redBytes.[index] <- color.R
+    //                    greenBytes.[index] <- color.G
+    //                    blueBytes.[index] <- color.B
+    //                    alphaBytes.[index] <- 255uy
 
-                        let rf =
-                            float color.R / 255.0
+    //                    let rf =
+    //                        float color.R / 255.0
 
-                        let gf =
-                            float color.G / 255.0
+    //                    let gf =
+    //                        float color.G / 255.0
 
-                        let bf =
-                            float color.B / 255.0
+    //                    let bf =
+    //                        float color.B / 255.0
 
-                        luminance.[index] <-
-                            0.2126 * rf + 0.7152 * gf + 0.0722 * bf
+    //                    luminance.[index] <-
+    //                        0.2126 * rf + 0.7152 * gf + 0.0722 * bf
 
                
-                let adjustedRedBytes =
-                    Array.zeroCreate<byte> pixelCount
+    //            let adjustedRedBytes =
+    //                Array.zeroCreate<byte> pixelCount
 
-                let adjustedGreenBytes =
-                    Array.zeroCreate<byte> pixelCount
+    //            let adjustedGreenBytes =
+    //                Array.zeroCreate<byte> pixelCount
 
-                let adjustedBlueBytes =
-                    Array.zeroCreate<byte> pixelCount
+    //            let adjustedBlueBytes =
+    //                Array.zeroCreate<byte> pixelCount
 
                 
-                image
-                    .GetMatrix<C4b>()
-                    .SetByCoord(fun (position : V2l) ->
-                        let x =
-                            int position.X
+    //            image
+    //                .GetMatrix<C4b>()
+    //                .SetByCoord(fun (position : V2l) ->
+    //                    let x =
+    //                        int position.X
 
-                        let y =
-                            int position.Y
+    //                    let y =
+    //                        int position.Y
 
-                        let index =
-                            y * width + x
+    //                    let index =
+    //                        y * width + x
 
-                        if alphaBytes.[index] > 0uy then
-                            C4b(
-                                adjustedRedBytes.[index],
-                                adjustedGreenBytes.[index],
-                                adjustedBlueBytes.[index],
-                                255uy
-                            )
-                        else
-                            C4b(0uy, 0uy, 0uy, 0uy)
-                    )
-                |> ignore
+    //                    if alphaBytes.[index] > 0uy then
+    //                        C4b(
+    //                            adjustedRedBytes.[index],
+    //                            adjustedGreenBytes.[index],
+    //                            adjustedBlueBytes.[index],
+    //                            255uy
+    //                        )
+    //                    else
+    //                        C4b(0uy, 0uy, 0uy, 0uy)
+    //                )
+    //            |> ignore
 
-                Result.Ok image
+    //            Result.Ok image
 
-        with error ->
-            Result.Error error.Message
+    //    with error ->
+    //        Result.Error error.Message
 
     
     let private computeValidForeground

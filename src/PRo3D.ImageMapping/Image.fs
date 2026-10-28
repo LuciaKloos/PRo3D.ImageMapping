@@ -186,12 +186,13 @@ module Image =
                 adaptiveImages.GetValue token
                 |> fun images -> readAdaptiveBandSources images token
 
-            match transferFunctionRenderSettings.selectedBand.GetValue token with
-            | None ->
+            match transferFunctionRenderSettings.selectedBands.GetValue token with
+            | [] ->
                 DefaultTextures.checkerboard.GetValue()
 
-            | Some selectedBand ->
-                match loadSelectedTransferFunctionBand sources selectedBand with
+            | selectedBands ->
+                Log.warn "TF texture from bands %A" selectedBands
+                match loadSelectedTransferFunctionBands sources selectedBands with
                 | Result.Error error ->
                     Log.warn "Could not load selected band texture: %s" error
                     DefaultTextures.checkerboard.GetValue()
@@ -231,18 +232,13 @@ module Image =
         let adaptiveImages = AList.toAVal images
 
         AVal.custom (fun token ->
-            let selectedBand =
-                transferFunctionRenderSettings.selectedBand.GetValue token
+            let selectedBands =
+                transferFunctionRenderSettings.selectedBands.GetValue token
 
-            let selectedImage =
-                adaptiveImages.GetValue token
-                |> IndexList.toList
-                |> List.tryFind (fun image ->
-                    Some (image.bandIndex.GetValue token) = selectedBand
-                )
+            let selectedImage = tryFindReferenceImage (adaptiveImages.GetValue token) token selectedBands
 
             match selectedImage with
-            | None ->
+            | None  ->
                 DefaultTextures.checkerboard.GetValue()
 
             | Some image ->
@@ -260,88 +256,85 @@ module Image =
                 ) :> ITexture
         )
 
-    let createTransferFunctionTexture 
-        (images : alist<AdaptiveImage>)
-        (transferFunctionRenderSettings : TransferFunctionRenderSettings)
-        : aval<ITexture> =
+    //let createTransferFunctionTexture 
+    //    (images : alist<AdaptiveImage>)
+    //    (transferFunctionRenderSettings : TransferFunctionRenderSettings)
+    //    : aval<ITexture> =
 
-        let adaptiveImages =
-            AList.toAVal images
+    //    let adaptiveImages =
+    //        AList.toAVal images
 
-        AVal.custom (fun token ->
+    //    AVal.custom (fun token ->
 
-            let currentImages =
-                adaptiveImages.GetValue token
+    //        let currentImages =
+    //            adaptiveImages.GetValue token
 
-            let sources =
-                readAdaptiveBandSources currentImages token
+    //        let sources =
+    //            readAdaptiveBandSources currentImages token
 
-            let selectedBandValue =
-                transferFunctionRenderSettings.selectedBand.GetValue token
+    //        let selectedBandValue =
+    //            transferFunctionRenderSettings.selectedBands.GetValue token
 
-            let gammaValue =
-                transferFunctionRenderSettings.gamma.GetValue token
+    //        let gammaValue =
+    //            transferFunctionRenderSettings.gamma.GetValue token
 
 
-            match sources, selectedBandValue with
-            | [], _ ->
-                DefaultTextures.checkerboard.GetValue()
+    //        match transferFunctionRenderSettings.selectedBands.GetValue token with
+    //        | [] ->
+    //            DefaultTextures.checkerboard.GetValue()
 
-            | _, None ->
-                DefaultTextures.checkerboard.GetValue()
+    //        | selectedBands ->
 
-            | _, Some selectedBand ->
+    //            let selectedImage =
+    //                currentImages
+    //                |> IndexList.toList
+    //                |> List.tryFind (fun image ->
+    //                    image.bandIndex.GetValue token = selectedBands
+    //                )
 
-                let selectedImage =
-                    currentImages
-                    |> IndexList.toList
-                    |> List.tryFind (fun image ->
-                        image.bandIndex.GetValue token = selectedBand
-                    )
+    //            match selectedImage with
+    //            | None ->
+    //                DefaultTextures.checkerboard.GetValue()
 
-                match selectedImage with
-                | None ->
-                    DefaultTextures.checkerboard.GetValue()
+    //            | Some image ->
 
-                | Some image ->
+    //                let minimumValue =
+    //                    image.inputMinValue.value.GetValue token
 
-                    let minimumValue =
-                        image.inputMinValue.value.GetValue token
+    //                let maximumValue =
+    //                    image.inputMaxValue.value.GetValue token
 
-                    let maximumValue =
-                        image.inputMaxValue.value.GetValue token
+    //                let useFalseColorValue =
+    //                    image.useFalseColor.GetValue token
 
-                    let useFalseColorValue =
-                        image.useFalseColor.GetValue token
+    //                let colorMapValue =
+    //                    image.colorMap.GetValue token
 
-                    let colorMapValue =
-                        image.colorMap.GetValue token
+    //                match
+    //                    createTransferFunctionPixImageFromSource
+    //                        sources
+    //                        selectedBands
+    //                        minimumValue
+    //                        maximumValue
+    //                        gammaValue
+    //                        useFalseColorValue
+    //                        colorMapValue
+    //                with
+    //                | Result.Ok pixImage ->
+    //                    PixTexture2d(
+    //                        PixImageMipMap [|
+    //                            pixImage :> PixImage
+    //                        |],
+    //                        false
+    //                    ) :> ITexture
 
-                    match
-                        createTransferFunctionPixImageFromSource
-                            sources
-                            selectedBand
-                            minimumValue
-                            maximumValue
-                            gammaValue
-                            useFalseColorValue
-                            colorMapValue
-                    with
-                    | Result.Ok pixImage ->
-                        PixTexture2d(
-                            PixImageMipMap [|
-                                pixImage :> PixImage
-                            |],
-                            false
-                        ) :> ITexture
+    //                | Result.Error error ->
+    //                    Log.warn
+    //                        "Could not create transfer-function image: %s"
+    //                        error
 
-                    | Result.Error error ->
-                        Log.warn
-                            "Could not create transfer-function image: %s"
-                            error
-
-                        DefaultTextures.checkerboard.GetValue()
-        )
+    //                    DefaultTextures.checkerboard.GetValue()
+    //    )
           
 
     let createStretchedGreyscaleTexture

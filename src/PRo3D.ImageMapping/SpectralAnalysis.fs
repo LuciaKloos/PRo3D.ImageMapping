@@ -95,22 +95,26 @@ module SpectralAnalysis =
         (binCount : int)
         : aval<RgbSelectedBandHistogram list> =
 
-        AVal.custom (fun token ->
-            let selectedBandIndex =
-                m.transferFunctionMapping.selectedBand.GetValue token
+        let adaptiveImages = AList.toAVal m.images
 
-            let label = 
-                "Transfer function"
-                
-            let images =
-                m.images
-                |> AList.force
+        AVal.custom (fun token ->
+            let selectedIndices =
+                m.transferFunctionMapping.selectedBands.GetValue token
 
             let sources =
-                readAdaptiveBandSources images token
-            [
-                computeOne sources binCount label selectedBandIndex      
-            ]            
+                readAdaptiveBandSources (adaptiveImages.GetValue token) token
+
+            let labelFor (bandIndex : int) =
+                sources
+                |> List.tryFind (fun s -> s.logicalIndex = bandIndex)
+                |> Option.bind (fun s -> s.wavelength)
+                |> function
+                    | Some w -> sprintf "%.0f nm" w
+                    | None   -> "Transfer function"
+
+            selectedIndices
+            |> List.map (fun bandIndex ->
+                computeOne sources binCount (labelFor bandIndex) (Some bandIndex))
         )
 
      let computeRgbRatioSelectedBandHistograms
@@ -243,7 +247,9 @@ module SpectralAnalysis =
         : aval<RgbSelectedBandHistogram list> =
 
         AVal.custom (fun token ->
-            let selectedBand = m.transferFunctionMapping.selectedBand.GetValue token
+            let selectedBand =
+                m.transferFunctionMapping.selectedBands.GetValue token
+                |> List.tryHead
             let images = m.images |> AList.force
             let sources = readAdaptiveBandSources images token
 
@@ -590,10 +596,12 @@ module SpectralAnalysis =
                 | Some pixel -> 
                     let images = adaptiveImages.GetValue token
 
+                    let selected = m.transferFunctionMapping.selectedBands.GetValue token
                     let sources =
                         readAdaptiveBandSources images token
-                        |> List.distinctBy (fun source -> source.logicalIndex)
-                        |> List.sortBy (fun source -> source.logicalIndex)
+                        |> List.distinctBy (fun s -> s.logicalIndex)
+                        |> List.filter (fun s -> List.contains s.logicalIndex selected)
+                        |> List.sortBy (fun s -> s.logicalIndex)
 
                     let points =
                         sources
@@ -938,10 +946,8 @@ module SpectralAnalysis =
                 | VisualizationMode.SingleBandTransferFunction ->
 
                     let bandIndices =
-                        [|
-                            m.transferFunctionMapping.selectedBand.GetValue token
-                        |]
-                        |> Array.choose id
+                        m.transferFunctionMapping.selectedBands.GetValue token
+                        |> List.toArray
                     
                     [
                         computeSpectralProfile

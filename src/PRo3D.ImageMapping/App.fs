@@ -90,7 +90,7 @@ module App =
 
         {
             TransferFunctionMapping.empty with
-                selectedBand = pickBand 0 0 bands
+                selectedBands = bands
         }
 
     let private isSingleChannelImage (path : string) =
@@ -261,7 +261,7 @@ module App =
                             imageHeight = height
                             editImages = []
                             rgbRatioComposite = defaultRgbComposite |> RgbRatioComposite.syncAllExpressions (BandNames.exprLabel [])
-                            transferFunctionMapping = defaultTransferFunctionMappingForImages bands
+                            transferFunctionMapping = TransferFunctionMapping.initFor (IndexList.toList bands) TransferFunctionMapping.empty
                             visualizationMode = VisualizationMode.RgbRatioComposite
                             loadCompleteSpectralProfile = false
                             bandExpressionDraft = ""
@@ -364,24 +364,6 @@ module App =
             | None ->        
                 m
                         
-        | SetTransferFunctionBand (rowIndex) ->
-            let selectedBandIndex =
-                m.images
-                |> IndexList.mapi (fun index img -> index, img)
-                |> IndexList.toList
-                |> List.tryFind (fun (index, _) -> index = rowIndex)
-                |> Option.map (fun (_, img) -> img.bandIndex)
-            match selectedBandIndex with
-            | Some bandIndex ->
-                {
-                    m with
-                        transferFunctionMapping =
-                            m.transferFunctionMapping
-                            |> TransferFunctionMapping.set bandIndex 
-                }
-            | None ->        
-                m
-
         | SetRgbGamma action ->
             {
                 m with
@@ -535,7 +517,10 @@ module App =
                 {
                     m with
                         visualizationMode = mode
-                        transferFunctionMapping = defaultTransferFunctionMappingForImages m.images
+                        transferFunctionMapping = 
+                            if List.isEmpty m.transferFunctionMapping.selectedBands then
+                                TransferFunctionMapping.initFor (IndexList.toList m.images) m.transferFunctionMapping
+                            else m.transferFunctionMapping
                         editImages = []
                 }
 
@@ -739,6 +724,36 @@ module App =
         | ResetBandName idx ->
             applyBandNames m (BandNames.reset idx m.bandNames)
 
+        | SetWavelengthMin action ->
+            Log.warn "SetWavelengthMin %A" action
+            let tf = m.transferFunctionMapping
+            let lo = (Numeric.update tf.wavelengthMin action).value
+            let hi = max tf.wavelengthMax.value lo
+            { m with
+                transferFunctionMapping =
+                    { tf with
+                        wavelengthMin = { tf.wavelengthMin with value = lo }
+                        wavelengthMax = { tf.wavelengthMax with value = hi } }
+                    |> TransferFunctionMapping.recompute (IndexList.toList m.images) }
+
+        | SetWavelengthMax action ->
+            Log.warn "SetWavelengthMax %A" action
+            let tf = m.transferFunctionMapping
+            let hi = (Numeric.update tf.wavelengthMax action).value
+            let lo = min tf.wavelengthMin.value hi
+            { m with
+                transferFunctionMapping =
+                    { tf with
+                        wavelengthMin = { tf.wavelengthMin with value = lo }
+                        wavelengthMax = { tf.wavelengthMax with value = hi } }
+                    |> TransferFunctionMapping.recompute (IndexList.toList m.images) }
+
+        | SetTransferFunctionColorMap colorMap ->
+            { m with
+                images =
+                    m.images
+                    |> IndexList.map (fun img -> Image.update img (SetColorMap colorMap)) }
+
 
     let initialFor (test : Option<TestConfig>) =
         match test with
@@ -809,6 +824,19 @@ module App =
                         let! activeCategory = m.activeCategory
 
                         if activeCategory = ActiveCategory.MultispectralImage then
+                            yield node
+                    }
+                )
+        
+        let onlyForTransferFunction (node : DomNode<Message>) =
+            Incremental.div
+                AttributeMap.empty
+                (
+                    alist {
+                        let! activeCategory = m.activeCategory
+                        let! mode = m.visualizationMode
+
+                        if activeCategory = ActiveCategory.MultispectralImage && mode = VisualizationMode.SingleBandTransferFunction then
                             yield node
                     }
                 )
@@ -892,8 +920,8 @@ module App =
 
         let transferFunctionRenderSettings : TransferFunctionRenderSettings =
             {
-                selectedBand =
-                    m.transferFunctionMapping.selectedBand
+                selectedBands =
+                    m.transferFunctionMapping.selectedBands
                 gamma =
                     m.transferFunctionMapping.gamma.value
             }
@@ -981,25 +1009,20 @@ module App =
                         0.0, 1.0, true, 0.0, 0.0, 0.0
 
                 | SourceImageKind.Multispectral ->
-                    let selectedBand =
-                        transferFunctionRenderSettings.selectedBand.GetValue token
+                    let selectedBands =
+                        transferFunctionRenderSettings.selectedBands.GetValue token
+                    let images = (AList.toAVal m.images).GetValue token
+                    let selected =
+                        images |> IndexList.toList
+                        |> List.filter (fun i -> List.contains (i.bandIndex.GetValue token) selectedBands)
 
-                    let selectedImage =
-                        (AList.toAVal m.images).GetValue token
-                        |> IndexList.toList
-                        |> List.tryFind (fun image ->
-                            Some (image.bandIndex.GetValue token) = selectedBand)
+                    match selected with
+                    | first :: _ ->
+                        (selected |> List.map (fun i -> i.inputMinValue.value.GetValue token) |> List.min),
+                        (selected |> List.map (fun i -> i.inputMaxValue.value.GetValue token) |> List.max),
+                        not (first.useFalseColor.GetValue token), 0.0, 0.0, 0.0
+                    | [] -> 0.0, 1.0, true, 0.0, 0.0, 0.0
 
-                    match selectedImage with
-                    | Some image ->
-                        image.inputMinValue.value.GetValue token,
-                        image.inputMaxValue.value.GetValue token,
-                        not (image.useFalseColor.GetValue token),
-                        0.0,
-                        0.0,
-                        0.0
-                    | None ->
-                        0.0, 1.0, true, 0.0, 0.0, 0.0
             )
             
         // <highlightsAmount, highlightsTone, highlightRadius, shadowsAmount, shadowsTone, shadowRadius>
@@ -1093,9 +1116,7 @@ module App =
                                 bandRatioRenderSettings
 
                         | VisualizationMode.SingleBandTransferFunction ->
-                            Image.createTransferFunctionTexture
-                                m.images
-                                transferFunctionRenderSettings
+                            AVal.constant (DefaultTextures.checkerboard.GetValue())
                     )
             )
 
@@ -1492,8 +1513,6 @@ module App =
 
                             | VisualizationMode.SingleBandTransferFunction ->
                                 yield div [attributesName] [text "Band"]
-                                yield selectHeader "Use"
-                                yield div [attributesEdit] [text "Edit"]
 
                             yield div [attributesWavelength] [text "Wavelengths"]
 
@@ -1574,20 +1593,6 @@ module App =
                                                                     (SetBandRatioBand (channel, role, index))
                                                             ]
 
-                                                        let transferFunctionSelector
-                                                            (selected : aval<Option<int>>) =
-
-                                                            div [attributesSelect] [
-                                                                Html.SemUi.iconCheckBox
-                                                                    (
-                                                                        (selected, selectedBandIndex)
-                                                                        ||> AVal.map2 (fun selected bandIndex ->
-                                                                            selected = Some bandIndex
-                                                                        )
-                                                                    )
-                                                                    (SetTransferFunctionBand index)
-                                                            ]
-
                                                         let bandNameDisplay 
                                                             (selected : aval<Option<int>>) =
                                                             div [attributesSelect]
@@ -1605,27 +1610,12 @@ module App =
 
                                                                 ]
 
-                                                        let editSelector =
-                                                            div [attributesEdit] [
-                                                                Html.SemUi.iconCheckBox
-                                                                    (
-                                                                        m.editImages
-                                                                        |> AVal.map (fun editImages ->
-                                                                            List.contains index editImages
-                                                                        )
-                                                                    )
-                                                                    (EditImage index)
-                                                            ]
-
                                                         match mode with
                                                         | VisualizationMode.RgbRatioComposite ->
                                                             yield bandNameCell attributesName
 
                                                         | VisualizationMode.SingleBandTransferFunction ->
                                                             yield bandNameCell attributesName
-                                                            yield transferFunctionSelector m.transferFunctionMapping.selectedBand
-                                                            yield editSelector
-
                                                             
                                                         yield div [attributesWavelength] [
                                                             Incremental.text (
@@ -1640,23 +1630,6 @@ module App =
                                                     }
                                                 )
                                         
-                                            Incremental.div AttributeMap.empty (
-                                                alist {
-                                                    let! mode = m.visualizationMode
-
-                                                    let! isInEditMode =
-                                                        m.editImages
-                                                        |> AVal.map (fun editEntries ->
-                                                            List.contains index editEntries
-                                                        )
-
-                                                    if mode = VisualizationMode.SingleBandTransferFunction && isInEditMode then
-                                                        yield div [attribute "style" $"border-top: 1px dotted rgba(255,255,255,0.5)"] [
-                                                            showDOM img
-                                                            |> UI.map (fun msg -> Message.ImageMessage (index, msg))
-                                                        ]
-                                                }
-                                            )
                                         ]
                                     )
                                 for domNode in domNodes do
@@ -1818,6 +1791,67 @@ module App =
                     ]
             })
 
+        
+        let tf = m.transferFunctionMapping
+
+        // colormap + false-color state of the reference band (first band in the interval)
+        let transferFunctionReference : aval<ColorMap * bool> =
+            AVal.custom (fun token ->
+                let selected = tf.selectedBands.GetValue token
+                let images = (AList.toAVal m.images).GetValue token
+                match BandHandler.tryFindReferenceImage images token selected with
+                | Some image -> image.colorMap.GetValue token, image.useFalseColor.GetValue token
+                | None -> ColorMap.Viridis, false)
+
+        let transferFunctionEditor =
+            div [] [
+                Html.table [
+                    Html.row "False Color:" [
+                        Html.SemUi.dropDown
+                            (transferFunctionReference |> AVal.map fst)
+                            SetTransferFunctionColorMap
+                    ]
+                ]
+                Incremental.div AttributeMap.empty (
+                    alist {
+                        let! (colorMap, useFalseColor) = transferFunctionReference
+                        if useFalseColor then
+                            yield
+                                img [
+                                    attribute "src" (Image.colorMapDataUrl colorMap)
+                                    style "display: block; width: 100%; height: 28px; margin-top: 10px;"
+                                ]
+                    })
+            ]
+
+        let wavelengthIntervalSelector =
+            Incremental.div (AttributeMap.ofList [ clazz "item"; style "padding: 5px;"]) (
+                alist {
+                    match! tf.availableSpan with
+                    | None -> 
+                        yield div [ style "color: #f88;" ] [ text "No wavelength metadata available for these bands." ]
+                    | Some (lo, hi) ->
+                        let! bands = tf.selectedBands
+                        let! fallback = tf.usedNearestFallback
+                        yield div [] [ text (sprintf "Available wavelength span: %.1f - %.1f nm" lo hi) ]
+                        yield transferFunctionEditor
+                        yield 
+                            Html.table [
+                                Html.row "Min (nm):" [
+                                    Numeric.view' [NumericInputType.InputBox] tf.wavelengthMin |> UI.map SetWavelengthMin ]
+                                Html.row "Max (nm):" [
+                                    Numeric.view' [NumericInputType.InputBox] tf.wavelengthMax |> UI.map SetWavelengthMax ]
+                            ]
+                        let! bands = tf.selectedBands
+                        let! fallback = tf.usedNearestFallback
+                        yield
+                            div [ style "font-size: 11px; color: #aaa;" ] [
+                                text (
+                                    if fallback then sprintf "No band in interval, using nearest (%d band)." bands.Length
+                                    else sprintf "%d band(s) in interval, averaged." bands.Length)
+                            ]
+                })
+
         let content = 
             div [style "overlow-y: auto; max-height: calc(100vh - 20vh);"] [
 
@@ -1832,18 +1866,15 @@ module App =
                         ]
                     ]
 
-                    div [clazz "item"; style "border-bottom: solid 1px black; height: 30px; padding: 5px; display: flex; justify-content: space-between; align-items: center;"] [
-                        div [] [text "Visualization:"]
-                        div [style "margin-left: auto;"] [
-                            Numeric.view' [NumericInputType.Slider] m.projectionOpacity
-                            |> UI.map SetProjectionOpacity
-                        ]
-                    ]
                     onlyForMultispectral (
                         div [] [
                             visualizationModeSelector
                             bandRatioExpressionEditor
                         ]
+                    )
+
+                    onlyForTransferFunction (
+                        wavelengthIntervalSelector
                     )
                      
                     onlyForGreyscaleImage (

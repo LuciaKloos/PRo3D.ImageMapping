@@ -138,6 +138,7 @@ module BandHandler =
     let clearDecodedRgbImageCache ()=
         decodedRgbImagePayload.Clear()
 
+    // TODO: make bandTexture and histograms and profiles part of the cache so it won't be recomputed on each interval change
 
     let private createPayloadCacheKey (source: RgbBandSource) =
         let fullPath = Path.GetFullPath source.filePath
@@ -699,6 +700,53 @@ module BandHandler =
         : Result<RgbBandData, string> =
 
         readLogicalBand sources bandIndex
+
+    let private sequenceResults (rs : list<Result<'a, string>>) : Result<list<'a>, string> =
+        (Result.Ok [], rs)
+        ||> List.fold (fun acc r ->
+            match acc, r with
+            | Result.Ok xs, Result.Ok x -> Result.Ok (x :: xs)
+            | Result.Error e, _ | _, Result.Error e -> Result.Error e)
+        |> Result.map List.rev
+
+    // per-pixel mean over the ´given logical bands (non-finite samples are skipped)
+    let loadSelectedTransferFunctionBands
+        (sources : list<RgbBandSource>)
+        (bandIndices : list<int>)
+        : Result<RgbBandData, string> =
+
+        match bandIndices with
+        | [] -> Result.Error "No band lies inside the selected wavelength interval."
+        | [ single ] -> readLogicalBand sources single      // no copy for the common case
+        | _ ->
+            bandIndices
+            |> List.map (readLogicalBand sources)
+            |> sequenceResults
+            |> Result.bind (fun bands ->
+                validateSameDimensions bands
+                |> Result.map (fun (width, height, n) ->
+                    let sum = Array.zeroCreate<float> n
+                    let cnt = Array.zeroCreate<int> n
+                    for b in bands do
+                        for i in 0 .. n - 1 do
+                            let v = b.values.[i]
+                            if Double.IsFinite v then
+                                sum.[i] <- sum.[i] + v
+                                cnt.[i] <- cnt.[i] + 1
+                    {
+                        source = (List.head bands).source
+                        width = width
+                        height = height
+                        values = Array.init n (fun i -> if cnt.[i] = 0 then nan else sum.[i] / float cnt.[i])
+                    }))     
+
+    /// the adaptive image used for colormap / false-color / input range (first selected band)
+    let tryFindReferenceImage (images : IndexList<AdaptiveImage>) token (bandIndices : list<int>) =
+        match bandIndices with
+        | [] -> None
+        | first :: _ -> 
+            images |> IndexList.toList
+            |> List.tryFind (fun i -> i.bandIndex.GetValue token = first)
 
     let readSourceImageRGBChannels 
         (imagePath : string)
