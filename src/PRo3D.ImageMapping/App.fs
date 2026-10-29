@@ -51,6 +51,7 @@ module App =
         bandExpressionDraft = ""
         bandNames = []
         renamingBand = None
+        analysisOpen = false
     }
 
     let private loadedLogicalBandIndices (images : IndexList<Image>) =
@@ -524,9 +525,6 @@ module App =
                         editImages = []
                 }
 
-        | SetActiveCategory category ->
-            { m with activeCategory = category }
-
         | ToggleCompleteSpectralProfile ->
              { m with loadCompleteSpectralProfile = not m.loadCompleteSpectralProfile }
 
@@ -753,6 +751,11 @@ module App =
                 images =
                     m.images
                     |> IndexList.map (fun img -> Image.update img (SetColorMap colorMap)) }
+        | ToggleAnalysisOpen ->
+            { m with analysisOpen = not m.analysisOpen }
+
+        | SetActiveCategory category ->
+            { m with activeCategory = category; analysisOpen = false }
 
 
     let initialFor (test : Option<TestConfig>) =
@@ -815,6 +818,17 @@ module App =
                 aval<bool> ->                     // useTransferFunctionGpu
                 DomNode<Message>
         ) =
+                
+        let onlyIfAnalysisOpen (node : DomNode<Message>) =
+            Incremental.div
+                AttributeMap.empty
+                (
+                    alist {
+                        let! isOpen = m.analysisOpen
+                        if isOpen then
+                            yield node
+                    }
+                )
 
         let onlyForMultispectral (node : DomNode<Message>) =
             Incremental.div
@@ -1427,6 +1441,27 @@ module App =
                 ]
             )
 
+        let accordionAnalysis text' icon active styling content' =
+            let title = if active then "title active inverted" else "title inverted"
+            let content = if active then "content active" else "content"
+
+            onBoot "$('#__ID__ > .ui.accordion').accordion({ exclusive: false, selector: { title: '> .title', content: '> .content' } });" (
+                div styling [
+                    div [clazz "ui inverted accordion fluid"] [
+                        div [
+                            clazz title
+                            style "background-color: #282828"
+                            onClick (fun _ -> ToggleAnalysisOpen)
+                        ] [
+                            i [clazz "dropdown icon"] []
+                            text text'
+                            div [style "float:right"] [i [clazz (icon + " icon")] []]
+                        ]
+                        div [clazz content; style "overflow-y : auto; "] content'
+                    ]
+                ]
+            )
+
         let visualizationModeOption label mode =
             div [
                 style "display: flex; align-items: center; gap: 6px; margin-right: 12px; cursor: pointer;"
@@ -1998,11 +2033,11 @@ module App =
                     )
                     
                     onlyForMultispectral (
-                        accordionHist "Selected Bands Spectral Analysis" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [                        
-                            histogramsAndProfilesForCurrentMode
+                        accordionAnalysis "Selected Bands Spectral Analysis" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
+                            onlyIfAnalysisOpen histogramsAndProfilesForCurrentMode
                         ]
                     )
-                    
+
                     onlyForBandRatios (
                         accordionHist "Saved Band Ratio Expressions" "sliders horizontal" false [clazz "item"; style "margin-top: 10px;"] [
                             savedBandExpressionsList

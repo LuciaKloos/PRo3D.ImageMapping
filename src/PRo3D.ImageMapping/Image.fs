@@ -192,7 +192,7 @@ module Image =
 
             | selectedBands ->
                 Log.warn "TF texture from bands %A" selectedBands
-                match loadSelectedTransferFunctionBands sources selectedBands with
+                match readAveragedBandPayload sources selectedBands with
                 | Result.Error error ->
                     Log.warn "Could not load selected band texture: %s" error
                     DefaultTextures.checkerboard.GetValue()
@@ -204,17 +204,11 @@ module Image =
                             V2i(band.width, band.height)
                         )
 
-                    let mutable pixels = image.GetMatrix<float32>()
+                    let data = image.Volume.Data
+                    let v = band.values
 
-                    for y in 0 .. band.height - 1 do
-                        for x in 0 .. band.width - 1 do
-                            let value = band.values.[y * band.width + x]
-
-                            pixels.[x, y] <-
-                                if Double.IsFinite value then
-                                    float32 value
-                                else
-                                    0.0f
+                    for i in 0 .. v.Length - 1 do
+                        data.[i] <- if Double.IsFinite v.[i] then float32 v.[i] else 0.0f
 
                     PixTexture2d(
                         PixImageMipMap [| image :> PixImage |],

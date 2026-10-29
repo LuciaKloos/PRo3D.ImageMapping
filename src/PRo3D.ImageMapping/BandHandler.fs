@@ -15,6 +15,7 @@ open NetCdfLoader
 
 open System.Collections.Concurrent
 open System.Threading
+open System.Threading.Tasks
 
 module BandHandler =    
 
@@ -130,10 +131,14 @@ module BandHandler =
             BandPayloadCacheKey,
             Lazy<Result<CachedBandPayload, string>>>()
 
+    let private averagedBandCache =
+        ConcurrentDictionary<string, Lazy<Result<CachedBandPayload, string>>>()
+
     // clears both netdcf and tiff caches
     let clearDecodedBandCache () =
         decodedNcPayloadCache.Clear()
         decodedTiffPayloadCache.Clear()
+        averagedBandCache.Clear()
 
     let clearDecodedRgbImageCache ()=
         decodedRgbImagePayload.Clear()
@@ -708,6 +713,65 @@ module BandHandler =
             | Result.Ok xs, Result.Ok x -> Result.Ok (x :: xs)
             | Result.Error e, _ | _, Result.Error e -> Result.Error e)
         |> Result.map List.rev
+
+    let private averageBands (picked : list<RgbBandSource>) = 
+        picked
+        |> List.map readCachedBandPayload
+        |> sequenceResults
+        |> Result.bind (fun payloads ->
+            let first = List.head payloads
+            if payloads |> List.exists (fun p -> p.width <> first.width || p.height <> first.height) then
+                Result.Error "Bands do not have matching dimensions."
+            else    
+                let n = first.values.Length
+                let arrays = payloads |> List.map (fun p -> p.values) |> List.toArray
+                let out = Array.zeroCreate<float> n
+                let chunk = 1 <<< 16 
+                Parallel.For(0, (n + chunk - 1) / chunk, fun c ->
+                    let lo = c * chunk
+                    let hi = min n (lo + chunk)
+                    for i in lo .. hi - 1 do 
+                        let mutable s = 0.0
+                        let mutable k = 0
+                        for a in arrays do
+                            let v = a.[i]
+                            if Double.IsFinite v then
+                                s <- s + v
+                                k <- k + 1
+                        out.[i] <- if k = 0 then nan else (s / float k)) 
+                    |> ignore
+                Result.Ok (createCachedBandPayload first.width first.height out))
+
+    let readAveragedBandPayload (sources : list<RgbBandSource>) (bandIndices : list<int>) = 
+        let picked = 
+            bandIndices 
+            |> List.choose (fun i -> sources |> List.tryFind (fun s -> s.logicalIndex = i))
+        match picked with
+        | [] -> Result.Error "No band lies inside the selected wavelength interval."
+        | [ single ] -> readCachedBandPayload single
+        | _ -> 
+            let key = 
+                picked 
+                |> List.map (fun s -> sprintf "%s#%d" s.filePath s.channelIndex)
+                |> String.concat "|"
+            if averagedBandCache.Count > 8 then averagedBandCache.Clear()   // bound memory
+            let lazyPayload = 
+                averagedBandCache.GetOrAdd(key, fun _ ->
+                    Lazy<_>((fun () -> averageBands picked), LazyThreadSafetyMode.ExecutionAndPublication))
+            let result = lazyPayload.Value
+            match result with
+            | Result.Error _ -> averagedBandCache.TryRemove key |> ignore
+            | _ -> ()
+            result
+
+    let readAveragedBandHistogram binCount minimumSignal sources bandIndices =
+        readAveragedBandPayload sources bandIndices
+        |> Result.map (fun payload -> 
+            let key = { binCount = binCount; minimumSignal = minimumSignal }
+            (payload.histograms.GetOrAdd(key, fun _ ->
+                Lazy<HistogramBin[]>(
+                    (fun () -> ImageMath.computeHistogram binCount minimumSignal payload.values),
+                    LazyThreadSafetyMode.ExecutionAndPublication))).Value)
 
     // per-pixel mean over the ´given logical bands (non-finite samples are skipped)
     let loadSelectedTransferFunctionBands

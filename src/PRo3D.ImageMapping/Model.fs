@@ -212,6 +212,7 @@ type Model =
         bandExpressionDraft : string
         bandNames : list<int * string>  
         renamingBand : Option<int>
+        analysisOpen : bool
     }
 
 
@@ -536,4 +537,5 @@ type Message =
     | SetWavelengthMin of Numeric.Action
     | SetWavelengthMax of Numeric.Action
     | SetTransferFunctionColorMap of ColorMap
+    | ToggleAnalysisOpen
     | Nop

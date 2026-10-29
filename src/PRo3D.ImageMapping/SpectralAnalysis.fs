@@ -104,17 +104,13 @@ module SpectralAnalysis =
             let sources =
                 readAdaptiveBandSources (adaptiveImages.GetValue token) token
 
-            let labelFor (bandIndex : int) =
-                sources
-                |> List.tryFind (fun s -> s.logicalIndex = bandIndex)
-                |> Option.bind (fun s -> s.wavelength)
-                |> function
-                    | Some w -> sprintf "%.0f nm" w
-                    | None   -> "Transfer function"
-
-            selectedIndices
-            |> List.map (fun bandIndex ->
-                computeOne sources binCount (labelFor bandIndex) (Some bandIndex))
+            let histogram = 
+                match readAveragedBandHistogram binCount 1.0e-4 sources selectedIndices with
+                | Result.Ok bins -> bins
+                | Result.Error e -> Log.warn "Could not compute histogram: %s" e; [||]
+            [ { label = sprintf "Average of %d band(s)" selectedIndices.Length
+                bandIndices = None
+                histogram = histogram } ] 
         )
 
      let computeRgbRatioSelectedBandHistograms
