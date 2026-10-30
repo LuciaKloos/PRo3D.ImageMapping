@@ -52,6 +52,7 @@ module App =
         bandNames = []
         renamingBand = None
         analysisOpen = false
+        transferSpline = TransferSpline.init
     }
 
     let private loadedLogicalBandIndices (images : IndexList<Image>) =
@@ -756,6 +757,24 @@ module App =
 
         | SetActiveCategory category ->
             { m with activeCategory = category; analysisOpen = false }
+
+        | SplineMovePoint (index, x, y) ->
+            { m with transferSpline = TransferSpline.movePoint index x y m.transferSpline }
+
+        | SplineSetTangent (index, slope) ->
+            { m with transferSpline = TransferSpline.setTangent index slope m.transferSpline }
+
+        | SplineResetTangent index ->
+            { m with transferSpline = TransferSpline.resetTangent index m.transferSpline }
+
+        | SplineAddPoint (x, y) ->
+            { m with transferSpline = TransferSpline.addPoint x y m.transferSpline }
+
+        | SplineRemovePoint index ->
+            { m with transferSpline = TransferSpline.removePoint index m.transferSpline }
+
+        | ResetSpline ->
+            { m with transferSpline = TransferSpline.init }
 
 
     let initialFor (test : Option<TestConfig>) =
@@ -1912,6 +1931,18 @@ module App =
                         wavelengthIntervalSelector
                     )
                      
+                    onlyForTransferFunction (
+                        accordionLists "Transfer Function Curve" "chart line" false
+                            [clazz "item"; style "margin-top: 10px;"]
+                            ResetSpline
+                            [
+                                SplineEditor.view m.transferSpline
+                                div [style "font-size: 11px; color: #aaa; padding: 6px 5px;"] [
+                                    text "Drag points and the orange tangent handles. Double-click empty space to add a point, right-click a point to remove it, double-click a handle to flatten its tangent."
+                                ]
+                            ]
+                    )
+
                     onlyForGreyscaleImage (
                         accordionHist
                             "Grey-value histogram"

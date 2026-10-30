@@ -176,6 +176,21 @@ type SourceImageKind =
     | Multispectral
     | PlainRgbImage
 
+/// px/py normalized to [0,1]; slope is the tangent dy/dx at the point.
+type SplinePoint =
+    {
+        px  : float
+        py  : float 
+        slope   : float
+    }
+
+/// Piecewise cubic Hermite spline y = f(x) on [1,0], points sorted by px.
+type TransferSpline = 
+    {
+        points : list<SplinePoint>
+    }
+
+
 [<ModelType>]
 type Model =
     {
@@ -213,7 +228,97 @@ type Model =
         bandNames : list<int * string>  
         renamingBand : Option<int>
         analysisOpen : bool
+        transferSpline : TransferSpline
     }
+
+module TransferSpline =
+    let minGap = 0.005
+    let maxSlope = 20.0
+
+    let private clamp01 (v : float) = max 0.0 (min 1.0 v)
+
+    let init : TransferSpline =
+        {
+            points = 
+                [
+                    { px = 0.0; py = 0.0; slope = 1.0 }
+                    { px = 1.0; py = 1.0; slope = 1.0 }
+                ]
+        }
+
+    /// takes an x value in [0,1] and returns the curve’s y value at that x, 
+    /// using cubic Hermite interpolation between the control points.
+    let evaluate (spline : TransferSpline) (x : float) : float =
+        let pts = List.toArray spline.points
+        let n = pts.Length
+
+        if n = 0 then clamp01 x
+        elif x <= pts.[0].px then clamp01 pts.[0].py // Left of the first point, it returns the first point’s y, so the curve is flat there.
+        elif x >= pts.[n - 1].px then clamp01 pts.[n - 1].py // Right of the last point, it returns the last point’s y.
+        else 
+            let i = (pts |> Array.findIndex (fun p -> p.px > x)) - 1
+            let p0 = pts.[i] 
+            let p1 = pts.[i + 1]
+            let h = p1.px - p0.px
+            let t = (x - p0.px) / h // maps x onto 0..1 within the segment
+            let t2 = t * t
+            let t3 = t2 * t
+
+            // Hermite basis functions
+            let h00 =  2.0 * t3 - 3.0 * t2 + 1.0
+            let h10 =        t3 - 2.0 * t2 + t
+            let h01 = -2.0 * t3 + 3.0 * t2
+            let h11 =        t3 -       t2
+
+            clamp01 (h00 * p0.py + h10 * h * p0.slope + h01 * p1.py + h11 * h * p1.slope)
+
+    let movePoint (index : int) (x : float) (y : float) (spline : TransferSpline) =
+        let pts = List.toArray spline.points
+        let n = pts.Length
+
+        if index < 0 || index >= n then spline
+        else   
+            let lo = if index = 0   then 0.0 else pts.[index - 1].px + minGap
+            let hi = if index = n - 1 then 1.0 else pts.[index + 1].px - minGap
+            pts.[index] <- { pts.[index] with px = max lo (min hi x); py = clamp01 y }
+            { spline with points = List.ofArray pts }
+
+    let setTangent (index : int) (slope : float) (spline : TransferSpline) =
+        let slope = max -maxSlope (min maxSlope slope)
+
+        { spline with
+            points = 
+                spline.points
+                |> List.mapi (fun i p -> if i = index then { p with slope = slope} else p) }
+
+    let resetTangent (index : int) (spline : TransferSpline) =
+        setTangent index 0.0 spline
+
+    let addPoint (x : float) (y : float) (spline : TransferSpline) =
+        let x = clamp01 x
+        let tooClose = spline.points |> List.exists (fun p -> abs (p.px - x) < minGap)
+
+        if tooClose then spline 
+        else    
+            let e = 0.01
+            let slope = (evaluate spline (x + e) - evaluate spline (x - e))
+
+            let newPoint = 
+                { px = x; py = clamp01 y; slope = max -maxSlope (min maxSlope slope) }
+
+            { spline with
+                points = (newPoint :: spline.points) |> List.sortBy (fun p -> p.px) }
+
+    let removePoint (index : int) (spline : TransferSpline) =
+        if List.length spline.points <= 2 then spline
+        else    
+            { spline with
+                points =
+                    spline.points
+                    |> List.indexed 
+                    |> List.filter (fun (i, _) -> i <> index)
+                    |> List.map snd         
+            }
 
 
 module HighlightAdjustment =
@@ -538,4 +643,10 @@ type Message =
     | SetWavelengthMax of Numeric.Action
     | SetTransferFunctionColorMap of ColorMap
     | ToggleAnalysisOpen
+    | SplineMovePoint of int * float * float
+    | SplineSetTangent of int * float
+    | SplineResetTangent of int
+    | SplineAddPoint of float * float
+    | SplineRemovePoint of int
+    | ResetSpline
     | Nop
