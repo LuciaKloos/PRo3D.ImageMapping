@@ -19,8 +19,8 @@ module Shaders =
         sampler2d {
             texture uniform?ColormapTexture
             filter Filter.MinMagMipLinear
-            addressU WrapMode.Wrap
-            addressV WrapMode.Wrap
+            addressU WrapMode.Clamp
+            addressV WrapMode.Clamp
         }
 
     let rgbCompositeSampler =
@@ -42,6 +42,14 @@ module Shaders =
     let shadowsHighlightsMaskSampler =
         sampler2d {
             texture uniform?ShadowsHighlightsMaskTexture
+            filter Filter.MinMagMipLinear
+            addressU WrapMode.Clamp
+            addressV WrapMode.Clamp
+        }
+
+    let splineTextureSampler =
+        sampler2d {
+            texture uniform?SplineTexture
             filter Filter.MinMagMipLinear
             addressU WrapMode.Clamp
             addressV WrapMode.Clamp
@@ -167,23 +175,30 @@ module Shaders =
     let hshColorsTF (v : Vertex) =
         fragment {
             let hshValueX = instrumentSampler.Sample(v.tc).X 
-            let remappedClampedNormalizedXInt16 =
-                ((min uniform.MaxValue (max uniform.MinValue (hshValueX * 65000.0))) - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
-            let remappedClampedNormalizedXFloat =
-                (hshValueX - uniform.MinValue) / (uniform.MaxValue - uniform.MinValue)
-            let remapClampNormalize =
+            let range = uniform.MaxValue - uniform.MinValue
+
+            // normalized input to [1; 0]
+            let tInt16 =
+                (min uniform.MaxValue (max uniform.MinValue (hshValueX * 65000.0)) - uniform.MinValue) / range
+            let tfloat =
+                (min uniform.MaxValue (max uniform.MinValue hshValueX) - uniform.MinValue) / range
+
+            let t = 
+                min 1.0 (max 0.0 (if uniform.DataType = 2 then tfloat else tInt16))
+
+            // spline LUT lookup: t -> t'
+            // texel-center mapping so t = 0 and t = 1 hit the first and last samples exactly 
+            let lutSize = 256.0
+            let u = (t * (lutSize - 1.0) + 0.5) / lutSize
+            let tCurved = splineTextureSampler.Sample(V2d(u, 0.5)).X
+
+            let result = 
                 if uniform.UseFalseColor then
-                    V4d(
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        (if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16),
-                        1.0
-                    )
+                    V4d(tCurved, tCurved, tCurved, 1.0)
                 else 
-                    colormapTextureSampler.Sample(V2d ((if (uniform.DataType = 2) then remappedClampedNormalizedXFloat else remappedClampedNormalizedXInt16), 0.0))
+                    colormapTextureSampler.Sample(V2d(tCurved, 0.0))
 
-
-            return remapClampNormalize
+            return result
         }
 
 
@@ -192,10 +207,6 @@ module Shaders =
             let src = rgbCompositeSampler.Sample(v.tc)
 
             let lum0 = 0.2126 * src.X + 0.7152 * src.Y + 0.0722 * src.Z
-            //let highlightStart = 1.0 - min 1.0 (max 0.0 uniform.HighlightTone)
-            //let highlightMask = if src.W > 0.0 then smoothstep highlightStart 1.0 lum0 else 0.0
-            //let shadowEnd = min 1.0 (max 0.0 uniform.ShadowTone)
-            //let shadowMask = if src.W > 0.0 then 1.0 - smoothstep 0.0 shadowEnd lum0 else 0.0
 
             let shadowMask = shadowsHighlightsMaskSampler.Sample(v.tc).X
             let highlightMask = shadowsHighlightsMaskSampler.Sample(v.tc).Y

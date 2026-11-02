@@ -151,11 +151,6 @@ module TiffLoader =
                 sampleFormat
                 bitsPerSample
 
-
-
-
-
-
     let tryReadTiffBandAsFloat
         (path : string)
         (channelIndex : int)

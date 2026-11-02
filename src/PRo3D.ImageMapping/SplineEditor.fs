@@ -8,6 +8,8 @@ open Aardvark.Rendering
 open FSharp.Data.Adaptive
 open PRo3D.ImageMapping.Model
 
+// ! more or less vibe coded 
+
 module SplineEditor =
 
     open System.Globalization
@@ -15,13 +17,11 @@ module SplineEditor =
     let private fmt (v : float) =
         v.ToString("0.#####", CultureInfo.InvariantCulture)
 
-    let private serialize (spline : TransferSpline) =
+    let serialize (spline : TransferSpline) (samples : int) =
         let pts =
             spline.points
             |> List.map (fun p -> sprintf "[%s,%s,%s]" (fmt p.px) (fmt p.py) (fmt p.slope))
             |> String.concat ","
-
-        let samples = 128
 
         let curve =
             [ 0 .. samples - 1 ]
@@ -201,7 +201,7 @@ draw();
                     yield style "width: 100%; margin-top: 10px;"
                     yield onEvent "onsplineedit" [] messageOfEvent
                     let! s = spline
-                    yield attribute "data-spline" (serialize s)
+                    yield attribute "data-spline" (serialize s 256)
                 }))
                 AList.empty
         )

@@ -58,24 +58,6 @@ module Image =
             let greenExpression = bandRatioRenderSettings.greenExpression.GetValue token
             let blueExpression = bandRatioRenderSettings.blueExpression.GetValue token
 
-            //let redNumeratorValue =
-            //    bandRatioRenderSettings.redNumeratorBand.GetValue token
-
-            //let redDenominatorValue =
-            //    bandRatioRenderSettings.redDenominatorBand.GetValue token
-
-            //let greenNumeratorValue =
-            //    bandRatioRenderSettings.greenNumeratorBand.GetValue token
-
-            //let greenDenominatorValue =
-            //    bandRatioRenderSettings.greenDenominatorBand.GetValue token
-
-            //let blueNumeratorValue =
-            //    bandRatioRenderSettings.blueNumeratorBand.GetValue token
-
-            //let blueDenominatorValue =
-            //    bandRatioRenderSettings.blueDenominatorBand.GetValue token
-
             let gammaValue =
                 bandRatioRenderSettings.gamma.GetValue token
 
@@ -84,12 +66,6 @@ module Image =
                 redExpression,
                 greenExpression,
                 blueExpression
-                //redNumeratorValue,
-                //redDenominatorValue,
-                //greenNumeratorValue,
-                //greenDenominatorValue,
-                //blueNumeratorValue,
-                //blueDenominatorValue
             with
             | [], _, _, _ ->
                 DefaultTextures.checkerboard.GetValue()
@@ -170,9 +146,22 @@ module Image =
             ) :> ITexture
         )
             
+    let createSplineTexture
+        (spline : aval<TransferSpline>)
+        (samples : int)
+        : aval<ITexture> =
 
-        
-    // read the selected band and make a raw-value texture
+        spline
+        |> AVal.map (fun s ->
+            let image = PixImage<float32>(Col.Format.Gray, V2i(samples, 1))
+            let data = image.Volume.Data
+
+            for i in 0 .. samples - 1 do
+                let x = float i / float (samples - 1)
+                data.[i] <- float32 (TransferSpline.evaluate s x)
+
+            PixTexture2d(PixImageMipMap [| image :> PixImage |], false) :> ITexture)
+
     // Read the selected band into a raw-value texture.
     let createSelectedBandTexture
         (images : alist<AdaptiveImage>)
@@ -249,87 +238,6 @@ module Image =
                     false
                 ) :> ITexture
         )
-
-    //let createTransferFunctionTexture 
-    //    (images : alist<AdaptiveImage>)
-    //    (transferFunctionRenderSettings : TransferFunctionRenderSettings)
-    //    : aval<ITexture> =
-
-    //    let adaptiveImages =
-    //        AList.toAVal images
-
-    //    AVal.custom (fun token ->
-
-    //        let currentImages =
-    //            adaptiveImages.GetValue token
-
-    //        let sources =
-    //            readAdaptiveBandSources currentImages token
-
-    //        let selectedBandValue =
-    //            transferFunctionRenderSettings.selectedBands.GetValue token
-
-    //        let gammaValue =
-    //            transferFunctionRenderSettings.gamma.GetValue token
-
-
-    //        match transferFunctionRenderSettings.selectedBands.GetValue token with
-    //        | [] ->
-    //            DefaultTextures.checkerboard.GetValue()
-
-    //        | selectedBands ->
-
-    //            let selectedImage =
-    //                currentImages
-    //                |> IndexList.toList
-    //                |> List.tryFind (fun image ->
-    //                    image.bandIndex.GetValue token = selectedBands
-    //                )
-
-    //            match selectedImage with
-    //            | None ->
-    //                DefaultTextures.checkerboard.GetValue()
-
-    //            | Some image ->
-
-    //                let minimumValue =
-    //                    image.inputMinValue.value.GetValue token
-
-    //                let maximumValue =
-    //                    image.inputMaxValue.value.GetValue token
-
-    //                let useFalseColorValue =
-    //                    image.useFalseColor.GetValue token
-
-    //                let colorMapValue =
-    //                    image.colorMap.GetValue token
-
-    //                match
-    //                    createTransferFunctionPixImageFromSource
-    //                        sources
-    //                        selectedBands
-    //                        minimumValue
-    //                        maximumValue
-    //                        gammaValue
-    //                        useFalseColorValue
-    //                        colorMapValue
-    //                with
-    //                | Result.Ok pixImage ->
-    //                    PixTexture2d(
-    //                        PixImageMipMap [|
-    //                            pixImage :> PixImage
-    //                        |],
-    //                        false
-    //                    ) :> ITexture
-
-    //                | Result.Error error ->
-    //                    Log.warn
-    //                        "Could not create transfer-function image: %s"
-    //                        error
-
-    //                    DefaultTextures.checkerboard.GetValue()
-    //    )
-          
 
     let createStretchedGreyscaleTexture
         (sourcePath : aval<Option<string>>)
@@ -627,6 +535,7 @@ module Image =
         (rgbTexture : aval<ITexture>)
         (bandTexture : aval<ITexture>)
         (colormapTexture : aval<ITexture>) 
+        (splineTexture : aval<ITexture>)
         (midtoneTexture : aval<ITexture>)
         (gpuSettings : aval<float * float * bool * float * float * float>) 
         (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
@@ -719,6 +628,7 @@ module Image =
             baseSg
             |> Sg.texture "InstrumentImage" bandTexture
             |> Sg.texture "ColormapTexture" colormapTexture
+            |> Sg.texture "SplineTexture" splineTexture
             |> Sg.uniform "MinValue" minValue
             |> Sg.uniform "MaxValue" maxValue
             |> Sg.uniform "UseFalseColor" shaderFalseColor
@@ -744,8 +654,7 @@ module Image =
                 if enabled then transferFunctionSg
                 else adjustmentSg
             )
-            |> Sg.dynamic
-                
+            |> Sg.dynamic                
 
         let selectedSg =
             useGpu
@@ -794,7 +703,6 @@ module Image =
                 { m with useFalseColor = not m.useFalseColor }
             | ImageMessage.Empty ->
                 m
-
 
     let whitePix =
         let pi = PixImage<byte>(Col.Format.RGBA, V2i.II)
@@ -877,6 +785,7 @@ module Image =
         (rgbTexture : aval<ITexture>)
         (bandTexture : aval<ITexture>)
         (colormapTexture : aval<ITexture>)
+        (splineTexture : aval<ITexture>)
         (midtoneTexture : aval<ITexture>)
         (gpuSettings : aval<float * float * bool * float * float * float>)
         (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
@@ -892,6 +801,7 @@ module Image =
                 rgbTexture
                 bandTexture
                 colormapTexture
+                splineTexture
                 midtoneTexture
                 gpuSettings
                 shadowsHighlightsGpuSettings
@@ -1007,7 +917,6 @@ module Image =
                 primaryProjectionEnabled
             |> Sg.noEvents
             
-
         require Html.semui (
                 div [] [
                     div [] [
@@ -1022,6 +931,7 @@ module Image =
     let view2DRelative 
         (runtime : IRuntime)
         (rgbTexture : aval<ITexture>) 
+        (splineTexture : aval<ITexture>)
         (midtoneTexture : aval<ITexture>)
         clickedPixel
         imageWidth
@@ -1033,6 +943,7 @@ module Image =
                 rgbTexture
                 rgbTexture
                 rgbTexture
+                splineTexture
                 midtoneTexture
                 (AVal.constant (0.0, 1.0, true, 0.0, 0.0, 0.0))
                 (AVal.constant (0.0, 0.0, 0.0, 0.0, 0.0, 0.0))

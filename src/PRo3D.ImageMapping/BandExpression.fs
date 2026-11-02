@@ -221,7 +221,6 @@ module BandExpression =
 
             Result.Error (sprintf "Band(s) not loaded: %s (%s)" missingText availableText)
 
-
     // evaluator. Builds a closure per pixel once, so the tree isn't rewalked per pixel
     let compile (getBand : int -> float[]) (minDenominator : float) (expr : BandExpression) 
         : int -> float =

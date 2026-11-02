@@ -292,7 +292,7 @@ module TransferSpline =
                 |> List.mapi (fun i p -> if i = index then { p with slope = slope} else p) }
 
     let resetTangent (index : int) (spline : TransferSpline) =
-        setTangent index 0.0 spline
+        setTangent index 1.0 spline
 
     let addPoint (x : float) (y : float) (spline : TransferSpline) =
         let x = clamp01 x
@@ -301,7 +301,7 @@ module TransferSpline =
         if tooClose then spline 
         else    
             let e = 0.01
-            let slope = (evaluate spline (x + e) - evaluate spline (x - e))
+            let slope = (evaluate spline (x + e) - evaluate spline (x - e)) / (2.0 * e)
 
             let newPoint = 
                 { px = x; py = clamp01 y; slope = max -maxSlope (min maxSlope slope) }

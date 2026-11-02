@@ -23,8 +23,6 @@ module BandHandler =
         (values: float[])
         : BandStatistics =
 
-        //Log.warn "STATISTICS CACHE MISS: scanning %d pixels" values.Length
-
         let mutable finiteCount = 0L
         let mutable positiveFiniteCount = 0L
 
@@ -142,8 +140,6 @@ module BandHandler =
 
     let clearDecodedRgbImageCache ()=
         decodedRgbImagePayload.Clear()
-
-    // TODO: make bandTexture and histograms and profiles part of the cache so it won't be recomputed on each interval change
 
     let private createPayloadCacheKey (source: RgbBandSource) =
         let fullPath = Path.GetFullPath source.filePath

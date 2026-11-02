@@ -35,6 +35,7 @@
     <Compile Include="Image.fs" />
 	<Compile Include="SpectralAnalysis.fs" />
 	<Compile Include="SplineEditor.fs" />
+	<Compile Include="Update.fs" />
     <Compile Include="App.fs" />
     <Compile Include="ShadowsHighlightsCheck.fs" />
     <Compile Include="SyntheticTests.fs" />
