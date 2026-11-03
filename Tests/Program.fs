@@ -11,6 +11,7 @@ let tests =
         }
 
         TransformationTests.transformationTests()
+        SplineTests.splineTests
     ]
 
 [<EntryPoint>]
