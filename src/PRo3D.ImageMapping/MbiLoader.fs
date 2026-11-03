@@ -69,28 +69,52 @@ module MbiLoader =
             use document =
                 JsonDocument.Parse(File.ReadAllText jsonPath)
 
-            let mutable wavelengthsElement =
-                Unchecked.defaultof<JsonElement>
+            let root = document.RootElement
 
-            if
-                document.RootElement.TryGetProperty(
-                    "wavelengths",
-                    &wavelengthsElement
-                )
-                && wavelengthsElement.ValueKind = JsonValueKind.Array
-            then
-                wavelengthsElement.EnumerateArray()
-                |> Seq.map (fun value -> value.GetDouble())
+            let readArray (element : JsonElement) : list<float> =
+                element.EnumerateArray()
+                |> Seq.map (fun v -> v.GetDouble())
                 |> Seq.toList
-                |> Some
+
+            let mutable element = Unchecked.defaultof<JsonElement>
+
+            // 1) legacy format: top-level "wavelengths" array
+            if root.TryGetProperty("wavelengths", &element)
+               && element.ValueKind = JsonValueKind.Array then
+                Some (readArray element)
+
+            // 2) "bands" array: each entry has either "wavelengths" (array) or "wavelength" (number)
+            elif root.TryGetProperty("bands", &element)
+                 && element.ValueKind = JsonValueKind.Array then
+
+                let values =
+                    element.EnumerateArray()
+                    |> Seq.sortBy (fun band ->
+                        tryGetInt "index" band |> Option.defaultValue 0)
+                    |> Seq.collect (fun band ->
+                        let mutable w = Unchecked.defaultof<JsonElement>
+
+                        if band.TryGetProperty("wavelengths", &w)
+                           && w.ValueKind = JsonValueKind.Array then
+                            readArray w
+                        else
+                            match tryGetDouble "wavelength" band with
+                            | Some value -> [ value ]
+                            | None -> [])
+                    |> Seq.toList
+
+                if values.IsEmpty then
+                    Log.warn "no wavelengths found in bands of %s" jsonPath
+                    None
+                else
+                    Some values
+
             else
+                Log.warn "no wavelengths or bands in %s" jsonPath
                 None
 
         with error ->
-            Log.warn "Could not read wavelengths from %s: %s"
-                jsonPath
-                error.Message
-
+            Log.warn "Could not read wavelengths from %s: %s" jsonPath error.Message
             None
 
     let dataTypeFromMetadata (path : string) : DataType =

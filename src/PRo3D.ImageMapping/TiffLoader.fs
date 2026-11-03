@@ -151,6 +151,11 @@ module TiffLoader =
                 sampleFormat
                 bitsPerSample
 
+
+
+
+
+
     let tryReadTiffBandAsFloat
         (path : string)
         (channelIndex : int)
@@ -323,10 +328,22 @@ module TiffLoader =
             bands.[bandIndex]
             |> Array.map float
 
+    let getJsonMbiInfoPath (imagePath : string) (suffix : string) : string =
+        let killPhrase = ["_Stacked"]
+        let directory = Path.GetDirectoryName imagePath
+        let name = Path.GetFileNameWithoutExtension imagePath
+        let fi = Path.Combine(directory, name + suffix)
+        // metadata file naming does not follow a strict pattern, so cover observed variations
+        if File.Exists fi then
+            fi
+        else
+            let strippedName =
+                List.fold (fun (n : string) kill -> n.Replace(kill, "")) name killPhrase
+            Path.Combine(directory, strippedName + suffix)
+
     let loadTiffBands (texturePath : string) : list<Image> =
 
         let fullPath = Path.GetFullPath texturePath
-
         let tiffMbiJson, tiffJson =
             InstrumentMetadata.tryParseMetadataForImagePath fullPath
 
@@ -341,12 +358,14 @@ module TiffLoader =
                 | None -> 1
 
         let wavelengths =
-            let jsonPath = Path.ChangeExtension(fullPath, ".json")
+            let jsonPath = getJsonMbiInfoPath fullPath ".mbi.json"
 
             if File.Exists jsonPath then
+                Log.warn "reading wavelengths from %s" jsonPath
                 tryReadWavelengthsFromJson jsonPath
                 |> Option.defaultValue []
             else
+                Log.warn "no tiff json found: %s" jsonPath
                 []
 
         let dataType = dataTypeFromMetadata fullPath
@@ -438,4 +457,3 @@ module TiffLoader =
                     distance
                     time
         ]
-   
