@@ -809,7 +809,7 @@ module App =
                                     alist {
                                         yield
                                             visualizationModeOption
-                                                "Band ratio"
+                                                "RGB mapping"
                                                 VisualizationMode.RgbRatioComposite
 
                                         yield
