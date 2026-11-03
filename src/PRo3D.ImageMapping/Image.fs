@@ -411,8 +411,8 @@ module Image =
         (adjustedTexture : aval<IBackendTexture>)
         : aval<Result<PixImage<byte>, string>> =
 
-        adjustedTexture
-        |> AVal.map (fun tex ->
+        AVal.custom (fun token ->
+            let tex = adjustedTexture.GetValue token
             try
                 let img = runtime.Download(tex, 0, 0)
                 Result.Ok (img.ToPixImage<byte>().ToPixImage<byte>(Col.Format.RGBA))
@@ -561,7 +561,7 @@ module Image =
             |||> AVal.map3 (fun clickedPixel width height ->
                 match clickedPixel with
                 | Some pixel when width > 0 && height > 0 ->
-                    let markerRadius = 1.0
+                    let markerRadius = 2.0
 
                     let minX =
                         (float pixel.X - markerRadius) / float width
