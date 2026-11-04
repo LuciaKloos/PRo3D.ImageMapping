@@ -1,0 +1,6 @@
+[2026-11-04T12:12:33.+0100Mitteleuropäische Zeit] [Debug]: Initialized log file: ".\logs\CooTrafo.log"
+[2026-11-04T12:12:33.+0100Mitteleuropäische Zeit] [Info]: Initializing SPICE toolkit version 'CSPICE_N0067'.
+[2026-11-04T12:12:33.+0100Mitteleuropäische Zeit] [Trace]: Init() finished.
+[2026-11-04T12:15:40.+0100Mitteleuropäische Zeit] [Debug]: Initialized log file: ".\logs\CooTrafo.log"
+[2026-11-04T12:15:40.+0100Mitteleuropäische Zeit] [Info]: Initializing SPICE toolkit version 'CSPICE_N0067'.
+[2026-11-04T12:15:40.+0100Mitteleuropäische Zeit] [Trace]: Init() finished.
