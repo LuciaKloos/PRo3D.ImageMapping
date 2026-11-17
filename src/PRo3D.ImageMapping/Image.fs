@@ -423,10 +423,11 @@ module Image =
         (runtime : IRuntime)
         (size : aval<V2i>)
         (rgbTexture : aval<ITexture>)
-        (midtoneTexture : aval<ITexture>)
         (blurredMaskTexture : aval<IBackendTexture>)
         (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
         (gpuSettings : aval<float * float * bool * float * float * float>)
+        (clipMin : aval<V3d>)
+        (clipMax : aval<V3d>)
         : aval<IBackendTexture> =
                
         let shaderBrightness = gpuSettings |> AVal.map (fun (_, _, _, brightness, _, _) -> brightness) 
@@ -445,7 +446,6 @@ module Image =
             |> CoreSg.uniform "Brightness" shaderBrightness
             |> CoreSg.uniform "Midpoint" (AVal.constant Midtone.init.mid)
             |> CoreSg.uniform "MidtoneContrastAdjustment" shaderMidContrast
-            |> CoreSg.texture "MidtoneMaskTexture" midtoneTexture
             |> CoreSg.uniform "Saturation" shaderSaturation
             |> CoreSg.uniform "HighlightAmount" highlightAmount
             |> CoreSg.uniform "HighlightTone" highlightTone
@@ -454,6 +454,9 @@ module Image =
             |> CoreSg.uniform "ShadowTone" shadowTone
             |> CoreSg.uniform "ShadowRadius" shadowRadius
             |> CoreSg.texture "ShadowsHighlightsMaskTexture" blurredMaskTexture
+            |> CoreSg.uniform "MidtoneLow" (AVal.constant Midtone.init.low)
+            |> CoreSg.uniform "MidtoneHigh" (AVal.constant Midtone.init.high)
+            |> CoreSg.uniform "MidtoneContrastAdjustment" shaderMidContrast
             |> CoreSg.shader {
                 do! Shaders.hshColorsAdjustment
             }
@@ -468,27 +471,81 @@ module Image =
 
         RenderTask.renderToColor size task
 
+    let clipPassTexture
+        (runtime : IRuntime)
+        (sourceTexture : aval<ITexture>)
+        (clipMin : aval<V3d>)
+        (clipMax : aval<V3d>)
+        (size : aval<V2i>)
+        : aval<IBackendTexture> =
+
+        let clipSg =
+            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
+            |> CoreSg.texture "SourceTexture" sourceTexture
+            |> CoreSg.uniform "ClipMin" clipMin
+            |> CoreSg.uniform "ClipMax" clipMax
+            |> CoreSg.shader {
+                do! Shaders.clipPass
+            }
+
+        let signature =
+            runtime.CreateFramebufferSignature [
+                DefaultSemantic.Colors, TextureFormat.Rgba8 // TODO: maybe RGBA16F for precision?
+            ]
+
+        RenderTask.renderToColor size (runtime.CompileRender(signature, clipSg))
+
     // Builds mask -> horizontal blur -> vertical blur -> adjustment; returns the adjusted texture.
     let createGpuAdjustedTexture
         (runtime : IRuntime)
         (rgbTexture : aval<ITexture>)
-        (midtoneTexture : aval<ITexture>)
         (gpuSettings : aval<float * float * bool * float * float * float>)
         (shSettings : aval<float * float * float * float * float * float>)
         (imageWidth : aval<int>)
         (imageHeight : aval<int>)
+        (clipMin : aval<V3d>)
+        (clipMax : aval<V3d>)
         : aval<IBackendTexture> =
 
         let size = (imageWidth, imageHeight) ||> AVal.map2 (fun w h -> V2i(max 1 w, max 1 h))
-        let mask = createShadowsHighlightsMaskTexture runtime rgbTexture shSettings imageWidth imageHeight
+        let clipped =
+            clipPassTexture runtime rgbTexture clipMin clipMax size
+            |> AVal.map (fun t -> t :> ITexture)    
+
+        let mask = createShadowsHighlightsMaskTexture runtime clipped shSettings imageWidth imageHeight
         let hBlur = horizontalBlurPass runtime mask shSettings size
         let vBlur = verticalBlurPass runtime hBlur shSettings size
-        createAdjustedImageTexture runtime size rgbTexture midtoneTexture vBlur shSettings gpuSettings
+        createAdjustedImageTexture runtime size clipped vBlur shSettings gpuSettings clipMin clipMax
 
     // Headless rendering (--output, synthetic tests): runs the full GPU pipeline with the
     // test parameters and returns the RGBA result. Other adjustments use their slider defaults.
     let renderAdjustedImage (runtime : IRuntime) (config : TestConfig) : PixImage<byte> =
-        let sourceImage, midtoneMaskImage =
+        
+        let fail msg = failwith "Could not load %s: %s" config.imagePath msg
+
+        let payload = 
+            BandHandler.readCachedRgbImagePayload config.imagePath
+            |> Result.defaultWith fail
+
+        // raw, unclipped source texture
+        let sourceRgbTexture =
+            RgbComposite.createSourceRgbTexture (AVal.constant (Some config.imagePath))
+
+        // clip range from the histogram, with the default clip percentiles 
+        let histogram = 
+            RgbComposite.loadRgbHistogram config.imagePath
+            |> Result.defaultWith fail
+
+        let clipMinValue, clipMaxValue =
+            RgbComposite.computeClipRange
+                histogram
+                BlackWhiteClip.init.blackClipPercentile.value
+                BlackWhiteClip.init.whiteClipPercentile.value
+                
+        let clipMin = AVal.constant clipMinValue
+        let clipMax = AVal.constant clipMaxValue
+
+        let sourceImage =
             createPlainRgbPixImageFromPath
                 config.imagePath
                 BlackWhiteClip.init.blackClipPercentile.value
@@ -511,15 +568,17 @@ module Image =
                 config.highlightAmount, config.highlightTone, config.highlightRadius,
                 config.shadowAmount, config.shadowTone, config.shadowRadius)
 
+
         let adjustedTexture =
             createGpuAdjustedTexture
                 runtime
                 (toTexture sourceImage)
-                (toTexture midtoneMaskImage)
                 gpuSettings
                 shSettings
                 (AVal.constant sourceImage.Size.X)
                 (AVal.constant sourceImage.Size.Y)
+                clipMin
+                clipMax
 
         let texture = AVal.force adjustedTexture                // runs all passes
         runtime.Download(texture, 0, 0).ToPixImage<byte>().ToPixImage<byte>(Col.Format.RGBA)
@@ -536,20 +595,18 @@ module Image =
         (bandTexture : aval<ITexture>)
         (colormapTexture : aval<ITexture>) 
         (splineTexture : aval<ITexture>)
-        (midtoneTexture : aval<ITexture>)
         (gpuSettings : aval<float * float * bool * float * float * float>) 
         (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
         (useGpu : aval<bool>) 
         (clickedPixel : aval<Option<V2i>>)
         (imageWidth : aval<int>)
         (imageHeight : aval<int>)
+        (clipMin : aval<V3d>)
+        (clipMax : aval<V3d>)
         (useTransferFunctionGpu : aval<bool>)=
         
         Log.warn "createInstrumentScene called"
         
-        let pixelMarkerPass =
-            RenderPass.after "pixel-marker" RenderPassOrder.FrontToBack RenderPass.main
-
         let showPixelMarker =
             (clickedPixel, imageWidth, imageHeight)
             |||> AVal.map3 (fun clickedPixel width height ->
@@ -602,26 +659,17 @@ module Image =
         let minValue = gpuSettings |> AVal.map (fun (minimum, _, _, _, _, _) -> minimum)
         let maxValue = gpuSettings |> AVal.map (fun (_, maximum, _, _, _, _) -> maximum)
         let shaderFalseColor = gpuSettings |> AVal.map (fun (_, _, flag, _, _, _) -> flag)
-        let shaderBrightness = gpuSettings |> AVal.map (fun (_, _, _, brightness, _, _) -> brightness) 
-        let shaderMidContrast = gpuSettings |> AVal.map (fun (_, _, _, _, midContrast, _) -> midContrast)
-        let shaderSaturation = gpuSettings |> AVal.map (fun (_, _, _, _, _, saturation) -> saturation)
-
-        let highlightAmount = shadowsHighlightsGpuSettings |> AVal.map (fun (highlightAmount, _, _, _, _, _) -> highlightAmount)
-        let highlightTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, highlightTone, _, _, _, _) -> highlightTone)
-        let highlightRadius = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, highlightRadius, _, _, _) -> highlightRadius)
-        let shadowAmount = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, shadowAmount, _, _) -> shadowAmount)
-        let shadowTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, shadowTone, _) -> shadowTone)
-        let shadowRadius = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, _, shadowRadius) -> shadowRadius)
-
+       
         let adjustedGpuTexture =
             createGpuAdjustedTexture
                 runtime
                 rgbTexture
-                midtoneTexture
                 gpuSettings
                 shadowsHighlightsGpuSettings
                 imageWidth
                 imageHeight
+                clipMin
+                clipMax
             |> AVal.map (fun t -> t :> ITexture)
 
         let transferFunctionSg =
@@ -786,13 +834,14 @@ module Image =
         (bandTexture : aval<ITexture>)
         (colormapTexture : aval<ITexture>)
         (splineTexture : aval<ITexture>)
-        (midtoneTexture : aval<ITexture>)
         (gpuSettings : aval<float * float * bool * float * float * float>)
         (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
         (useGpu : aval<bool>)
         clickedPixel
         imageWidth
         imageHeight 
+        clipMin
+        clipMax
         (useTransferFunctionGpu  : aval<bool>) =
 
         let instrumentVisualization =
@@ -802,13 +851,14 @@ module Image =
                 bandTexture
                 colormapTexture
                 splineTexture
-                midtoneTexture
                 gpuSettings
                 shadowsHighlightsGpuSettings
                 useGpu
                 clickedPixel
                 imageWidth
                 imageHeight
+                clipMin
+                clipMax
                 useTransferFunctionGpu 
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
@@ -834,12 +884,6 @@ module Image =
                 | _ ->
                     None
             )            
-
-        let imageSettings =
-            {
-                VisualizationProperties.empty with
-                    projectionOpacity = opacity
-            }
 
         let projectionSetup = 
             // instrument projection
@@ -890,14 +934,6 @@ module Image =
         let time =
             projectionSetup |> AVal.map snd
             
-        let projectPrimaryImage =
-            Visualization.creatProjectionFunction
-                observer
-                time
-                referenceFrame
-                currentProjectedImage
-                projection
-
         let primaryProjectionEnabled =
             currentProjectedImage
             |> AVal.map (function
@@ -905,18 +941,6 @@ module Image =
                 | _ -> false
             )
 
-        let scene =
-            Visualization.createRgbSceneGraph
-                imageSettings
-                referenceFrame
-                supportBody
-                observer
-                time
-                projectPrimaryImage
-                rgbTexture
-                primaryProjectionEnabled
-            |> Sg.noEvents
-            
         require Html.semui (
                 div [] [
                     div [] [
@@ -928,37 +952,3 @@ module Image =
                 ]
         )
 
-    let view2DRelative 
-        (runtime : IRuntime)
-        (rgbTexture : aval<ITexture>) 
-        (splineTexture : aval<ITexture>)
-        (midtoneTexture : aval<ITexture>)
-        clickedPixel
-        imageWidth
-        imageHeight =
-
-        let instrumentVisualization =
-            createInstrumentScene
-                runtime
-                rgbTexture
-                rgbTexture
-                rgbTexture
-                splineTexture
-                midtoneTexture
-                (AVal.constant (0.0, 1.0, true, 0.0, 0.0, 0.0))
-                (AVal.constant (0.0, 0.0, 0.0, 0.0, 0.0, 0.0))
-                (AVal.constant false)
-                clickedPixel
-                imageWidth
-                imageHeight
-                (AVal.constant false) 
-
-        let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO
-        let frustum' = Frustum.ortho (Box3d.FromMinAndSize(-V3d.III, V3d.III))
-
-        require Html.semui (
-            div [style "width: 100%; height: 200px; display: flex; align-items: center; justify-content: center; margin-top: 10px; border: solid 2px black; background: rgb(0, 0, 0, 0.5);"] [
-                let style = [style "position: relative; width: 200px; height: 200px; padding: 2px"; attribute "showLoader" "false"]
-                renderControl (AVal.constant (Camera.create cameraView frustum')) style instrumentVisualization
-            ]
-        )

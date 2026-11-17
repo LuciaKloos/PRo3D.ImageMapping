@@ -94,16 +94,7 @@ module App =
         (runtime : IRuntime)
         (m : AdaptiveModel)
         (showDOM : AdaptiveImage -> DomNode<ImageMessage>)
-        (
-            showRelative2DImage :
-                aval<ITexture> ->
-                aval<ITexture> ->
-                aval<ITexture> ->
-                aval<Option<V2i>> ->
-                aval<int> ->
-                aval<int> ->
-                DomNode<Message>
-        )
+        
         (
             showAbsolute2DAnd3DImage :
                 aval<Option<string>> ->
@@ -111,13 +102,14 @@ module App =
                 aval<ITexture> ->                 // bandTexture
                 aval<ITexture> ->                 // colormapTexture
                 aval<ITexture> ->                 // splineTexture
-                aval<ITexture> ->                 // midtoneTexture
                 aval<float * float * bool * float * float * float> ->     // gpuSettings
                 aval<float * float * float * float * float * float> ->     // shadowsHighlightsGpuSettings
                 aval<bool> ->                     // useGpu
                 aval<Option<V2i>> ->              // clickedPixel
                 aval<int> ->                      // imageWidth
                 aval<int> ->                      // imageHeight
+                aval<V3d> ->                      // clipMin
+                aval<V3d> ->                      // clipMax
                 aval<bool> ->                     // useTransferFunctionGpu
                 DomNode<Message>
         ) =
@@ -243,6 +235,18 @@ module App =
                     m.transferFunctionMapping.gamma.value
             }
 
+        // recomputes only when new image is loaded
+        let rgbHistogram =
+            m.sourceImagePath
+            |> AVal.map (function
+                | Some path when File.Exists path ->
+                    match RgbComposite.loadRgbHistogram path with
+                    | Result.Ok h -> Some h 
+                    | Result.Error e ->
+                        Log.warn "Could not load RGB histogram for image %s: %s" path e
+                        None
+                | _ -> None)
+
         let shadowsHighlightsAdjustmentsRenderSettings : ShadowsHighlightsAdjustmentsRenderSettings =
             {
                 highlightAdjustments =
@@ -278,15 +282,24 @@ module App =
                     )
             }
 
-        let adjustedPlainRgbImageAndMidMaskAndSaturation =
-            RgbComposite.createPlainRgbPixImage
-                m.sourceImagePath
-                shadowsHighlightsAdjustmentsRenderSettings
-        
-        let adjustedPlainRgbImage = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (image, _) -> image))
-        let midMaskImage = adjustedPlainRgbImageAndMidMaskAndSaturation |> AVal.map (Result.map (fun (_, mask) -> mask))
-        let midtoneTexture = RgbComposite.createPlainRgbTexture midMaskImage
+        let clipRange =
+            (rgbHistogram, shadowsHighlightsAdjustmentsRenderSettings.blackWhiteClip)
+                ||> AVal.map2 (fun hist clip ->
+                    match hist with
+                    | Some h ->
+                        let range =
+                            RgbComposite.computeClipRange h
+                                clip.blackClipPercentile.value
+                                clip.whiteClipPercentile.value
+                        Log.line "[clip] black=%.2f white=%.2f -> min=%A max=%A | zero pixels R:%d of %d"
+                            clip.blackClipPercentile.value clip.whiteClipPercentile.value
+                            (fst range) (snd range) h.red.[0] h.count
+                        range
+                    | None -> V3d.Zero, V3d.III)
 
+        let clipMin = clipRange |> AVal.map fst
+        let clipMax = clipRange |> AVal.map snd
+        
         let bandTexture = 
             m.sourceImageKind
             |> AVal.bind (function
@@ -401,6 +414,9 @@ module App =
                         | None ->
                             false
             )
+        
+        let sourceRgbTexture =
+            RgbComposite.createSourceRgbTexture m.sourceImagePath
 
         let cpuOutputTexture : aval<ITexture> =
             m.sourceImageKind
@@ -421,9 +437,9 @@ module App =
                                         m.greyscaleColorMap
                                         
                                 | _ ->
-                                    RgbComposite.createPlainRgbTexture adjustedPlainRgbImage)
+                                    sourceRgbTexture)
                         else
-                            RgbComposite.createPlainRgbTexture adjustedPlainRgbImage
+                            sourceRgbTexture
                     )
                 | SourceImageKind.Multispectral ->
                     m.visualizationMode
@@ -459,12 +475,13 @@ module App =
         let gpuAdjustedImage =
             Image.createGpuAdjustedTexture
                 runtime
-                (RgbComposite.createPlainRgbTexture adjustedPlainRgbImage)
-                midtoneTexture
+                sourceRgbTexture
                 gpuSettings
                 shadowsHighlightsGpuSettings
                 m.imageWidth
                 m.imageHeight
+                clipMin
+                clipMax
             |> Image.downloadAdjustedImage runtime
 
         let transferFunctionNonMultispectralRgbHistograms =
@@ -1482,13 +1499,14 @@ module App =
                         bandTexture
                         colormapTexture
                         splineTexture
-                        midtoneTexture
                         gpuSettings
                         shadowsHighlightsGpuSettings
                         useGpu
                         m.clickedPixel
                         m.imageWidth
                         m.imageHeight
+                        clipMin
+                        clipMax
                         useTransferFunctionGpu
                 ]
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
@@ -1531,7 +1549,7 @@ module App =
             )
         let boresight = computeBoresight m.boresightAdjustment |> AVal.map Some
         let backgroundImageAnd3D = Image.view2DAnd3DImageAbsolute runtime m.projectionOpacity.value boresight m.cameraState
-        view runtime m Image.view (Image.view2DRelative runtime) backgroundImageAnd3D
+        view runtime m Image.view backgroundImageAnd3D
 
     let app (runtime : IRuntime) (testConfig : Option<TestConfig>) =
         {

@@ -4,7 +4,7 @@
  0:     System:      Microsoft Windows 10.0.26100
  0:     Processor:   24 core AMD64
  0:     Process:     AMD64
- 0:     Framework:   .NET 9.0.22
+ 0:     Framework:   .NET 9.0.23
  0:   Skipped loading native dependencies for System.Private.CoreLib, Version=9.0.0.0, Culture=neutral, PublicKeyToken=7cec85d7bea7798e
  0:   Skipped loading native dependencies for System.Security.Cryptography, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:   Skipped loading native dependencies for System.Runtime, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -17,12 +17,12 @@
  0:     Skipped loading native dependencies for System.Private.Xml.Linq, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:     Skipped loading native dependencies for System.Private.Xml, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:     Unpacking native dependencies for Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.007 s
+ 0:   Loading native dependencies for Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.006 s
  0:   Skipped loading native dependencies for FSharp.Data.Adaptive, Version=1.2.0.0, Culture=neutral, PublicKeyToken=null
  0:   Skipped loading native dependencies for Suave, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
+ 0:   Loading native dependencies for Aardvark.Rendering.GL, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
  0:   Skipped loading native dependencies for FShade.Core, Version=5.6.0.0, Culture=neutral, PublicKeyToken=null
  0:   Loading native dependencies for Aardvark.Service, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for Aardvark.Service, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
@@ -129,8 +129,11 @@
  0:     [IsPlugin] Ignoring assembly Newtonsoft.Json due to filter
  0:     [IsPlugin] Ignoring assembly OpenTK due to filter
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Pfim.dll
- 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.dll
- 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.exe
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.dll
+ 0:     Skipped loading native dependencies for System.Reflection.Metadata, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     Skipped loading native dependencies for System.Collections.Immutable, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     Skipped loading native dependencies for System.IO.MemoryMappedFiles, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.exe
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentData.dll
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.dll
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.exe
@@ -142,7 +145,7 @@
  0:     [IsPlugin] Ignoring assembly Suave due to filter
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\TinyEXR.NET.dll
  0:     [IsPlugin] Ignoring assembly Unofficial.Typography due to filter
- 0:   Loading plugins .................................................................... 0.042 s
+ 0:   Loading plugins .................................................................... 0.047 s
  0:   [Introspection] Entry assembly: PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null (path: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.dll)
  0:   [Introspection] Ignoring assembly System.Runtime due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
@@ -313,7 +316,7 @@
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
+ 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FShade.Core due to filter
  0:   Loading native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 
@@ -398,7 +401,8 @@
  0:   [Introspection] Ignoring assembly System.Globalization due to filter
  0:   [Introspection] Ignoring assembly System.Runtime due to filter
  0:   [Introspection] Ignoring assembly FsPickler due to filter
- 0:     [cache hit ] PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     Skipped loading native dependencies for System.Text.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0:     [cache hit ] FSharp.Core, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     [cache hit ] Aardvark.Base.Tensors.CSharp, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -413,7 +417,7 @@
  0:     [cache hit ] Aardvark.Base.FSharp, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:   Initializing CustomPicklerProvider .........................................................
  0:     Skipped loading native dependencies for FsPickler, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FSharp.Core, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     [cache hit ] Aardvark.Base.Tensors.CSharp, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -508,7 +512,7 @@
  0:       C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
  0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64
  0:     [Introspection] loaded native library DevIL from C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\DevILSharp\e2c28b40-9077-6a1e-f4ba-528858cc3f43\windows\AMD64\DevIL.dll
- 0:   Initializing PixImageDevil ......................................................... 0.007 s
+ 0:   Initializing PixImageDevil ......................................................... 0.006 s
  0:     [cache hit ] DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Fonts, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -546,10 +550,10 @@
  0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
  0:     [Introspection] loaded native library FreeImage from C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64\FreeImage.dll
  0:   Initializing PixImageFreeImage ..................................................... 0.009 s
- 0: initializing aardvark ........................................................ [0.11x] 0.172 s
+ 0: initializing aardvark ........................................................ [0.34x] 0.232 s
  0: Initializing Aardium .........................................................................
  0:   Binary: C:\Users\kloos\AppData\Local\Aardium\x64\2.1.2\tools\Aardium.exe
- 0: Initializing Aardium ................................................................. 0.012 s
+ 0: Initializing Aardium ................................................................. 0.011 s
  0: log path for coo trafo: .\logs\CooTrafo.Log
  0: probing paths for CooTransformation
  0:   C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
@@ -580,7 +584,6 @@
  0: Skipped loading native dependencies for Microsoft.Win32.Primitives, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: Skipped loading native dependencies for Microsoft.DotNet.PlatformAbstractions, Version=3.1.6.0, Culture=neutral, PublicKeyToken=adb9793829ddae60
  0: Skipped loading native dependencies for Microsoft.Extensions.DependencyModel, Version=9.0.0.9, Culture=neutral, PublicKeyToken=adb9793829ddae60
- 0: Skipped loading native dependencies for System.Text.Json, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  0: Skipped loading native dependencies for System.Runtime.CompilerServices.Unsafe, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: OpenGL 4.6 working
  0: Skipped loading native dependencies for System.Drawing.Primitives, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -1035,10 +1038,10 @@
  0:     C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
  0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
  0:   [Introspection] loaded native library kernel32.dll from kernel32.dll
- 0: initializing OpenGL runtime .......................................................... 0.016 s
+ 0: initializing OpenGL runtime .......................................................... 0.015 s
  0: WARNING: viewFull called
  0: Skipped loading native dependencies for System.ObjectModel, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 0: [cache hit ] PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0: [cache miss] PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] FSharp.Core, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: [cache hit ] Aardvark.Base.Tensors.CSharp, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Base, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -1210,7 +1213,7 @@
  1: Skipped loading native dependencies for System.Diagnostics.DiagnosticSource, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  2: Skipped loading native dependencies for System.Web.HttpUtility, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  1: Skipped loading native dependencies for System.Globalization, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 1: [Server] created client for (d172b1bc-d700-5008-67a1-f6f84b67817f/n5), mapping enabled
+ 1: [Server] created client for (6e6976b0-cc9b-a717-f886-ac2c5105668a/n5), mapping enabled
  1: [Client] 1: running n5
  1: Skipped loading native dependencies for System.Runtime.Numerics, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  1: Skipped loading native dependencies for System.Reflection, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -1223,8 +1226,14 @@
  3:   C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
  3:   C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64
  3: [Introspection] loaded native library jitmem from C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Assembler\260169c2-3859-9f96-9f36-27288745d23c\windows\AMD64\jitmem.dll
- 3: [GL] Reading shader program file cache 'C:\Users\kloos\AppData\Local\Aardvark\Cache\Shaders\OpenGL\b2875a74-30a6-7c3a-45c6-43b8ef50c87d.bin: success 0.019 s
+ 3: [GL] Reading shader program file cache 'C:\Users\kloos\AppData\Local\Aardvark\Cache\Shaders\OpenGL\b2875a74-30a6-7c3a-45c6-43b8ef50c87d.bin: success 0.012 s
  3: WARNING: Using CPU transfer function for rendering
  3: Skipped loading native dependencies for System.Reflection.Emit, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: Skipped loading native dependencies for System.IO.MemoryMappedFiles, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 1: [Client] 1: stopped
+ 4: Trying to load image from file '\\heap.vrvis.lan\kloos\pro3d\multispectral-visualizations\test data\RGB Image mode\SOL 1429 - mcam07068 - Butte 1.jpg' with FreeImage loader: success in 0.049 s
+ 2: [GL] Reading shader program file cache 'C:\Users\kloos\AppData\Local\Aardvark\Cache\Shaders\OpenGL\e97f93a3-dfaa-a771-2f7b-2b8f87e552e0.bin: success 0.001 s
+ 2: [GL] Reading shader program file cache 'C:\Users\kloos\AppData\Local\Aardvark\Cache\Shaders\OpenGL\98b170f3-818e-1157-e458-0bd44a4a7e7b.bin: success 0.000 s
+ 2: [clip] black=0.00 white=0.00 -> min=[0, 0, 0] max=[1, 1, 1] | zero pixels R:741684 of 4398290
+ 2: [GL] Reading shader program file cache 'C:\Users\kloos\AppData\Local\Aardvark\Cache\Shaders\OpenGL\a7716a9b-24d7-fb1d-cf70-12cbcec9868d.bin: success 0.000 s
+ 2: [GL] Reading shader program file cache 'C:\Users\kloos\AppData\Local\Aardvark\Cache\Shaders\OpenGL\66cf85b0-123e-7d1f-bddd-a11c437748c6.bin: success 0.000 s
+ 2: [clip] black=55.00 white=0.00 -> min=[0.6470588235294118, 0.5607843137254902, 0.47058823529411764] max=[1, 1, 1] | zero pixels R:741684 of 4398290
+ 5: [Client] 1: stopped

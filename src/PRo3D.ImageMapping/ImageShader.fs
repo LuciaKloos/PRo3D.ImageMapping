@@ -31,14 +31,6 @@ module Shaders =
             addressV WrapMode.Clamp
         }
 
-    let midtoneMaskSampler =
-        sampler2d {
-            texture uniform?MidtoneMaskTexture
-            filter Filter.MinMagMipPoint
-            addressU WrapMode.Clamp
-            addressV WrapMode.Clamp
-        }
-
     let shadowsHighlightsMaskSampler =
         sampler2d {
             texture uniform?ShadowsHighlightsMaskTexture
@@ -50,6 +42,14 @@ module Shaders =
     let splineTextureSampler =
         sampler2d {
             texture uniform?SplineTexture
+            filter Filter.MinMagMipLinear
+            addressU WrapMode.Clamp
+            addressV WrapMode.Clamp
+        }
+
+    let sourceSampler =
+        sampler2d {
+            texture uniform?SourceTexture
             filter Filter.MinMagMipLinear
             addressU WrapMode.Clamp
             addressV WrapMode.Clamp
@@ -79,6 +79,24 @@ module Shaders =
         member x.BlurTextureSize : V2d = uniform?BlurTextureSize
         member x.BlurShadowRadius : float = uniform?BlurShadowRadius
         member x.BlurHighlightRadius : float = uniform?BlurHighlightRadius
+        member x.ClipMin : V3d = uniform?ClipMin
+        member x.ClipMax : V3d = uniform?ClipMax
+        member x.MidtoneLow : float = uniform?MidtoneLow
+        member x.MidtoneHigh : float = uniform?MidtoneHigh
+
+    let clipPass (v : Vertex) =
+        fragment {
+            let c = sourceSampler.Sample(v.tc)  // raw source image
+            if c.W <= 0.0 then  
+                return V4d.Zero
+            else
+                let lo = uniform.ClipMin
+                let hi = uniform.ClipMax
+                let r = min 1.0 (max 0.0 ((c.X - lo.X) / (hi.X - lo.X)))
+                let g = min 1.0 (max 0.0 ((c.Y - lo.Y) / (hi.Y - lo.Y)))
+                let b = min 1.0 (max 0.0 ((c.Z - lo.Z) / (hi.Z - lo.Z)))
+                return V4d(r, g, b, 1.0)
+        }
 
     let hshShadowsHighlights (v : Vertex) =
         fragment {
@@ -208,6 +226,12 @@ module Shaders =
 
             let lum0 = 0.2126 * src.X + 0.7152 * src.Y + 0.0722 * src.Z
 
+            let midtoneMask = 
+                if src.W > 0.0 && lum0 >= uniform.MidtoneLow && lum0 <= uniform.MidtoneHigh then
+                    1.0
+                else
+                    0.0
+
             let shadowMask = shadowsHighlightsMaskSampler.Sample(v.tc).X
             let highlightMask = shadowsHighlightsMaskSampler.Sample(v.tc).Y
 
@@ -221,7 +245,6 @@ module Shaders =
                     src.W)
 
             let remapClampNormalize =
-                let midtoneMask = midtoneMaskSampler.Sample(v.tc).X
                 let midtoneGain = uniform.MidtoneContrastAdjustment
                         
                 let slider = min 1.0 (max -1.0 midtoneGain)

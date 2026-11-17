@@ -19,6 +19,120 @@ module RgbComposite =
         |> clamp01
         |> fun v -> byte (round (v * 255.0))
 
+    type RgbHistogram =
+        {
+            red : int[]     // 256 bins each
+            green : int[]
+            blue : int[]
+            count : int     // number of foreground pixels (alpha > 0)
+        }
+
+
+    let loadRgbHistogram (path : string) : Result<RgbHistogram, string> =
+        BandHandler.readCachedRgbImagePayload path
+        |> Result.map (fun payload ->
+            let r = Array.zeroCreate<int> 256
+            let g = Array.zeroCreate<int> 256
+            let b = Array.zeroCreate<int> 256
+            let m = payload.sourceMatrix
+            let mutable n = 0
+            
+            for y in 0 .. payload.height - 1 do
+                for x in 0 .. payload.width - 1 do
+                    let c = m.[x, y]
+                    if c.A > 0uy then
+                        r.[int c.R] <- r.[int c.R] + 1
+                        g.[int c.G] <- g.[int c.G] + 1
+                        b.[int c.B] <- b.[int c.B] + 1
+                        n <- n + 1
+
+            { red = r; green = g; blue = b; count = n })
+
+    // Value (0..1) at a 0-based position in the sorted list of foreground values.
+    // Same result as sorting and indexing, but at most 256 steps
+    let private valueAtRank (hist : int[]) (rank : int) =
+        let mutable b = 0
+        let mutable cum = hist.[0]
+        while cum <= rank && b < 255 do
+            b <- b + 1
+            cum <- cum + hist.[b]
+
+        float b / 255.0
+
+    // Matches ImageMath.percentile exactly: nearest rank, Math.Round (banker's rounding), clamped.
+    let private histogramPercentile (hist : int[]) (count : int) (fraction : float) =
+        if count = 0 then
+            0.0
+        else
+            let index =
+                fraction * float (count - 1)
+                |> Math.Round
+                |> int
+                |> max 0
+                |> min (count - 1)
+
+            valueAtRank hist index
+
+    // returns ClipMin, ClipMax uniforms
+    let computeClipRange 
+        (h : RgbHistogram)
+        (blackClipPercentile : float)
+        (whiteClipPercentile : float)
+        : V3d * V3d =
+
+        let toFraction p = if Double.IsFinite p then clamp01 (p / 100.0) else 0.0
+        let black = toFraction blackClipPercentile
+        let white = toFraction whiteClipPercentile
+
+        if h.count = 0 || (black <= 0.0 && white <= 0.0) then
+            V3d.Zero, V3d.One // no clipping -> identity in the shader
+
+        else
+           let lower = black
+           let upper =
+               if 1.0 - white <= lower then
+                   min 1.0 (lower + 0.01)
+               else
+                   1.0 - white
+
+           let range hist = 
+                let mn = histogramPercentile hist h.count lower
+                let mx = histogramPercentile hist h.count upper
+                if mx <= mn then
+                    mn, mn + 1.0
+                else
+                    mn, mx
+
+           let rMin, rMax = range h.red
+           let gMin, gMax = range h.green
+           let bMin, bMax = range h.blue
+
+           V3d(rMin, gMin, bMin), V3d(rMax, gMax, bMax)
+
+    let createSourceRgbTexture (sourceImagePath : aval<Option<string>>) : aval<ITexture> =
+        sourceImagePath
+        |> AVal.map (function
+            | Some path when File.Exists path ->
+                match BandHandler.readCachedRgbImagePayload path with
+                | Result.Ok p ->
+                    let img = PixImage<byte>(Col.Format.RGBA, V2i(p.width, p.height))
+                    let d = img.Volume.Data
+                    let m = p.sourceMatrix
+                    for y in 0 .. p.height - 1 do
+                        for x in 0 .. p.width - 1 do
+                            let c = m.[x, y]
+                            let o = (y * p.width + x) * 4
+                            d.[o] <- c.R; d.[o + 1] <- c.G; d.[o + 2] <- c.B; d.[o + 3] <- c.A
+
+                    PixTexture2d(PixImageMipMap [| img :> PixImage |], false) :> ITexture
+                | Result.Error e ->
+                    Log.warn "Could not load source RGB image: %s" e
+                    DefaultTextures.checkerboard.GetValue()
+            | _ -> 
+                DefaultTextures.checkerboard.GetValue()
+        )
+
+
     let sampleColorMap
         (colorMap : ColorMap)
         (normalizedValue : float)
@@ -69,25 +183,6 @@ module RgbComposite =
             255uy
         )
 
-    let createMidtoneMask 
-        (pixelCount : int)
-        (alphaBytes : byte[]) 
-        (luminance : float[]) =
-            let midtoneMask =
-                        Array.init pixelCount (fun index ->
-                            if alphaBytes.[index] > 0uy then
-                                let l =
-                                    luminance.[index]
-
-                                if l >= Midtone.init.low && l <= Midtone.init.high then
-                                    1.0
-                                else
-                                    0.0
-                            else
-                                0.0
-                        )
-            midtoneMask    
-    
     let private computeValidForeground
         (pixelCount : int)
         (redNumerator : RgbBandData)
@@ -244,14 +339,19 @@ module RgbComposite =
 
     let createPlainRgbPixImageFromPath
         (path : string)
-        (blackClipPercentile : float)
-        (whiteClipPercentile : float)
-        : Result<PixImage<byte> * PixImage<byte>, string> =
+        : Result<PixImage<byte>, string> =
 
         try
+            let sw = System.Diagnostics.Stopwatch.StartNew()
+            let lap (name : string) =
+                Log.line "[timing] %s: %.2f ms" name sw.Elapsed.TotalMilliseconds
+                sw.Restart()
+
             let cachedPayload =
                 BandHandler.readCachedRgbImagePayload path
                 |> Result.defaultWith failwith
+
+            lap "load (cached payload)"
 
             let width =
                 cachedPayload.width
@@ -286,110 +386,7 @@ module RgbComposite =
             let blueValues =
                 Array.zeroCreate<float> pixelCount
 
-            for y in 0 .. height - 1 do
-                for x in 0 .. width - 1 do
-                    let index =
-                        y * width + x
-
-                    let color =
-                        sourceMatrix.[x, y]
-
-                    redBytes.[index] <- color.R
-                    greenBytes.[index] <- color.G
-                    blueBytes.[index] <- color.B
-                    alphaBytes.[index] <- color.A
-
-                    redValues.[index] <- float color.R / 255.0
-                    greenValues.[index] <- float color.G / 255.0
-                    blueValues.[index] <- float color.B / 255.0
-
-            let validForeground =
-                Array.init pixelCount (fun index ->
-                    alphaBytes.[index] > 0uy
-                )
-
-            let blackClipFraction =
-                if Double.IsFinite blackClipPercentile then
-                    blackClipPercentile / 100.0
-                    |> max 0.0
-                    |> min 1.0
-                else
-                    0.0
-
-            let whiteClipFraction =
-                if Double.IsFinite whiteClipPercentile then
-                    whiteClipPercentile / 100.0
-                    |> max 0.0
-                    |> min 1.0
-                else
-                    0.0
-
-            let shouldApplyClip =
-                blackClipFraction > 0.0 || whiteClipFraction > 0.0
-
-            let redBytes, greenBytes, blueBytes, luminance =
-
-                if shouldApplyClip then
-                    let lowerPercentileFraction =
-                        blackClipFraction
-
-                    let upperPercentileFraction =
-                        1.0 - whiteClipFraction
-
-                    let lowerPercentileFraction, upperPercentileFraction =
-                        if upperPercentileFraction <= lowerPercentileFraction then
-                            lowerPercentileFraction, min 1.0 (lowerPercentileFraction + 0.01)
-                        else
-                            lowerPercentileFraction, upperPercentileFraction
-
-                    let redMin, redMax =
-                        computeDisplayRange validForeground lowerPercentileFraction upperPercentileFraction redValues
-
-                    let greenMin, greenMax =
-                        computeDisplayRange validForeground lowerPercentileFraction upperPercentileFraction greenValues
-
-                    let blueMin, blueMax =
-                        computeDisplayRange validForeground lowerPercentileFraction upperPercentileFraction blueValues
-
-                    let clippedRedBytes, clippedGreenBytes, clippedBlueBytes, _, clippedLuminance =
-                        normalizeToRgbBytes
-                            pixelCount
-                            1.0
-                            validForeground
-                            redMin
-                            redMax
-                            greenMin
-                            greenMax
-                            blueMin
-                            blueMax
-                            redValues
-                            greenValues
-                            blueValues
-
-                    clippedRedBytes, clippedGreenBytes, clippedBlueBytes, clippedLuminance
-                else
-                    let luminance =
-                        Array.init pixelCount (fun index ->
-                            if alphaBytes.[index] > 0uy then
-                                Luminance.init.red * redValues.[index]
-                                + Luminance.init.green * greenValues.[index]
-                                + Luminance.init.blue * blueValues.[index]
-                            else
-                                0.0
-                        )
-
-                    redBytes, greenBytes, blueBytes, luminance
-
-            
-            let midtoneMask = createMidtoneMask pixelCount alphaBytes luminance
-
-            let maskImage = PixImage<byte>(Col.Format.RGBA, V2i(width, height))
-            maskImage.GetMatrix<C4b>().SetByCoord(fun (position : V2l) ->
-                let index = int position.Y * width + int position.X
-                let value = if midtoneMask.[index] > 0.0 then 255uy else 0uy
-                C4b(value, value, value, 255uy)
-            )
-            |> ignore
+            lap "unpack pixels"
 
 
             let output =
@@ -419,25 +416,23 @@ module RgbComposite =
                 )
             |> ignore
             
-            Result.Ok (output, maskImage)
+            lap "build output image"
+
+            Result.Ok (output)
 
         with error ->
             Result.Error error.Message
 
     let createPlainRgbPixImage
         (sourceImagePath : aval<Option<string>>)
-        (settings : ShadowsHighlightsAdjustmentsRenderSettings)
-        : aval<Result<PixImage<byte> * PixImage<byte>, string>> =
+        : aval<Result<PixImage<byte>, string>> =
 
         AVal.custom (fun token ->
-            let clip = settings.blackWhiteClip.GetValue token
 
             match sourceImagePath.GetValue token with
             | Some path when File.Exists path ->
                 createPlainRgbPixImageFromPath
                     path
-                    clip.blackClipPercentile.value
-                    clip.whiteClipPercentile.value
 
             | _ ->
                 Result.Error "No plain RGB source image is available."
