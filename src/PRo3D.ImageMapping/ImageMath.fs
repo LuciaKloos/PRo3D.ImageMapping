@@ -180,6 +180,44 @@ module ImageMath =
         | _ ->
             None
 
+    // Same result as computeHistogram (with minimumSignal = -inf) over byte values 0..255,
+    // but takes 256 pre-counted bins instead of one float per pixel.
+    let computeHistogramFromByteCounts (binCount : int) (counts : int[]) : HistogramBin[] =
+        let total = Array.sum counts
+
+        if total = 0 || binCount <= 0 then
+            [||]
+        else
+            let minByte = Array.findIndex (fun c -> c > 0) counts
+            let maxByte = Array.findIndexBack (fun c -> c > 0) counts
+            let minimum = float minByte
+            let maximum = float maxByte
+
+            if maximum <= minimum then
+                [| { lower = minimum; upper = maximum; count = total; fraction = 1.0 } |]
+            else
+                let range = maximum - minimum
+                let bins = Array.zeroCreate<int> binCount
+
+                for v in minByte .. maxByte do
+                    let c = counts.[v]
+                    if c > 0 then
+                        let binIndex =
+                            int ((float v - minimum) / range * float binCount)
+                            |> max 0
+                            |> min (binCount - 1)
+                        bins.[binIndex] <- bins.[binIndex] + c
+
+                let maxCount = bins |> Array.max |> max 1
+
+                Array.init binCount (fun i ->
+                    {
+                        lower = minimum + range * float i / float binCount
+                        upper = minimum + range * float (i + 1) / float binCount
+                        count = bins.[i]
+                        fraction = float bins.[i] / float maxCount
+                    })
+
     let computeHistogram
         (binCount : int)
         (minimumSignal : float)

@@ -548,8 +548,6 @@ module Image =
         let sourceImage =
             createPlainRgbPixImageFromPath
                 config.imagePath
-                BlackWhiteClip.init.blackClipPercentile.value
-                BlackWhiteClip.init.whiteClipPercentile.value
             |> Result.defaultWith (failwithf "Could not load %s: %s" config.imagePath)
 
         let toTexture (image : PixImage<byte>) =
@@ -590,19 +588,16 @@ module Image =
 
     // the 2D view displays the texture directly
     let createInstrumentScene
-        (runtime : IRuntime)
         (rgbTexture : aval<ITexture>)
+        (adjustedGpuTexture : aval<ITexture>)
         (bandTexture : aval<ITexture>)
         (colormapTexture : aval<ITexture>) 
         (splineTexture : aval<ITexture>)
         (gpuSettings : aval<float * float * bool * float * float * float>) 
-        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
         (useGpu : aval<bool>) 
         (clickedPixel : aval<Option<V2i>>)
         (imageWidth : aval<int>)
         (imageHeight : aval<int>)
-        (clipMin : aval<V3d>)
-        (clipMax : aval<V3d>)
         (useTransferFunctionGpu : aval<bool>)=
         
         Log.warn "createInstrumentScene called"
@@ -660,18 +655,6 @@ module Image =
         let maxValue = gpuSettings |> AVal.map (fun (_, maximum, _, _, _, _) -> maximum)
         let shaderFalseColor = gpuSettings |> AVal.map (fun (_, _, flag, _, _, _) -> flag)
        
-        let adjustedGpuTexture =
-            createGpuAdjustedTexture
-                runtime
-                rgbTexture
-                gpuSettings
-                shadowsHighlightsGpuSettings
-                imageWidth
-                imageHeight
-                clipMin
-                clipMax
-            |> AVal.map (fun t -> t :> ITexture)
-
         let transferFunctionSg =
             baseSg
             |> Sg.texture "InstrumentImage" bandTexture
@@ -825,40 +808,34 @@ module Image =
         )
 
     let view2DAnd3DImageAbsolute
-        (runtime : IRuntime)
         (opacity : aval<float>)
         (boresightAdjustment : aval<Option<Trafo3d>>)
         (orbitState : AdaptiveOrbitState)
         (sourceImagePath : aval<Option<string>>)
         (rgbTexture : aval<ITexture>)
+        (adjustedDisplayTexture : aval<ITexture>)
         (bandTexture : aval<ITexture>)
         (colormapTexture : aval<ITexture>)
         (splineTexture : aval<ITexture>)
         (gpuSettings : aval<float * float * bool * float * float * float>)
-        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
         (useGpu : aval<bool>)
         clickedPixel
         imageWidth
         imageHeight 
-        clipMin
-        clipMax
         (useTransferFunctionGpu  : aval<bool>) =
 
         let instrumentVisualization =
             createInstrumentScene
-                runtime
                 rgbTexture
+                adjustedDisplayTexture
                 bandTexture
                 colormapTexture
                 splineTexture
                 gpuSettings
-                shadowsHighlightsGpuSettings
                 useGpu
                 clickedPixel
                 imageWidth
                 imageHeight
-                clipMin
-                clipMax
                 useTransferFunctionGpu 
 
         let cameraView = CameraView.look V3d.OOI V3d.OON V3d.OIO

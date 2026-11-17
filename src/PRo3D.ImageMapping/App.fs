@@ -99,17 +99,15 @@ module App =
             showAbsolute2DAnd3DImage :
                 aval<Option<string>> ->
                 aval<ITexture> ->                 // outputTexture
+                aval<ITexture> ->                 // adjustedGpuTexture
                 aval<ITexture> ->                 // bandTexture
                 aval<ITexture> ->                 // colormapTexture
                 aval<ITexture> ->                 // splineTexture
                 aval<float * float * bool * float * float * float> ->     // gpuSettings
-                aval<float * float * float * float * float * float> ->     // shadowsHighlightsGpuSettings
                 aval<bool> ->                     // useGpu
                 aval<Option<V2i>> ->              // clickedPixel
                 aval<int> ->                      // imageWidth
                 aval<int> ->                      // imageHeight
-                aval<V3d> ->                      // clipMin
-                aval<V3d> ->                      // clipMax
                 aval<bool> ->                     // useTransferFunctionGpu
                 DomNode<Message>
         ) =
@@ -471,6 +469,25 @@ module App =
 
         let transferFunctionSelectedBandHistogram =
             computeTransferFunctionSelectedBandHistogram m 32
+
+        let adjustedGpuTexture =
+            Image.createGpuAdjustedTexture
+                runtime
+                sourceRgbTexture
+                gpuSettings
+                shadowsHighlightsGpuSettings
+                m.imageWidth
+                m.imageHeight
+                clipMin
+                clipMax
+
+        // histogram: download the adjusted texture
+        let gpuAdjustedImage =
+            adjustedGpuTexture |> Image.downloadAdjustedImage runtime
+
+        // for the display
+        let adjustedDisplayTexture =
+            adjustedGpuTexture |> AVal.map (fun t -> t :> ITexture)
 
         let gpuAdjustedImage =
             Image.createGpuAdjustedTexture
@@ -1496,17 +1513,15 @@ module App =
                     showAbsolute2DAnd3DImage
                         m.sourceImagePath
                         outputTexture
+                        adjustedDisplayTexture
                         bandTexture
                         colormapTexture
                         splineTexture
                         gpuSettings
-                        shadowsHighlightsGpuSettings
                         useGpu
                         m.clickedPixel
                         m.imageWidth
                         m.imageHeight
-                        clipMin
-                        clipMax
                         useTransferFunctionGpu
                 ]
                 div [style "position: fixed; left: 20px; top: 20px; width: 400px"] [
@@ -1548,7 +1563,7 @@ module App =
                 Trafo3d.RotationXInDegrees(b.yaw.value) * Trafo3d.RotationYInDegrees(b.pitch.value) * Trafo3d.RotationZInDegrees(b.roll.value)
             )
         let boresight = computeBoresight m.boresightAdjustment |> AVal.map Some
-        let backgroundImageAnd3D = Image.view2DAnd3DImageAbsolute runtime m.projectionOpacity.value boresight m.cameraState
+        let backgroundImageAnd3D = Image.view2DAnd3DImageAbsolute m.projectionOpacity.value boresight m.cameraState
         view runtime m Image.view backgroundImageAnd3D
 
     let app (runtime : IRuntime) (testConfig : Option<TestConfig>) =

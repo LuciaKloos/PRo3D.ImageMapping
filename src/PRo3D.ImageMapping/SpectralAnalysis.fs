@@ -151,35 +151,34 @@ module SpectralAnalysis =
                 emptyRGBHistograms ()
 
             | Result.Ok image ->
-                let pixels = image.GetMatrix<C4b>()
-                let red = ResizeArray<float>()
-                let green = ResizeArray<float>()
-                let blue = ResizeArray<float>()
+                let data = image.Volume.Data          // RGBA, interleaved: R,G,B,A per pixel
+                let pixelCount = image.Size.X * image.Size.Y
 
-                for y in 0 .. image.Size.Y - 1 do
-                    for x in 0 .. image.Size.X - 1 do
-                        let color = pixels.[x, y]
+                let r = Array.zeroCreate<int> 256
+                let g = Array.zeroCreate<int> 256
+                let b = Array.zeroCreate<int> 256
 
-                        if color.A > 0uy then
-                            red.Add(float color.R)
-                            green.Add(float color.G)
-                            blue.Add(float color.B)
+                for i in 0 .. pixelCount - 1 do
+                    let o = i * 4
+                    if data.[o + 3] > 0uy then
+                        let ri = int data.[o]
+                        let gi = int data.[o + 1]
+                        let bi = int data.[o + 2]
+                        r.[ri] <- r.[ri] + 1
+                        g.[gi] <- g.[gi] + 1
+                        b.[bi] <- b.[bi] + 1
 
-                let computeChannel label (values : ResizeArray<float>) =
+                let channel label counts =
                     {
                         label = label
                         bandIndices = None
-                        histogram =
-                            ImageMath.computeHistogram
-                                binCount
-                                Double.NegativeInfinity
-                                (values.ToArray())
+                        histogram = ImageMath.computeHistogramFromByteCounts binCount counts
                     }
 
                 [
-                    computeChannel "R" red
-                    computeChannel "G" green
-                    computeChannel "B" blue
+                    channel "R" r
+                    channel "G" g
+                    channel "B" b
                 ]
         )
   
