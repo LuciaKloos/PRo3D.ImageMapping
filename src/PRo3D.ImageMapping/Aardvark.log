@@ -134,10 +134,10 @@
  0:     Skipped loading native dependencies for System.Collections.Immutable, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     Skipped loading native dependencies for System.IO.MemoryMappedFiles, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.exe
- 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentData.dll
- 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.dll
- 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.exe
- 0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentVisualization.dll
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentData.dll
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.dll
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentProjection.exe
+ 0:     [IsPlugin] Retrying to load because cache is outdated: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.InstrumentVisualization.dll
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.SPICE.dll
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Silk.NET.Core.dll
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\Silk.NET.GLFW.dll
@@ -145,7 +145,7 @@
  0:     [IsPlugin] Ignoring assembly Suave due to filter
  0:     [IsPlugin] Cache found for: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\TinyEXR.NET.dll
  0:     [IsPlugin] Ignoring assembly Unofficial.Typography due to filter
- 0:   Loading plugins .................................................................... 0.045 s
+ 0:   Loading plugins .................................................................... 0.065 s
  0:   [Introspection] Entry assembly: PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null (path: C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0\PRo3D.ImageMapping.dll)
  0:   [Introspection] Ignoring assembly System.Runtime due to filter
  0:   [Introspection] Ignoring assembly netstandard due to filter
@@ -316,7 +316,7 @@
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 
  0:     Unpacking native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.000 s
+ 0:   Loading native dependencies for DevILSharp, Version=0.2.0.0, Culture=neutral, PublicKeyToken=null 0.001 s
  0:   [Introspection] Ignoring assembly netstandard due to filter
  0:   [Introspection] Ignoring assembly FShade.Core due to filter
  0:   Loading native dependencies for PRo3D.SPICE, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null 
@@ -405,7 +405,7 @@
  0:     [cache hit ] FSharp.Core, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0:     [cache hit ] Aardvark.Base.Tensors.CSharp, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
- 0:   Initializing Constants ............................................................. 0.001 s
+ 0:   Initializing Constants ............................................................. 0.000 s
  0:     [cache hit ] SingleFileExtractor.Core, Version=2.2.1.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Telemetry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.UI.Primitives, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
@@ -443,8 +443,8 @@
  0:     [cache hit ] Aardvark.Geometry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FsPickler.Json, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FSharp.Data.Json.Core, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0:     [cache hit ] FSharp.Data.Runtime.Utilities, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0:     [cache hit ] FSharp.Data.Http, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
@@ -464,7 +464,7 @@
  0:     [cache hit ] Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Silk.NET.GLFW, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Silk.NET.Core, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Rendering.Text, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Geometry.PolyMesh, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.IO, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -477,7 +477,7 @@
  0:     [cache hit ] HDF.PInvoke, Version=1.10.502.0, Culture=neutral, PublicKeyToken=18793c1fcffe58a3
  0:     [cache hit ] FParsec, Version=1.1.1.0, Culture=neutral, PublicKeyToken=null
  0:     installing pickler: Aardvark.Base.Picklers.AdaptivePicklers
- 0:   Initializing CustomPicklerProvider ................................................. 0.019 s
+ 0:   Initializing CustomPicklerProvider ................................................. 0.025 s
  0:     [cache hit ] Aardvark.Base.TypeProviders, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Rendering.Common, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.Tensors, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -493,8 +493,8 @@
  0:     [cache hit ] Aardvark.Geometry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FsPickler.Json, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] FSharp.Data.Json.Core, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0:     [cache hit ] FSharp.Data.Runtime.Utilities, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0:     [cache hit ] FSharp.Data.Http, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
@@ -521,7 +521,7 @@
  0:     [cache hit ] Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Silk.NET.GLFW, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Silk.NET.Core, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
- 0:     [cache hit ] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0:     [cache miss] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Rendering.Text, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Geometry.PolyMesh, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0:     [cache hit ] Aardvark.Base.IO, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -549,10 +549,10 @@
  0:       C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\PRo3D.SPICE\0d117ad3-4105-a4c3-cff1-27be4c173226\windows\AMD64
  0:     [Introspection] loaded native library FreeImage from C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.PixImage.FreeImage\194a8665-41f8-f26a-749a-cd00935517b1\windows\AMD64\FreeImage.dll
  0:   Initializing PixImageFreeImage ..................................................... 0.008 s
- 0: initializing aardvark ........................................................ [0.18x] 0.184 s
+ 0: initializing aardvark ........................................................ [0.14x] 0.263 s
  0: Initializing Aardium .........................................................................
  0:   Binary: C:\Users\kloos\AppData\Local\Aardium\x64\2.1.2\tools\Aardium.exe
- 0: Initializing Aardium ................................................................. 0.011 s
+ 0: Initializing Aardium ................................................................. 0.012 s
  0: log path for coo trafo: .\logs\CooTrafo.Log
  0: probing paths for CooTransformation
  0:   C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
@@ -1037,7 +1037,7 @@
  0:     C:\Users\kloos\source\repos\PRo3D.ImageMapping\bin\Debug\net9.0
  0:     C:\Users\kloos\AppData\Local\Aardvark\Cache\Native\Aardvark.Rendering.GL\7aa73169-ae86-759a-0421-43c2b824ddd4\windows\AMD64
  0:   [Introspection] loaded native library kernel32.dll from kernel32.dll
- 0: initializing OpenGL runtime .......................................................... 0.017 s
+ 0: initializing OpenGL runtime .......................................................... 0.015 s
  0: WARNING: viewFull called
  0: Skipped loading native dependencies for System.ObjectModel, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  0: [cache miss] PRo3D.ImageMapping, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
@@ -1067,9 +1067,9 @@
  0: [cache hit ] Aardvark.Geometry, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Assembler, Version=0.1.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] FsPickler.Json, Version=5.3.2.0, Culture=neutral, PublicKeyToken=null
- 0: [cache hit ] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0: [cache miss] PRo3D.InstrumentProjection, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0: WARNING: unexpected rule: FSharp.Data.Adaptive.IAdaptiveValue`1[Aardvark.Base.Trafo3d] ComputeModelViewProj(Microsoft.FSharp.Core.FSharpFunc`2[System.String,FSharp.Data.Adaptive.IAdaptiveValue`1[Microsoft.FSharp.Core.FSharpOption`1[Aardvark.Base.Trafo3d]]], System.String, FSharp.Data.Adaptive.IAdaptiveValue`1[Aardvark.Base.Trafo3d])
- 0: [cache hit ] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0: [cache miss] PRo3D.InstrumentData, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] FSharp.Data.Json.Core, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0: [cache hit ] FSharp.Data.Runtime.Utilities, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
  0: [cache hit ] FSharp.Data.Http, Version=6.6.0.0, Culture=neutral, PublicKeyToken=49286adf818aa259
@@ -1089,7 +1089,7 @@
  0: [cache hit ] Aardvark.Application.Slim, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Silk.NET.GLFW, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Silk.NET.Core, Version=2.15.0.0, Culture=neutral, PublicKeyToken=null
- 0: [cache hit ] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
+ 0: [cache miss] PRo3D.InstrumentVisualization, Version=1.0.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Rendering.Text, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Geometry.PolyMesh, Version=5.5.0.0, Culture=neutral, PublicKeyToken=null
  0: [cache hit ] Aardvark.Base.IO, Version=5.3.0.0, Culture=neutral, PublicKeyToken=null
@@ -1212,7 +1212,7 @@
  1: Skipped loading native dependencies for System.Diagnostics.DiagnosticSource, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  2: Skipped loading native dependencies for System.Web.HttpUtility, Version=9.0.0.0, Culture=neutral, PublicKeyToken=cc7b13ffcd2ddd51
  3: Skipped loading native dependencies for System.Globalization, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
- 3: [Server] created client for (03e8045d-b29d-3217-6bc8-4041242bdd33/n5), mapping enabled
+ 3: [Server] created client for (35e1010a-7f21-1c5f-d16d-87be6c79d87e/n5), mapping enabled
  3: [Client] 1: running n5
  3: Skipped loading native dependencies for System.Runtime.Numerics, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
  3: Skipped loading native dependencies for System.Reflection, Version=9.0.0.0, Culture=neutral, PublicKeyToken=b03f5f7f11d50a3a
@@ -1234,7 +1234,6 @@
  2: [clip] black=0.00 white=0.00 -> min=[0, 0, 0] max=[1, 1, 1] | zero pixels R:741684 of 4398290
  2: [GL] Reading shader program file cache 'C:\Users\kloos\AppData\Local\Aardvark\Cache\Shaders\OpenGL\a7716a9b-24d7-fb1d-cf70-12cbcec9868d.bin: success 0.000 s
  2: [GL] Reading shader program file cache 'C:\Users\kloos\AppData\Local\Aardvark\Cache\Shaders\OpenGL\66cf85b0-123e-7d1f-bddd-a11c437748c6.bin: success 0.000 s
- 2: [clip] black=0.00 white=6.00 -> min=[0, 0, 0] max=[0.8941176470588236, 0.8470588235294118, 0.7254901960784313] | zero pixels R:741684 of 4398290
- 2: [clip] black=5.00 white=6.00 -> min=[0, 0, 0] max=[0.8941176470588236, 0.8470588235294118, 0.7254901960784313] | zero pixels R:741684 of 4398290
- 2: [clip] black=57.00 white=6.00 -> min=[0.6549019607843137, 0.5686274509803921, 0.47843137254901963] max=[0.8941176470588236, 0.8470588235294118, 0.7254901960784313] | zero pixels R:741684 of 4398290
- 6: [Client] 1: stopped
+ 2: [clip] black=40.00 white=0.00 -> min=[0.5137254901960784, 0.43529411764705883, 0.34901960784313724] max=[1, 1, 1] | zero pixels R:741684 of 4398290
+ 2: [clip] black=40.00 white=3.00 -> min=[0.5137254901960784, 0.43529411764705883, 0.34901960784313724] max=[0.9098039215686274, 0.8627450980392157, 0.7490196078431373] | zero pixels R:741684 of 4398290
+ 3: [Client] 1: stopped

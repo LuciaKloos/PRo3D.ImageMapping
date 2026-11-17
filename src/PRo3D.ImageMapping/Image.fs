@@ -521,7 +521,7 @@ module Image =
     // test parameters and returns the RGBA result. Other adjustments use their slider defaults.
     let renderAdjustedImage (runtime : IRuntime) (config : TestConfig) : PixImage<byte> =
         
-        let fail msg = failwith "Could not load %s: %s" config.imagePath msg
+        let fail msg = failwithf "Could not load %s: %s" config.imagePath msg
 
         let payload = 
             BandHandler.readCachedRgbImagePayload config.imagePath
@@ -545,14 +545,6 @@ module Image =
         let clipMin = AVal.constant clipMinValue
         let clipMax = AVal.constant clipMaxValue
 
-        let sourceImage =
-            createPlainRgbPixImageFromPath
-                config.imagePath
-            |> Result.defaultWith (failwithf "Could not load %s: %s" config.imagePath)
-
-        let toTexture (image : PixImage<byte>) =
-            AVal.constant (PixTexture2d(PixImageMipMap [| image :> PixImage |], false) :> ITexture)
-
         // <blackpoint, whitepoint, multispectral flag, brightness, midgain, saturation>
         let gpuSettings =
             AVal.constant (
@@ -566,15 +558,14 @@ module Image =
                 config.highlightAmount, config.highlightTone, config.highlightRadius,
                 config.shadowAmount, config.shadowTone, config.shadowRadius)
 
-
         let adjustedTexture =
             createGpuAdjustedTexture
                 runtime
-                (toTexture sourceImage)
+                sourceRgbTexture
                 gpuSettings
                 shSettings
-                (AVal.constant sourceImage.Size.X)
-                (AVal.constant sourceImage.Size.Y)
+                (AVal.constant payload.width)
+                (AVal.constant payload.height)
                 clipMin
                 clipMax
 

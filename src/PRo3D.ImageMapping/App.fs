@@ -489,18 +489,6 @@ module App =
         let adjustedDisplayTexture =
             adjustedGpuTexture |> AVal.map (fun t -> t :> ITexture)
 
-        let gpuAdjustedImage =
-            Image.createGpuAdjustedTexture
-                runtime
-                sourceRgbTexture
-                gpuSettings
-                shadowsHighlightsGpuSettings
-                m.imageWidth
-                m.imageHeight
-                clipMin
-                clipMax
-            |> Image.downloadAdjustedImage runtime
-
         let transferFunctionNonMultispectralRgbHistograms =
             computeNonMultispectralRgbHistograms gpuAdjustedImage 32
 
