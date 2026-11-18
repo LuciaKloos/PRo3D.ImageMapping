@@ -76,6 +76,21 @@ type ShadowsHighlightsAdjustmentsRenderSettings =
         blackWhiteClip : aval<BlackWhiteClip>
     }
 
+type RgbImageGpuSettings =
+    {
+        clipMin : aval<V3d>
+        clipMax : aval<V3d>
+        shadowsAmount : aval<float>
+        shadowsTone : aval<float>
+        shadowsRadius : aval<float>
+        highlightsAmount : aval<float>
+        highlightsTone : aval<float>
+        highlightsRadius : aval<float>
+        brightnessGain : aval<float>
+        midtoneContrastGain : aval<float>
+        saturationGain : aval<float>
+    }
+
 type PreparedRgbImage =
     {
         width       : int

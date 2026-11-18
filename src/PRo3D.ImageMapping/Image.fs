@@ -311,271 +311,7 @@ module Image =
                 ]
         )
 
-    let createShadowsHighlightsMaskTexture 
-        (runtime : IRuntime)
-        (rgbTexture : aval<ITexture>)
-        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
-        (imageWidth : aval<int>)
-        (imageHeight : aval<int>) 
-        : aval<IBackendTexture> = 
-
-        let highlightTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, highlightTone, _, _, _, _) -> highlightTone)
-        let shadowsTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, shadowTone, _) -> shadowTone)
-
-        let size =
-            (imageWidth, imageHeight)
-            ||> AVal.map2 (fun w h -> V2i(max 1 w, max 1 h))
-
-        let runtime = runtime  
-        let signature =
-            runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, TextureFormat.Rgba8
-            ]
-
-        let maskSg =
-            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
-            |> CoreSg.texture "RgbCompositeTexture" rgbTexture
-            |> CoreSg.uniform "HighlightTone" highlightTone
-            |> CoreSg.uniform "ShadowTone" shadowsTone
-            |> CoreSg.shader {
-                do! Shaders.hshShadowsHighlights
-            }
-
-        let task = runtime.CompileRender(signature, maskSg)
-
-        RenderTask.renderToColor size task 
-
-    let horizontalBlurPass 
-        (runtime : IRuntime)
-        (shadowsHighlightsMaskTexture : aval<IBackendTexture>)
-        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
-        (size : aval<V2i>)
-        : aval<IBackendTexture> =
-
-        let direction = V2d(1.0, 0.0)
-        let horizontalBlurSg =
-            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
-            |> CoreSg.texture "ShadowsHighlightsMaskTexture" (shadowsHighlightsMaskTexture)
-            |> CoreSg.uniform "BlurTextureSize" size
-            |> CoreSg.uniform "BlurShadowRadius" (shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, _, shadowRadius) -> shadowRadius))
-            |> CoreSg.uniform "BlurHighlightRadius" (shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, highlightRadius, _, _, _) -> highlightRadius))
-            |> CoreSg.uniform "BlurDirection" (AVal.constant direction)
-            |> CoreSg.shader {
-                do! Shaders.boxBlur
-            }
-            
-        let runtime = runtime  
-        let signature =
-            runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, TextureFormat.Rgba8
-            ]
-
-        let task = runtime.CompileRender(signature, horizontalBlurSg)
-
-        RenderTask.renderToColor size task
-
-
-    let verticalBlurPass 
-        (runtime : IRuntime)
-        (maskTextureFromFirstBlur : aval<IBackendTexture>)
-        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
-        (size : aval<V2i>)
-        : aval<IBackendTexture> =
-
-        let direction = V2d(0.0, 1.0)
-
-        let verticalBlurSg =
-            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
-            |> CoreSg.texture "ShadowsHighlightsMaskTexture" (maskTextureFromFirstBlur)
-            |> CoreSg.uniform "BlurTextureSize" size
-            |> CoreSg.uniform "BlurShadowRadius" (shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, _, shadowRadius) -> shadowRadius))
-            |> CoreSg.uniform "BlurHighlightRadius" (shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, highlightRadius, _, _, _) -> highlightRadius))
-            |> CoreSg.uniform "BlurDirection" (AVal.constant direction)
-            |> CoreSg.shader {
-                do! Shaders.boxBlur
-            }
-            
-        let runtime = runtime  
-        let signature =
-            runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, TextureFormat.Rgba8
-            ]
-
-        let task = runtime.CompileRender(signature, verticalBlurSg)
-
-        RenderTask.renderToColor size task
-
-    // Downloads the GPU result so the CPU histogram can read it.
-    let downloadAdjustedImage
-        (runtime : IRuntime)
-        (adjustedTexture : aval<IBackendTexture>)
-        : aval<Result<PixImage<byte>, string>> =
-
-        AVal.custom (fun token ->
-            let tex = adjustedTexture.GetValue token
-            try
-                let img = runtime.Download(tex, 0, 0)
-                Result.Ok (img.ToPixImage<byte>().ToPixImage<byte>(Col.Format.RGBA))
-            with e ->
-                Result.Error e.Message)
-
-    let createAdjustedImageTexture
-        (runtime : IRuntime)
-        (size : aval<V2i>)
-        (rgbTexture : aval<ITexture>)
-        (blurredMaskTexture : aval<IBackendTexture>)
-        (shadowsHighlightsGpuSettings : aval<float * float * float * float * float * float>)
-        (gpuSettings : aval<float * float * bool * float * float * float>)
-        (clipMin : aval<V3d>)
-        (clipMax : aval<V3d>)
-        : aval<IBackendTexture> =
-               
-        let shaderBrightness = gpuSettings |> AVal.map (fun (_, _, _, brightness, _, _) -> brightness) 
-        let shaderMidContrast = gpuSettings |> AVal.map (fun (_, _, _, _, midContrast, _) -> midContrast)
-        let shaderSaturation = gpuSettings |> AVal.map (fun (_, _, _, _, _, saturation) -> saturation)
-        let highlightAmount = shadowsHighlightsGpuSettings |> AVal.map (fun (highlightAmount, _, _, _, _, _) -> highlightAmount)
-        let highlightTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, highlightTone, _, _, _, _) -> highlightTone)
-        let highlightRadius = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, highlightRadius, _, _, _) -> highlightRadius)
-        let shadowAmount = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, shadowAmount, _, _) -> shadowAmount)
-        let shadowTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, shadowTone, _) -> shadowTone)
-        let shadowRadius = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, _, shadowRadius) -> shadowRadius)
-
-        let adjustmentSg =
-            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
-            |> CoreSg.texture "RgbCompositeTexture" rgbTexture
-            |> CoreSg.uniform "Brightness" shaderBrightness
-            |> CoreSg.uniform "Midpoint" (AVal.constant Midtone.init.mid)
-            |> CoreSg.uniform "MidtoneContrastAdjustment" shaderMidContrast
-            |> CoreSg.uniform "Saturation" shaderSaturation
-            |> CoreSg.uniform "HighlightAmount" highlightAmount
-            |> CoreSg.uniform "HighlightTone" highlightTone
-            |> CoreSg.uniform "HighlightRadius" highlightRadius
-            |> CoreSg.uniform "ShadowAmount" shadowAmount
-            |> CoreSg.uniform "ShadowTone" shadowTone
-            |> CoreSg.uniform "ShadowRadius" shadowRadius
-            |> CoreSg.texture "ShadowsHighlightsMaskTexture" blurredMaskTexture
-            |> CoreSg.uniform "MidtoneLow" (AVal.constant Midtone.init.low)
-            |> CoreSg.uniform "MidtoneHigh" (AVal.constant Midtone.init.high)
-            |> CoreSg.uniform "MidtoneContrastAdjustment" shaderMidContrast
-            |> CoreSg.shader {
-                do! Shaders.hshColorsAdjustment
-            }
-
-        let runtime = runtime  
-        let signature =
-            runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, TextureFormat.Rgba8
-            ]
-
-        let task = runtime.CompileRender(signature, adjustmentSg)
-
-        RenderTask.renderToColor size task
-
-    let clipPassTexture
-        (runtime : IRuntime)
-        (sourceTexture : aval<ITexture>)
-        (clipMin : aval<V3d>)
-        (clipMax : aval<V3d>)
-        (size : aval<V2i>)
-        : aval<IBackendTexture> =
-
-        let clipSg =
-            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
-            |> CoreSg.texture "SourceTexture" sourceTexture
-            |> CoreSg.uniform "ClipMin" clipMin
-            |> CoreSg.uniform "ClipMax" clipMax
-            |> CoreSg.shader {
-                do! Shaders.clipPass
-            }
-
-        let signature =
-            runtime.CreateFramebufferSignature [
-                DefaultSemantic.Colors, TextureFormat.Rgba8 // TODO: maybe RGBA16F for precision?
-            ]
-
-        RenderTask.renderToColor size (runtime.CompileRender(signature, clipSg))
-
-    // Builds mask -> horizontal blur -> vertical blur -> adjustment; returns the adjusted texture.
-    let createGpuAdjustedTexture
-        (runtime : IRuntime)
-        (rgbTexture : aval<ITexture>)
-        (gpuSettings : aval<float * float * bool * float * float * float>)
-        (shSettings : aval<float * float * float * float * float * float>)
-        (imageWidth : aval<int>)
-        (imageHeight : aval<int>)
-        (clipMin : aval<V3d>)
-        (clipMax : aval<V3d>)
-        : aval<IBackendTexture> =
-
-        let size = (imageWidth, imageHeight) ||> AVal.map2 (fun w h -> V2i(max 1 w, max 1 h))
-        let clipped =
-            clipPassTexture runtime rgbTexture clipMin clipMax size
-            |> AVal.map (fun t -> t :> ITexture)    
-
-        let mask = createShadowsHighlightsMaskTexture runtime clipped shSettings imageWidth imageHeight
-        let hBlur = horizontalBlurPass runtime mask shSettings size
-        let vBlur = verticalBlurPass runtime hBlur shSettings size
-        createAdjustedImageTexture runtime size clipped vBlur shSettings gpuSettings clipMin clipMax
-
-    // Headless rendering (--output, synthetic tests): runs the full GPU pipeline with the
-    // test parameters and returns the RGBA result. Other adjustments use their slider defaults.
-    let renderAdjustedImage (runtime : IRuntime) (config : TestConfig) : PixImage<byte> =
-        
-        let fail msg = failwithf "Could not load %s: %s" config.imagePath msg
-
-        let payload = 
-            BandHandler.readCachedRgbImagePayload config.imagePath
-            |> Result.defaultWith fail
-
-        // raw, unclipped source texture
-        let sourceRgbTexture =
-            RgbComposite.createSourceRgbTexture (AVal.constant (Some config.imagePath))
-
-        // clip range from the histogram, with the default clip percentiles 
-        let histogram = 
-            RgbComposite.loadRgbHistogram config.imagePath
-            |> Result.defaultWith fail
-
-        let clipMinValue, clipMaxValue =
-            RgbComposite.computeClipRange
-                histogram
-                BlackWhiteClip.init.blackClipPercentile.value
-                BlackWhiteClip.init.whiteClipPercentile.value
-                
-        let clipMin = AVal.constant clipMinValue
-        let clipMax = AVal.constant clipMaxValue
-
-        // <blackpoint, whitepoint, multispectral flag, brightness, midgain, saturation>
-        let gpuSettings =
-            AVal.constant (
-                0.0, 1.0, false,
-                Brightness.init.gainFactor.value,
-                MidtoneContrastAdjustment.init.gainFactor.value,
-                Saturation.init.gainFactor.value)
-
-        let shSettings =
-            AVal.constant (
-                config.highlightAmount, config.highlightTone, config.highlightRadius,
-                config.shadowAmount, config.shadowTone, config.shadowRadius)
-
-        let adjustedTexture =
-            createGpuAdjustedTexture
-                runtime
-                sourceRgbTexture
-                gpuSettings
-                shSettings
-                (AVal.constant payload.width)
-                (AVal.constant payload.height)
-                clipMin
-                clipMax
-
-        let texture = AVal.force adjustedTexture                // runs all passes
-        runtime.Download(texture, 0, 0).ToPixImage<byte>().ToPixImage<byte>(Col.Format.RGBA)
-
-    let saveAdjustedImage (runtime : IRuntime) (config : TestConfig) (outputPath : string) =
-        let image = renderAdjustedImage runtime config
-        Directory.CreateDirectory(Path.GetDirectoryName outputPath) |> ignore
-        image.SaveAsPng outputPath
+    
 
     // the 2D view displays the texture directly
     let createInstrumentScene
@@ -920,3 +656,277 @@ module Image =
                 ]
         )
 
+    // --- RGB IMAGES: clipped rgb image -> shadows/highlights mask -> box blur -> adjustments (brightness, saturation, mid-contrast) ---
+
+    let clipPassTexture
+        (runtime : IRuntime)
+        (sourceTexture : aval<ITexture>)
+        (clipMin : aval<V3d>)
+        (clipMax : aval<V3d>)
+        (size : aval<V2i>)
+        : aval<IBackendTexture> =
+
+        let clipSg =
+            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
+            |> CoreSg.texture "SourceTexture" sourceTexture
+            |> CoreSg.uniform "ClipMin" clipMin
+            |> CoreSg.uniform "ClipMax" clipMax
+            |> CoreSg.shader {
+                do! Shaders.clipPass
+            }
+
+        let signature =
+            runtime.CreateFramebufferSignature [
+                DefaultSemantic.Colors, TextureFormat.Rgba8 // TODO: maybe RGBA16F for precision?
+            ]
+
+        RenderTask.renderToColor size (runtime.CompileRender(signature, clipSg))
+
+    let createShadowsHighlightsMaskTexture 
+        (runtime : IRuntime)
+        (rgbTexture : aval<ITexture>)
+        (highlightTone : aval<float>)
+        (shadowsTone : aval<float>)
+        (imageWidth : aval<int>)
+        (imageHeight : aval<int>) 
+        : aval<IBackendTexture> = 
+
+        let size =
+            (imageWidth, imageHeight)
+            ||> AVal.map2 (fun w h -> V2i(max 1 w, max 1 h))
+
+        let runtime = runtime  
+        let signature =
+            runtime.CreateFramebufferSignature [
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+            ]
+
+        Log.warn "createShadowsHighlightsMaskTexture called with highlightTone=%f, shadowsTone=%f" (highlightTone.GetValue()) (shadowsTone.GetValue())
+        let maskSg =
+            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
+            |> CoreSg.texture "RgbCompositeTexture" rgbTexture
+            |> CoreSg.uniform "HighlightTone" highlightTone
+            |> CoreSg.uniform "ShadowTone" shadowsTone
+            |> CoreSg.shader {
+                do! Shaders.hshShadowsHighlights
+            }
+
+        let task = runtime.CompileRender(signature, maskSg)
+
+        RenderTask.renderToColor size task 
+
+    let horizontalBlurPass 
+        (runtime : IRuntime)
+        (shadowsHighlightsMaskTexture : aval<IBackendTexture>)
+        (shadowRadius : aval<float>)
+        (highlightRadius : aval<float>)
+        (size : aval<V2i>)
+        : aval<IBackendTexture> =
+
+        let direction = V2d(1.0, 0.0)
+        let horizontalBlurSg =
+            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
+            |> CoreSg.texture "ShadowsHighlightsMaskTexture" (shadowsHighlightsMaskTexture)
+            |> CoreSg.uniform "BlurTextureSize" size
+            |> CoreSg.uniform "BlurShadowRadius" shadowRadius
+            |> CoreSg.uniform "BlurHighlightRadius" highlightRadius
+            |> CoreSg.uniform "BlurDirection" (AVal.constant direction)
+            |> CoreSg.shader {
+                do! Shaders.boxBlur
+            }
+            
+        let runtime = runtime  
+        let signature =
+            runtime.CreateFramebufferSignature [
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+            ]
+
+        let task = runtime.CompileRender(signature, horizontalBlurSg)
+
+        RenderTask.renderToColor size task
+
+    let verticalBlurPass 
+        (runtime : IRuntime)
+        (maskTextureFromFirstBlur : aval<IBackendTexture>)
+        (shadowRadius : aval<float>)
+        (highlightRadius : aval<float>)
+        (size : aval<V2i>)
+        : aval<IBackendTexture> =
+
+        let direction = V2d(0.0, 1.0)
+
+        let verticalBlurSg =
+            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
+            |> CoreSg.texture "ShadowsHighlightsMaskTexture" (maskTextureFromFirstBlur)
+            |> CoreSg.uniform "BlurTextureSize" size
+            |> CoreSg.uniform "BlurShadowRadius" shadowRadius
+            |> CoreSg.uniform "BlurHighlightRadius" highlightRadius
+            |> CoreSg.uniform "BlurDirection" (AVal.constant direction)
+            |> CoreSg.shader {
+                do! Shaders.boxBlur
+            }
+            
+        let runtime = runtime  
+        let signature =
+            runtime.CreateFramebufferSignature [
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+            ]
+
+        let task = runtime.CompileRender(signature, verticalBlurSg)
+
+        RenderTask.renderToColor size task
+
+    let applyGpuChangesToRgbImage
+        (runtime : IRuntime)
+        (imageWidth : aval<int>)
+        (imageHeight : aval<int>)
+        (rgbTexture : aval<ITexture>)
+        (rgbImageGpuSettings : RgbImageGpuSettings)
+        : aval<IBackendTexture> =
+        
+        let size = (imageWidth, imageHeight) ||> AVal.map2 (fun w h -> V2i(max 1 w, max 1 h))
+        let clipped =
+            clipPassTexture runtime rgbTexture rgbImageGpuSettings.clipMin rgbImageGpuSettings.clipMax size
+            |> AVal.map (fun t -> t :> ITexture)
+
+        let mask = createShadowsHighlightsMaskTexture runtime clipped rgbImageGpuSettings.highlightsTone rgbImageGpuSettings.shadowsRadius imageWidth imageHeight
+        let hBlur = horizontalBlurPass runtime mask rgbImageGpuSettings.shadowsRadius rgbImageGpuSettings.highlightsRadius size
+        let blurredMaskTexture = verticalBlurPass runtime hBlur rgbImageGpuSettings.shadowsRadius rgbImageGpuSettings.highlightsRadius size
+
+        let shaderBrightness = rgbImageGpuSettings.brightnessGain
+        let shaderMidContrast = rgbImageGpuSettings.midtoneContrastGain
+        let shaderSaturation = rgbImageGpuSettings.saturationGain
+        let highlightAmount = rgbImageGpuSettings.highlightsAmount
+        let highlightTone = rgbImageGpuSettings.highlightsTone
+        let shadowAmount = rgbImageGpuSettings.shadowsAmount
+        let shadowTone = rgbImageGpuSettings.shadowsTone
+
+        let adjustmentSg =
+            CoreSg.ofIndexedGeometry fullscreenQuadGeometry
+            |> CoreSg.texture "RgbCompositeTexture" clipped
+            |> CoreSg.uniform "Brightness" shaderBrightness
+            |> CoreSg.uniform "Midpoint" (AVal.constant Midtone.init.mid)
+            |> CoreSg.uniform "MidtoneContrastAdjustment" shaderMidContrast
+            |> CoreSg.uniform "Saturation" shaderSaturation
+            |> CoreSg.uniform "HighlightAmount" highlightAmount
+            |> CoreSg.uniform "HighlightTone" highlightTone
+            |> CoreSg.uniform "ShadowAmount" shadowAmount
+            |> CoreSg.uniform "ShadowTone" shadowTone
+            |> CoreSg.texture "ShadowsHighlightsMaskTexture" blurredMaskTexture
+            |> CoreSg.uniform "MidtoneLow" (AVal.constant Midtone.init.low)
+            |> CoreSg.uniform "MidtoneHigh" (AVal.constant Midtone.init.high)
+            |> CoreSg.uniform "MidtoneContrastAdjustment" shaderMidContrast
+            |> CoreSg.shader {
+                do! Shaders.hshColorsAdjustment
+            }
+
+        let runtime = runtime  
+        let signature =
+            runtime.CreateFramebufferSignature [
+                DefaultSemantic.Colors, TextureFormat.Rgba8
+            ]
+
+        let task = runtime.CompileRender(signature, adjustmentSg)
+
+        RenderTask.renderToColor size task
+
+    // Downloads the GPU result so the CPU histogram can read it.
+    let downloadAdjustedImage
+        (runtime : IRuntime)
+        (adjustedTexture : aval<IBackendTexture>)
+        : aval<Result<PixImage<byte>, string>> =
+
+        AVal.custom (fun token ->
+            let tex = adjustedTexture.GetValue token
+            try
+                let img = runtime.Download(tex, 0, 0)
+                Result.Ok (img.ToPixImage<byte>().ToPixImage<byte>(Col.Format.RGBA))
+            with e ->
+                Result.Error e.Message)
+
+
+
+    // --- ---
+
+    
+    // Headless rendering (--output, synthetic tests): runs the full GPU pipeline with the
+    // test parameters and returns the RGBA result. Other adjustments use their slider defaults.
+    let renderAdjustedImage (runtime : IRuntime) (config : TestConfig) : PixImage<byte> =
+        
+        let fail msg = failwithf "Could not load %s: %s" config.imagePath msg
+
+        let payload = 
+            BandHandler.readCachedRgbImagePayload config.imagePath
+            |> Result.defaultWith fail
+
+        // raw, unclipped source texture
+        let sourceRgbTexture =
+            RgbComposite.createSourceRgbTexture (AVal.constant (Some config.imagePath))
+
+        // clip range from the histogram, with the default clip percentiles 
+        let histogram = 
+            RgbComposite.loadRgbHistogram config.imagePath
+            |> Result.defaultWith fail
+
+        let clipMinValue, clipMaxValue =
+            RgbComposite.computeClipRange
+                histogram
+                BlackWhiteClip.init.blackClipPercentile.value
+                BlackWhiteClip.init.whiteClipPercentile.value
+                
+        let clipMin = AVal.constant clipMinValue
+        let clipMax = AVal.constant clipMaxValue
+
+        // <blackpoint, whitepoint, multispectral flag, brightness, midgain, saturation>
+        let gpuSettings =
+            AVal.constant (
+                0.0, 1.0, false,
+                Brightness.init.gainFactor.value,
+                MidtoneContrastAdjustment.init.gainFactor.value,
+                Saturation.init.gainFactor.value)
+
+        let shSettings =
+            AVal.constant (
+                config.highlightAmount, config.highlightTone, config.highlightRadius,
+                config.shadowAmount, config.shadowTone, config.shadowRadius)
+
+        let rgbImageGpuSettings =
+            {
+                clipMin = clipMin
+                clipMax = clipMax
+                highlightsAmount = AVal.constant config.highlightAmount
+                highlightsTone = AVal.constant config.highlightTone
+                highlightsRadius = AVal.constant config.highlightRadius
+                shadowsAmount = AVal.constant config.shadowAmount
+                shadowsTone = AVal.constant config.shadowTone
+                shadowsRadius = AVal.constant config.shadowRadius
+                brightnessGain = AVal.constant Brightness.init.gainFactor.value
+                midtoneContrastGain = AVal.constant MidtoneContrastAdjustment.init.gainFactor.value
+                saturationGain = AVal.constant Saturation.init.gainFactor.value
+            }
+
+        let adjustedTexture =
+            applyGpuChangesToRgbImage
+                runtime
+                (AVal.constant payload.width)
+                (AVal.constant payload.height)
+                sourceRgbTexture
+                rgbImageGpuSettings
+
+            //createGpuAdjustedRgbImageTexture
+            //    runtime
+            //    sourceRgbTexture
+            //    gpuSettings
+            //    shSettings
+            //    (AVal.constant payload.width)
+            //    (AVal.constant payload.height)
+            //    clipMin
+            //    clipMax
+
+        let texture = AVal.force adjustedTexture                // runs all passes
+        runtime.Download(texture, 0, 0).ToPixImage<byte>().ToPixImage<byte>(Col.Format.RGBA)
+
+    let saveAdjustedImage (runtime : IRuntime) (config : TestConfig) (outputPath : string) =
+        let image = renderAdjustedImage runtime config
+        Directory.CreateDirectory(Path.GetDirectoryName outputPath) |> ignore
+        image.SaveAsPng outputPath

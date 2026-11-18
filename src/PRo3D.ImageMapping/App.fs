@@ -470,16 +470,29 @@ module App =
         let transferFunctionSelectedBandHistogram =
             computeTransferFunctionSelectedBandHistogram m 32
 
+        let rgbImageGpuSettings =
+            {
+            
+                clipMin = clipMin
+                clipMax = clipMax
+                highlightsAmount = shadowsHighlightsGpuSettings |> AVal.map (fun (ha, _, _, _, _, _) -> ha)
+                highlightsTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, ht, _, _, _, _) -> ht)
+                highlightsRadius = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, hr, _, _, _) -> hr)
+                shadowsAmount = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, sa, _, _) -> sa)
+                shadowsTone = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, st, _) -> st)
+                shadowsRadius = shadowsHighlightsGpuSettings |> AVal.map (fun (_, _, _, _, _, sr) -> sr)
+                brightnessGain = gpuSettings |> AVal.map (fun (_, _, _, b, _, _) -> b)
+                midtoneContrastGain = gpuSettings |> AVal.map (fun (_, _, _, _, m, _) -> m)
+                saturationGain = gpuSettings |> AVal.map (fun (_, _, _, _, _, s) -> s)
+            }
+
         let adjustedGpuTexture =
-            Image.createGpuAdjustedTexture
+            Image.applyGpuChangesToRgbImage
                 runtime
-                sourceRgbTexture
-                gpuSettings
-                shadowsHighlightsGpuSettings
                 m.imageWidth
                 m.imageHeight
-                clipMin
-                clipMax
+                sourceRgbTexture
+                rgbImageGpuSettings
 
         // histogram: download the adjusted texture
         let gpuAdjustedImage =
